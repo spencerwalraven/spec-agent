@@ -1,0 +1,28 @@
+{
+  "clientId": "default",
+  "businessName": "SPEC Systems Demo",
+  "ownerName": "Spencer",
+  "ownerEmail": "spencerwalraven5@gmail.com",
+  "ownerPhone": "6164038939",
+  "services": "home remodeling, kitchen remodels, bathroom remodels, additions, general contracting",
+  "location": "Grand Rapids, MI",
+  "averageJobValue": 15000,
+  "calendlyLink": "https://calendly.com/spencerwalraven5",
+  "googleReviewLink": "",
+  "tone": "professional but warm, like a trusted local contractor",
+
+  "leadScoring": {
+    "hot": "Ready to move forward, has a clear project, budget over $5,000, wants to book soon",
+    "warm": "Interested but not urgent, getting quotes, timeline is flexible",
+    "cold": "Just browsing, no clear budget, very early stages, or vague project description"
+  },
+
+  "ownerAlerts": [
+    "Lead scored Hot",
+    "Lead replies showing strong buying intent",
+    "Lead expresses frustration or dissatisfaction",
+    "Appointment confirmed"
+  ],
+
+  "agentPersonality": "You represent a trusted local remodeling company. You are helpful, knowledgeable, and never pushy. You respond quickly, make leads feel heard, and focus on understanding their project before talking about price."
+}
