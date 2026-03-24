@@ -631,9 +631,8 @@ app.get('/api/approvals', async (req, res) => {
       const serviceType= g(r, 'Service Type', 'Project Type');
       const jobValue   = g(r, 'Total Job Value', 'Contract Amount', 'Job Value');
       const checks = [
-        { type:'proposal', cols:['Proposal Status','Proposal Accepted'],    linkCols:['Proposal Doc Link','Proposal Link'],   label:'Proposal'     },
-        { type:'contract', cols:['Contract Status'],                         linkCols:['Contract Doc Link','Contract Link'],   label:'Contract'     },
-        { type:'template', cols:['Job Template Status','Job Plan Status'],   linkCols:['Job Template Link','Job Plan Link'],   label:'Job Template' },
+        { type:'proposal', cols:['Proposal Sent'],   linkCols:['Proposal Doc Link','Proposal Link'],   label:'Proposal'     },
+        { type:'contract', cols:['Contract Status'],  linkCols:['Contract Doc Link','Contract Link'],   label:'Contract'     },
       ];
       checks.forEach(({ type, cols, linkCols, label }) => {
         if (g(r, ...cols) === 'Pending Approval') {
@@ -651,14 +650,12 @@ app.post('/api/jobs/:row/approve', async (req, res) => {
     const { type } = req.body;
     if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
     const colMap = {
-      proposal: ['Proposal Status','Proposal Accepted'],
+      proposal: ['Proposal Sent'],
       contract:  ['Contract Status'],
-      template:  ['Job Template Status','Job Plan Status'],
     };
     const linkMap = {
       proposal: ['Proposal Doc Link','Proposal Link'],
       contract:  ['Contract Doc Link','Contract Link'],
-      template:  ['Kickoff Doc Link','Job Template Link'],
     };
     if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
     await updateCell('Jobs', row, colMap[type], 'Approved');
@@ -695,9 +692,8 @@ app.post('/api/jobs/:row/flag', async (req, res) => {
     const { type, note } = req.body;
     if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
     const colMap = {
-      proposal: ['Proposal Status','Proposal Accepted'],
+      proposal: ['Proposal Sent'],
       contract:  ['Contract Status'],
-      template:  ['Job Template Status','Job Plan Status'],
     };
     if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
     await updateCell('Jobs', row, colMap[type], 'Flagged — Needs Revision');
