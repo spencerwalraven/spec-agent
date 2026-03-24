@@ -655,16 +655,34 @@ app.post('/api/jobs/:row/approve', async (req, res) => {
       contract:  ['Contract Status'],
       template:  ['Job Template Status','Job Plan Status'],
     };
+    const linkMap = {
+      proposal: ['Proposal Doc Link','Proposal Link'],
+      contract:  ['Contract Doc Link','Contract Link'],
+      template:  ['Kickoff Doc Link','Job Template Link'],
+    };
     if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
     await updateCell('Jobs', row, colMap[type], 'Approved');
-    // Fire Make webhook if configured
+    // Fire Make webhook if configured — include client info so Make doesn't need extra sheet reads
     const urlMap = { proposal: process.env.MAKE_PROPOSAL_WEBHOOK, contract: process.env.MAKE_CONTRACT_WEBHOOK, template: process.env.MAKE_TEMPLATE_WEBHOOK };
     const webhookUrl = urlMap[type];
     if (webhookUrl) {
       try {
+        const jobRows = await readTab('Jobs');
+        const jobRow  = jobRows[row - 2] || {};
+        const payload = {
+          rowNumber:   row,
+          type,
+          approved:    true,
+          jobId:       g(jobRow, 'Job ID'),
+          clientName:  `${g(jobRow,'First Name')} ${g(jobRow,'Last Name')}`.trim(),
+          clientEmail: g(jobRow, 'Email'),
+          serviceType: g(jobRow, 'Service Type', 'Project Type'),
+          jobValue:    g(jobRow, 'Total Job Value', 'Contract Amount'),
+          docLink:     g(jobRow, ...linkMap[type]),
+        };
         const { default: nodeFetch } = await import('node-fetch').catch(() => ({ default: null }));
         const fetchFn = nodeFetch || (typeof fetch !== 'undefined' ? fetch : null);
-        if (fetchFn) await fetchFn(webhookUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rowNumber: row, type, approved: true }) });
+        if (fetchFn) await fetchFn(webhookUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       } catch (we) { console.warn('Webhook failed:', we.message); }
     }
     res.json({ ok: true });
