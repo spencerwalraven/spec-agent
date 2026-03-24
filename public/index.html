@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SPEC Systems CRM</title>
+<style>
+  /* ── RESET & ROOT ─────────────────────────────────────────────── */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ink:#000000;
+    --surface:#0A0A0A;
+    --card:#141414;
+    --card2:#1A1A1A;
+    --border:#2A2A2A;
+    --gold:#BF9438;
+    --gold-dim:#8B6A28;
+    --text:#F0F0F0;
+    --text2:#9A9A9A;
+    --text3:#666;
+    --green:#22C55E;
+    --red:#EF4444;
+    --yellow:#F59E0B;
+    --blue:#3B82F6;
+    --nav-h:64px;
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-t:env(safe-area-inset-top,0px);
+    --r:14px;
+    --r-sm:8px;
+  }
+  html{background:var(--ink);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
+  body{min-height:100dvh;overflow-x:hidden}
+  button{font-family:inherit;cursor:pointer;border:none;outline:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%}
+
+  /* ── LAYOUT ───────────────────────────────────────────────────── */
+  #app{display:flex;flex-direction:column;min-height:100dvh}
+  .top-bar{
+    position:sticky;top:0;z-index:100;
+    padding:calc(var(--safe-t) + 12px) 16px 12px;
+    background:var(--ink);
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:10px;
+  }
+  .top-bar .logo{
+    font-size:17px;font-weight:800;letter-spacing:.5px;
+    background:linear-gradient(135deg,var(--gold),#E8C56A);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    flex-shrink:0;
+  }
+  .top-bar .page-title{font-size:17px;font-weight:600;flex:1}
+  .top-bar .icon-btn{
+    width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text2);font-size:19px;
+    transition:background .15s;position:relative;flex-shrink:0;
+  }
+  .top-bar .icon-btn:active{background:var(--card)}
+  .alert-badge{
+    position:absolute;top:5px;right:5px;
+    width:8px;height:8px;border-radius:50%;
+    background:var(--red);border:1.5px solid var(--ink);
+  }
+  .refresh-btn{transition:all .3s}
+  .refresh-btn.spinning{animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .pages{flex:1;overflow:hidden;position:relative}
+  .page{
+    position:absolute;inset:0;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 20px);
+    display:none;
+  }
+  .page.active{display:block}
+
+  /* ── BOTTOM NAV ───────────────────────────────────────────────── */
+  .bottom-nav{
+    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    height:calc(var(--nav-h) + var(--safe-b));
+    padding-bottom:var(--safe-b);
+    background:rgba(8,8,8,.96);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex;align-items:stretch;
+  }
+  .nav-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;padding:4px 0;
+    color:var(--text3);font-size:10px;font-weight:600;
+    letter-spacing:.3px;text-transform:uppercase;
+    position:relative;transition:color .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .nav-item .nav-icon{font-size:22px;line-height:1;transition:transform .15s}
+  .nav-item.active{color:var(--gold)}
+  .nav-item.active .nav-icon{transform:scale(1.1)}
+  .nav-dot{
+    position:absolute;top:8px;
+    width:6px;height:6px;border-radius:50%;background:var(--red);
+    border:1.5px solid var(--ink);
+  }
+
+  /* ── CARDS ────────────────────────────────────────────────────── */
+  .card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+  .card+.card{margin-top:12px}
+  .card-header{
+    padding:14px 16px 10px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .card-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text2)}
+  .card-body{padding:16px}
+
+  /* ── KPI GRID ─────────────────────────────────────────────────── */
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .kpi-card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--r);padding:14px;
+  }
+  .kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:6px}
+  .kpi-value{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  .kpi-value.gold{color:var(--gold)}
+  .kpi-value.green{color:var(--green)}
+  .kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* ── SECTION HEADER ───────────────────────────────────────────── */
+  .section-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:10px;margin-top:20px;
+  }
+  .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
+  .section-action{font-size:13px;color:var(--gold);font-weight:600}
+
+  /* ── LIST ITEMS ───────────────────────────────────────────────── */
+  .list-item{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 16px;
+    background:var(--card);border-radius:var(--r);
+    border:1px solid var(--border);
+    margin-bottom:8px;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .1s;cursor:pointer;
+  }
+  .list-item:active{background:var(--card2)}
+  .item-avatar{
+    width:44px;height:44px;border-radius:12px;
+    background:var(--card2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;flex-shrink:0;font-weight:700;
+  }
+  .item-body{flex:1;min-width:0}
+  .item-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item-sub{font-size:13px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item-right{text-align:right;flex-shrink:0}
+  .item-value{font-size:15px;font-weight:800;color:var(--gold)}
+  .item-label{font-size:11px;color:var(--text3);margin-top:2px}
+  .chevron{color:var(--text3);font-size:18px;margin-left:4px;flex-shrink:0}
+
+  /* ── BADGES / PILLS ───────────────────────────────────────────── */
+  .badge{
+    display:inline-flex;align-items:center;
+    padding:3px 8px;border-radius:99px;
+    font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  }
+  .badge-green{background:rgba(34,197,94,.15);color:var(--green)}
+  .badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+  .badge-yellow{background:rgba(245,158,11,.15);color:var(--yellow)}
+  .badge-blue{background:rgba(59,130,246,.15);color:var(--blue)}
+  .badge-gold{background:rgba(191,148,56,.15);color:var(--gold)}
+  .badge-gray{background:rgba(100,100,100,.2);color:var(--text2)}
+
+  /* ── SEARCH BAR ───────────────────────────────────────────────── */
+  .search-bar{
+    display:flex;align-items:center;gap:10px;
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--r);padding:10px 14px;
+    margin-bottom:12px;
+  }
+  .search-bar input{flex:1;font-size:15px}
+  .search-bar input::placeholder{color:var(--text3)}
+  .search-icon{color:var(--text3);font-size:16px}
+
+  /* ── FILTER CHIPS ─────────────────────────────────────────────── */
+  .filter-chips{
+    display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    margin-bottom:14px;padding-bottom:2px;
+  }
+  .filter-chips::-webkit-scrollbar{display:none}
+  .chip{
+    padding:6px 14px;border-radius:99px;white-space:nowrap;
+    font-size:13px;font-weight:600;
+    background:var(--card);border:1px solid var(--border);
+    color:var(--text2);transition:all .15s;flex-shrink:0;
+  }
+  .chip.active{background:var(--gold);border-color:var(--gold);color:#000}
+
+  /* ── PROGRESS BAR ─────────────────────────────────────────────── */
+  .progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px}
+  .progress-bar .fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
+  /* ── ACTIVITY FEED ────────────────────────────────────────────── */
+  .activity-item{
+    display:flex;gap:12px;padding:11px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .activity-item:last-child{border-bottom:none}
+  .activity-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);margin-top:5px;flex-shrink:0}
+  .activity-text{font-size:13px;color:var(--text2);line-height:1.5}
+  .activity-text strong{color:var(--text);font-weight:600}
+  .activity-time{font-size:11px;color:var(--text3);margin-top:2px}
+
+  /* ── ALERT ITEMS ──────────────────────────────────────────────── */
+  .alert-item{
+    background:var(--card);border-radius:var(--r);
+    border:1px solid var(--border);
+    border-left:3px solid var(--border);
+    padding:14px 16px;margin-bottom:10px;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .alert-item.urgent{border-left-color:var(--red)}
+  .alert-item.warning{border-left-color:var(--yellow)}
+  .alert-item.info{border-left-color:var(--blue)}
+  .alert-icon{font-size:22px;flex-shrink:0;margin-top:1px}
+  .alert-body{flex:1}
+  .alert-title{font-size:14px;font-weight:700}
+  .alert-desc{font-size:13px;color:var(--text2);margin-top:3px;line-height:1.5}
+  .alert-tag{
+    display:inline-flex;margin-top:8px;
+    padding:4px 10px;border-radius:6px;
+    font-size:11px;font-weight:700;
+    background:var(--card2);color:var(--gold);
+    border:1px solid var(--border);
+  }
+
+  /* ── TEAM ITEMS ───────────────────────────────────────────────── */
+  .team-item{
+    background:var(--card);border-radius:var(--r);border:1px solid var(--border);
+    padding:14px 16px;margin-bottom:10px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .team-avatar{
+    width:48px;height:48px;border-radius:50%;
+    background:var(--card2);border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;flex-shrink:0;font-weight:800;
+    background:linear-gradient(135deg,#1A1A1A,#2A2A2A);
+  }
+  .team-body{flex:1;min-width:0}
+  .team-name{font-size:15px;font-weight:700}
+  .team-role{font-size:13px;color:var(--text2);margin-top:2px}
+  .team-meta{font-size:12px;color:var(--text3);margin-top:3px}
+  /* Toggle */
+  .toggle{
+    width:50px;height:28px;background:var(--border);
+    border-radius:14px;position:relative;
+    transition:background .2s;cursor:pointer;flex-shrink:0;
+  }
+  .toggle.on{background:var(--green)}
+  .toggle::after{
+    content:'';position:absolute;
+    top:3px;left:3px;width:22px;height:22px;
+    border-radius:50%;background:#fff;
+    transition:transform .2s;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);
+  }
+  .toggle.on::after{transform:translateX(22px)}
+
+  /* ── PHASE LIST ───────────────────────────────────────────────── */
+  .phase-item{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 0;border-bottom:1px solid var(--border);
+  }
+  .phase-item:last-child{border-bottom:none}
+  .phase-check{
+    width:26px;height:26px;border-radius:50%;
+    border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;font-size:12px;cursor:pointer;
+    transition:all .2s;
+  }
+  .phase-check.done{border-color:var(--green);background:var(--green);color:#000}
+  .phase-name{flex:1;font-size:14px}
+  .phase-date{font-size:12px;color:var(--text3)}
+
+  /* ── DOC LINKS ────────────────────────────────────────────────── */
+  .doc-link{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 0;border-bottom:1px solid var(--border);
+  }
+  .doc-link:last-child{border-bottom:none}
+  .doc-icon{font-size:22px;flex-shrink:0}
+  .doc-name{flex:1;font-size:14px;font-weight:600}
+  .doc-btn{
+    padding:6px 12px;border-radius:8px;
+    background:var(--card2);border:1px solid var(--border);
+    font-size:12px;font-weight:700;color:var(--gold);
+  }
+
+  /* ── MARKETING CARD ───────────────────────────────────────────── */
+  .mktg-card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--r);padding:16px;margin-bottom:10px;
+    display:flex;align-items:flex-start;gap:14px;
+  }
+  .mktg-icon{font-size:26px;flex-shrink:0}
+  .mktg-body{flex:1;min-width:0}
+  .mktg-name{font-size:15px;font-weight:700}
+  .mktg-desc{font-size:13px;color:var(--text2);margin-top:3px;line-height:1.5}
+  .mktg-meta{font-size:12px;color:var(--text3);margin-top:6px}
+  .mktg-launch{
+    padding:8px 14px;border-radius:10px;
+    background:var(--gold);color:#000;
+    font-size:13px;font-weight:800;
+    flex-shrink:0;align-self:center;
+    transition:opacity .15s;
+  }
+  .mktg-launch:active{opacity:.7}
+  .mktg-launch.sent{background:var(--green);color:#000}
+
+  /* ── SETTINGS ─────────────────────────────────────────────────── */
+  .settings-label{
+    font-size:10px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.6px;color:var(--text3);margin-bottom:10px;padding:0 4px;
+  }
+  .settings-section{margin-bottom:24px}
+  .settings-row{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+  .settings-field{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 16px;border-bottom:1px solid var(--border);
+  }
+  .settings-field:last-child{border-bottom:none}
+  .sfield-icon{font-size:17px;flex-shrink:0;width:24px;text-align:center}
+  .sfield-body{flex:1;min-width:0}
+  .sfield-label{font-size:11px;color:var(--text3);margin-bottom:4px}
+  .sfield-body input{font-size:15px;color:var(--text);width:100%}
+  .sfield-body input::placeholder{color:var(--text3)}
+
+  /* ── MORE PAGE ────────────────────────────────────────────────── */
+  .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .more-item{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+    padding:18px 16px;display:flex;flex-direction:column;gap:8px;
+    -webkit-tap-highlight-color:transparent;transition:background .1s;cursor:pointer;
+  }
+  .more-item:active{background:var(--card2)}
+  .more-icon{font-size:26px}
+  .more-name{font-size:15px;font-weight:700}
+  .more-desc{font-size:12px;color:var(--text2)}
+
+  /* ── MODAL ────────────────────────────────────────────────────── */
+  .modal-overlay{
+    position:fixed;inset:0;z-index:500;
+    background:rgba(0,0,0,.75);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    display:none;align-items:flex-end;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .modal-overlay.open{display:flex}
+  .modal-sheet{
+    width:100%;max-height:92dvh;
+    background:var(--surface);border-radius:22px 22px 0 0;
+    border-top:1px solid var(--border);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);
+  }
+  .modal-overlay.open .modal-sheet{transform:translateY(0)}
+  .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto}
+  .modal-header{padding:4px 16px 16px;border-bottom:1px solid var(--border)}
+  .modal-title{font-size:20px;font-weight:800}
+  .modal-sub{font-size:13px;color:var(--text2);margin-top:4px}
+  .modal-body{padding:16px}
+  .modal-section{margin-bottom:22px}
+  .modal-section-label{
+    font-size:10px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.6px;color:var(--text3);margin-bottom:10px;
+  }
+  .detail-row{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    padding:10px 0;border-bottom:1px solid var(--border);gap:12px;
+  }
+  .detail-row:last-child{border-bottom:none}
+  .detail-key{font-size:13px;color:var(--text2);flex-shrink:0}
+  .detail-val{font-size:14px;font-weight:600;text-align:right}
+  .modal-actions{
+    display:flex;gap:10px;padding:12px 16px;
+    border-top:1px solid var(--border);
+    padding-bottom:calc(12px + var(--safe-b));
+  }
+
+  /* ── BUTTONS ──────────────────────────────────────────────────── */
+  .btn{
+    flex:1;padding:14px 10px;border-radius:var(--r);
+    font-size:15px;font-weight:700;text-align:center;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:opacity .15s;
+  }
+  .btn:active{opacity:.7}
+  .btn-primary{background:var(--gold);color:#000}
+  .btn-secondary{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+  .btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+  .btn-green{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+  .btn-full{width:100%;flex:none;margin-bottom:10px}
+
+  /* ── SKELETON ─────────────────────────────────────────────────── */
+  .skeleton{
+    background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s infinite;
+    border-radius:var(--r-sm);
+  }
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .skel-item{
+    height:70px;border-radius:var(--r);
+    background:var(--card);border:1px solid var(--border);
+    margin-bottom:8px;overflow:hidden;
+    display:flex;align-items:center;gap:12px;padding:14px 16px;
+  }
+  .skel-avatar{width:44px;height:44px;border-radius:12px;flex-shrink:0}
+  .skel-lines{flex:1;display:flex;flex-direction:column;gap:8px}
+  .skel-line{height:12px}
+  .skel-line.w60{width:60%}
+  .skel-line.w40{width:40%}
+
+  /* ── EMPTY STATE ──────────────────────────────────────────────── */
+  .empty{text-align:center;padding:60px 20px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .empty-icon{font-size:48px;opacity:.4}
+  .empty-title{font-size:17px;font-weight:700}
+  .empty-sub{font-size:14px;color:var(--text3);line-height:1.5}
+
+  /* ── TOAST ────────────────────────────────────────────────────── */
+  #toast{
+    position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 12px);
+    left:50%;transform:translateX(-50%) translateY(16px);
+    background:var(--card2);border:1px solid var(--border);
+    border-radius:99px;padding:10px 20px;
+    font-size:14px;font-weight:600;
+    white-space:nowrap;z-index:1000;
+    opacity:0;transition:all .25s;pointer-events:none;
+    box-shadow:0 4px 24px rgba(0,0,0,.6);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ── DASHBOARD HEADER ─────────────────────────────────────────── */
+  .dash-greeting{margin-bottom:18px}
+  .greet-sub{font-size:13px;color:var(--text3);margin-bottom:4px}
+  .greet-main{font-size:22px;font-weight:800}
+  .greet-company{
+    background:linear-gradient(135deg,var(--gold),#E8C56A);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  }
+
+  /* ── SCORE RING ───────────────────────────────────────────────── */
+  .score-ring{
+    width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;font-weight:900;flex-shrink:0;
+  }
+  .score-ring.hot{background:rgba(239,68,68,.15);color:#FF6B6B}
+  .score-ring.warm{background:rgba(245,158,11,.15);color:var(--yellow)}
+  .score-ring.cold{background:rgba(59,130,246,.15);color:#60A5FA}
+  .score-ring.none{background:var(--card2);color:var(--text3)}
+
+  /* ── INVOICE ROWS ─────────────────────────────────────────────── */
+  .inv-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 0;border-bottom:1px solid var(--border);
+  }
+  .inv-row:last-child{border-bottom:none}
+  .inv-label{font-size:14px;font-weight:600}
+  .inv-amount{font-size:16px;font-weight:800;color:var(--gold)}
+
+  /* ── NOTES BOX ────────────────────────────────────────────────── */
+  .notes-box{
+    background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);
+    padding:12px;font-size:14px;color:var(--text2);line-height:1.6;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .notes-box.empty-notes{color:var(--text3);font-style:italic}
+
+  /* ── CONNECTION DOT ───────────────────────────────────────────── */
+  .conn-dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--text3);flex-shrink:0;
+    transition:background .4s;
+  }
+  .conn-dot.live{background:var(--green)}
+  .conn-dot.demo{background:var(--yellow)}
+  .conn-dot.error{background:var(--red)}
+
+  /* ── PULL TO REFRESH ──────────────────────────────────────────── */
+  .ptr-indicator{
+    position:absolute;top:0;left:0;right:0;
+    display:flex;align-items:center;justify-content:center;
+    height:48px;font-size:13px;color:var(--text3);
+    transform:translateY(-100%);transition:transform .2s;
+    pointer-events:none;
+  }
+  .ptr-indicator.visible{transform:translateY(0)}
+
+  /* ── JOB STATUS SWITCHER ──────────────────────────────────────── */
+  .status-switcher{
+    display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;
+  }
+  .status-pill{
+    flex:1;min-width:80px;padding:8px 6px;border-radius:10px;
+    font-size:12px;font-weight:700;text-align:center;
+    background:var(--card2);border:1px solid var(--border);
+    color:var(--text2);transition:all .15s;cursor:pointer;
+  }
+  .status-pill:active{opacity:.7}
+  .status-pill.active-pill{
+    background:var(--gold);border-color:var(--gold);color:#000;
+  }
+
+  /* ── NOTE EDITOR ──────────────────────────────────────────────── */
+  .note-editor{
+    background:var(--card2);border:1px solid var(--border);
+    border-radius:var(--r-sm);padding:10px 12px;
+    font-size:14px;color:var(--text);line-height:1.5;
+    width:100%;min-height:72px;resize:none;
+    font-family:inherit;
+  }
+  .note-editor::placeholder{color:var(--text3)}
+  .note-editor:focus{border-color:var(--gold);outline:none}
+  .save-note-btn{
+    margin-top:8px;width:100%;padding:11px;
+    background:var(--card2);border:1px solid var(--border);
+    border-radius:var(--r-sm);font-size:14px;font-weight:700;
+    color:var(--gold);cursor:pointer;transition:all .15s;
+  }
+  .save-note-btn:active{background:var(--card)}
+
+  /* UTILITY */
+  .mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+  .mb4{margin-bottom:4px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}
+  .flex{display:flex}.items-center{align-items:center}.gap8{gap:8px}.gap4{gap:4px}
+  .fw700{font-weight:700}.fw800{font-weight:800}
+  .fs11{font-size:11px}.fs12{font-size:12px}.fs13{font-size:13px}
+  .text-muted{color:var(--text2)}.text-dim{color:var(--text3)}
+  .text-gold{color:var(--gold)}.text-green{color:var(--green)}.text-red{color:var(--red)}
+  .w100{width:100%}
+  .divider{height:1px;background:var(--border);margin:14px 0}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <header class="top-bar">
+    <div class="logo">SPEC</div>
+    <div class="page-title" id="pageTitle">Dashboard</div>
+    <div class="conn-dot" id="connDot" title="Checking connection…"></div>
+    <button class="icon-btn refresh-btn" id="refreshBtn" onclick="refreshAll()" aria-label="Refresh">↻</button>
+    <button class="icon-btn" style="position:relative" onclick="navigate('alerts')" aria-label="Alerts">
+      🔔<span class="alert-badge" id="alertBadge" style="display:none"></span>
+    </button>
+  </header>
+
+  <!-- PAGES CONTAINER -->
+  <main class="pages">
+
+    <!-- ── DASHBOARD ──────────────────────────────────────────────── -->
+    <section class="page active" id="page-dashboard">
+      <div class="dash-greeting">
+        <div class="greet-sub" id="greetSub">Good morning</div>
+        <div class="greet-main">Welcome back, <span class="greet-company" id="companyName">—</span></div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+        <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+        <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+        <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Recent Activity</span>
+      </div>
+      <div class="card">
+        <div class="card-body" id="activityFeed">
+          <div class="skeleton" style="height:12px;width:80%;margin-bottom:12px"></div>
+          <div class="skeleton" style="height:12px;width:60%;margin-bottom:12px"></div>
+          <div class="skeleton" style="height:12px;width:70%"></div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Quick Actions</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="more-item" onclick="navigate('leads')" style="cursor:pointer">
+          <div class="more-icon">👤</div>
+          <div class="more-name">Leads</div>
+          <div class="more-desc">View pipeline</div>
+        </button>
+        <button class="more-item" onclick="navigate('jobs')" style="cursor:pointer">
+          <div class="more-icon">🔨</div>
+          <div class="more-name">Jobs</div>
+          <div class="more-desc">Active projects</div>
+        </button>
+        <button class="more-item" onclick="navigate('alerts')" style="cursor:pointer">
+          <div class="more-icon">🔔</div>
+          <div class="more-name">Alerts</div>
+          <div class="more-desc" id="dashAlertDesc">Action needed</div>
+        </button>
+        <button class="more-item" onclick="navigate('team')" style="cursor:pointer">
+          <div class="more-icon">👥</div>
+          <div class="more-name">Team</div>
+          <div class="more-desc">Manage members</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── LEADS ──────────────────────────────────────────────────── -->
+    <section class="page" id="page-leads">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="leadSearch" placeholder="Search leads…" oninput="filterLeads()">
+      </div>
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="setLeadFilter(this)">All</button>
+        <button class="chip" data-filter="hot" onclick="setLeadFilter(this)">🔥 Hot</button>
+        <button class="chip" data-filter="new" onclick="setLeadFilter(this)">New</button>
+        <button class="chip" data-filter="contacted" onclick="setLeadFilter(this)">Contacted</button>
+        <button class="chip" data-filter="proposal" onclick="setLeadFilter(this)">Proposal Sent</button>
+        <button class="chip" data-filter="booked" onclick="setLeadFilter(this)">Booked</button>
+        <button class="chip" data-filter="lost" onclick="setLeadFilter(this)">Lost</button>
+      </div>
+      <div id="leadsList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── JOBS ───────────────────────────────────────────────────── -->
+    <section class="page" id="page-jobs">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="jobSearch" placeholder="Search jobs…" oninput="filterJobs()">
+      </div>
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="setJobFilter(this)">All</button>
+        <button class="chip" data-filter="active" onclick="setJobFilter(this)">Active</button>
+        <button class="chip" data-filter="planning" onclick="setJobFilter(this)">Planning</button>
+        <button class="chip" data-filter="complete" onclick="setJobFilter(this)">Complete</button>
+        <button class="chip" data-filter="invoiced" onclick="setJobFilter(this)">Invoiced</button>
+      </div>
+      <div id="jobsList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── CLIENTS ─────────────────────────────────────────────────── -->
+    <section class="page" id="page-clients">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="clientSearch" placeholder="Search clients…" oninput="filterClients()">
+      </div>
+      <div id="clientsList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── ALERTS ──────────────────────────────────────────────────── -->
+    <section class="page" id="page-alerts">
+      <div id="alertsList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── TEAM ────────────────────────────────────────────────────── -->
+    <section class="page" id="page-team">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="teamSearch" placeholder="Search team…" oninput="filterTeam()">
+      </div>
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="setTeamFilter(this)">All</button>
+        <button class="chip" data-filter="active" onclick="setTeamFilter(this)">Active</button>
+        <button class="chip" data-filter="crew" onclick="setTeamFilter(this)">Crew</button>
+        <button class="chip" data-filter="sub" onclick="setTeamFilter(this)">Subcontractors</button>
+      </div>
+      <div id="teamList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── MARKETING ───────────────────────────────────────────────── -->
+    <section class="page" id="page-marketing">
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="setMktgFilter(this)">All</button>
+        <button class="chip" data-filter="re-engagement" onclick="setMktgFilter(this)">Re-engagement</button>
+        <button class="chip" data-filter="referral" onclick="setMktgFilter(this)">Referral</button>
+        <button class="chip" data-filter="seasonal" onclick="setMktgFilter(this)">Seasonal</button>
+      </div>
+      <div id="marketingList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ── SETTINGS ────────────────────────────────────────────────── -->
+    <section class="page" id="page-settings">
+      <div class="settings-section">
+        <div class="settings-label">Company Info</div>
+        <div class="settings-row">
+          <div class="settings-field"><span class="sfield-icon">🏠</span><div class="sfield-body"><div class="sfield-label">Company Name</div><input id="sCompanyName" placeholder="Summit Remodeling" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon">📞</span><div class="sfield-body"><div class="sfield-label">Phone</div><input id="sPhone" placeholder="(555) 000-0000" type="tel"></div></div>
+          <div class="settings-field"><span class="sfield-icon">✉️</span><div class="sfield-body"><div class="sfield-label">Email</div><input id="sEmail" placeholder="hello@company.com" type="email"></div></div>
+          <div class="settings-field"><span class="sfield-icon">📍</span><div class="sfield-body"><div class="sfield-label">Address</div><input id="sAddress" placeholder="123 Main St, City, ST" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon">👤</span><div class="sfield-body"><div class="sfield-label">Owner Name</div><input id="sOwnerName" placeholder="John Smith" type="text"></div></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Integrations</div>
+        <div class="settings-row">
+          <div class="settings-field"><span class="sfield-icon">📅</span><div class="sfield-body"><div class="sfield-label">Calendly Link</div><input id="sCalendly" placeholder="https://calendly.com/you/30min" type="url"></div></div>
+          <div class="settings-field"><span class="sfield-icon">⭐</span><div class="sfield-body"><div class="sfield-label">Google Review Link</div><input id="sReviewLink" placeholder="https://g.page/r/…/review" type="url"></div></div>
+          <div class="settings-field"><span class="sfield-icon">✍️</span><div class="sfield-body"><div class="sfield-label">Email Signature</div><input id="sSignature" placeholder="John Smith | Summit Remodeling" type="text"></div></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="saveSettings()">💾 Save Settings</button>
+
+      <div class="settings-section" style="margin-top:8px">
+        <div class="settings-label">About</div>
+        <div class="settings-row">
+          <div class="settings-field"><span class="sfield-icon">⚡</span><div class="sfield-body"><div class="sfield-label">Powered by</div><div style="font-size:15px;font-weight:700">SPEC Systems CRM</div></div></div>
+          <div class="settings-field"><span class="sfield-icon">🔖</span><div class="sfield-body"><div class="sfield-label">Version</div><div style="font-size:15px">1.0.0</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── MORE PAGE ───────────────────────────────────────────────── -->
+    <section class="page" id="page-more">
+      <div class="more-grid">
+        <button class="more-item" onclick="navigate('team')"><div class="more-icon">👥</div><div class="more-name">Team</div><div class="more-desc">Members &amp; status</div></button>
+        <button class="more-item" onclick="navigate('marketing')"><div class="more-icon">📢</div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
+        <button class="more-item" onclick="navigate('clients')"><div class="more-icon">🤝</div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
+        <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <span class="nav-icon">🏠</span><span>Home</span>
+    </button>
+    <button class="nav-item" data-page="leads" onclick="navigate('leads')">
+      <span class="nav-icon">👤</span><span>Leads</span>
+    </button>
+    <button class="nav-item" data-page="jobs" onclick="navigate('jobs')">
+      <span class="nav-icon">🔨</span><span>Jobs</span>
+    </button>
+    <button class="nav-item" data-page="alerts" onclick="navigate('alerts')" id="alertsNavItem">
+      <span class="nav-icon">🔔</span><span>Alerts</span>
+      <span class="nav-dot" id="alertsNavDot" style="display:none"></span>
+    </button>
+    <button class="nav-item" data-page="more" onclick="navigate('more')">
+      <span class="nav-icon">☰</span><span>More</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ── MODALS ─────────────────────────────────────────────────────── -->
+
+<!-- Lead Detail Modal -->
+<div class="modal-overlay" id="leadModal" onclick="closeModal('leadModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="score-ring" id="lmRing">—</div>
+        <div>
+          <div class="modal-title" id="lmName">—</div>
+          <div class="modal-sub" id="lmSub">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body" id="lmBody"></div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
+      <a class="btn btn-secondary" id="lmCall" href="#" style="flex:1">📞 Call</a>
+      <a class="btn btn-secondary" id="lmEmail" href="#" style="flex:1">✉️ Email</a>
+      <a class="btn btn-secondary" id="lmCalendly" href="#" target="_blank" style="flex:1;display:none">📅 Book</a>
+      <button class="btn btn-green" id="lmConvertBtn" onclick="convertLead()" style="flex:1">🎉 Convert</button>
+      <button class="btn btn-danger" id="lmLostBtn" onclick="lostLead()" style="flex:1">❌ Lost</button>
+    </div>
+  </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div class="modal-overlay" id="jobModal" onclick="closeModal('jobModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="jmTitle">—</div>
+      <div class="modal-sub" id="jmSub">—</div>
+    </div>
+    <div class="modal-body" id="jmBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('jobModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Client Detail Modal -->
+<div class="modal-overlay" id="clientModal" onclick="closeModal('clientModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="cmName">—</div>
+      <div class="modal-sub" id="cmSub">—</div>
+    </div>
+    <div class="modal-body" id="cmBody"></div>
+    <div class="modal-actions">
+      <a class="btn btn-secondary" id="cmCall" href="#">📞 Call</a>
+      <a class="btn btn-primary" id="cmEmail" href="#">✉️ Email</a>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js?v=5"></script>
+</body>
+</html>
