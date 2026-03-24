@@ -196,7 +196,7 @@ async function loadDashboard() {
   kpiGrid.innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">New Leads</div>
-      <div class="kpi-value">${data.newLeads ?? '—'}</div>
+      <div class="kpi-value">${data.newLeadsThisMonth ?? data.newLeads ?? '—'}</div>
       <div class="kpi-sub">This month</div>
     </div>
     <div class="kpi-card">

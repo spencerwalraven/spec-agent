@@ -480,57 +480,104 @@ app.get('/api/alerts', async (req, res) => {
     const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
     const alerts = [];
 
-    // Hot leads not yet contacted
+    // Hot leads not yet contacted (score >= 80, status New, no Last Contact)
     leads.forEach(l => {
-      const score = parseInt(g(l,'Lead Score'));
+      const score = parseInt(g(l,'Lead Score','AI Score'));
       const status = g(l,'Lead Status','Status').toLowerCase();
-      const days = daysBetween(g(l,'Last Contact','Last Contacted','Timestamp'));
+      const lastContact = g(l,'Last Contact','Last Contacted');
       const name = `${g(l,'First Name')} ${g(l,'Last Name')}`.trim();
-      if (score >= 75 && status === 'new') {
-        alerts.push({ type:'lead', priority:'high', icon:'🔥',
-          title:`Hot lead not contacted — ${name}`,
-          body:`Score ${score}/100 · ${g(l,'Project Type')} · ${g(l,'Phone')}`,
-          action:'View Lead', color:'red' });
+      if (score >= 80 && status === 'new' && !lastContact && name) {
+        alerts.push({
+          type: 'urgent',
+          priority: 'high',
+          icon: '🔥',
+          title: 'Hot lead not yet contacted',
+          desc: `${name} · Score ${score}/100 · ${g(l,'Service Requested','Service Type','Project Type') || 'new lead'}`,
+          tag: `Lead: ${name}`,
+        });
       }
-      if (days !== null && days >= 3 && !['converted','dead'].includes(status) && name) {
-        alerts.push({ type:'lead', priority:'medium', icon:'⏰',
-          title:`No contact in ${days} days — ${name}`,
-          body:`Status: ${g(l,'Lead Status','Status') || 'Unknown'} · Last: ${g(l,'Last Contact') || 'never'}`,
-          action:'View Lead', color:'amber' });
+      // Stale active leads (no contact in 3+ days)
+      const days = daysBetween(g(l,'Last Contact','Last Contacted'));
+      if (days !== null && days >= 3 && !['converted','dead','lost'].includes(status) && name) {
+        alerts.push({
+          type: 'warning',
+          priority: 'medium',
+          icon: '⏰',
+          title: `No contact in ${days} days — ${name}`,
+          desc: `Status: ${g(l,'Lead Status','Status') || 'Unknown'} · Last contact: ${g(l,'Last Contact','Last Contacted') || 'never'}`,
+          tag: `Lead: ${name}`,
+        });
       }
     });
 
-    // Contract not signed after 5 days
+    // Job-level alerts
     jobs.forEach(j => {
       const name = `${g(j,'First Name')} ${g(j,'Last Name')}`.trim();
       const contractStatus = g(j,'Contract Status','Contract').toLowerCase();
-      const proposalDate = g(j,'Proposal Date','Proposal Sent');
       const depositPaid = g(j,'Deposit Paid','Deposit Invoice Paid');
       const finalPaid = g(j,'Final Paid','Final Invoice Paid');
       const jobStatus = g(j,'Job Status','Status').toLowerCase();
-      const daysProposal = daysBetween(proposalDate);
+      const jobId = g(j,'Job ID');
 
+      // Deposit overdue: Contract Signed but Deposit Paid = No for more than 3 days
+      if (contractStatus.includes('sign')) {
+        const contractDate = g(j,'Contract Signed Date','Contract Date','Proposal Date','Proposal Sent Date');
+        const daysSigned = daysBetween(contractDate);
+        if (daysSigned !== null && daysSigned > 3 && depositPaid && !/yes|paid/i.test(depositPaid) && name) {
+          alerts.push({
+            type: 'urgent',
+            priority: 'high',
+            icon: '💰',
+            title: `Deposit overdue — ${name}`,
+            desc: `Contract signed ${daysSigned} days ago · Deposit still unpaid · ${g(j,'Service Type','Project Type') || ''}`,
+            tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
+          });
+        }
+      }
+
+      // No progress update this week (In Progress jobs with no weekly progress notes)
+      if (jobStatus.includes('progress') && name) {
+        const jobNotes = g(j,'Job Notes','Notes','Weekly Progress Notes','Progress Notes');
+        const lastUpdate = g(j,'Last Progress Update','Last Update');
+        const daysSinceUpdate = daysBetween(lastUpdate);
+        if (!jobNotes && !lastUpdate || (daysSinceUpdate !== null && daysSinceUpdate >= 7)) {
+          alerts.push({
+            type: 'warning',
+            priority: 'medium',
+            icon: '📋',
+            title: `No progress update this week — ${name}`,
+            desc: `${g(j,'Service Type','Project Type') || 'Job'} is in progress · No weekly notes recorded`,
+            tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
+          });
+        }
+      }
+
+      // Contract not signed after 5 days
+      const proposalDate = g(j,'Proposal Sent Date','Proposal Date','Proposal Sent');
+      const daysProposal = daysBetween(proposalDate);
       if (daysProposal !== null && daysProposal >= 5 &&
           !contractStatus.includes('sign') && name &&
           contractStatus && !contractStatus.includes('decline')) {
-        alerts.push({ type:'contract', priority:'high', icon:'📄',
-          title:`Contract not signed — ${name}`,
-          body:`Proposal sent ${daysProposal} days ago · ${g(j,'Service Type')}`,
-          action:'View Job', color:'amber' });
+        alerts.push({
+          type: 'warning',
+          priority: 'medium',
+          icon: '📄',
+          title: `Contract not signed — ${name}`,
+          desc: `Proposal sent ${daysProposal} days ago · ${g(j,'Service Type','Project Type') || ''}`,
+          tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
+        });
       }
 
-      // Invoice overdue
-      if (jobStatus.includes('progress') && depositPaid && !/yes|paid/i.test(depositPaid) && name) {
-        alerts.push({ type:'invoice', priority:'high', icon:'💰',
-          title:`Deposit not paid — ${name}`,
-          body:`Job in progress · ${g(j,'Service Type')} · ${g(j,'Total Job Value','Job Value')}`,
-          action:'View Job', color:'red' });
-      }
+      // Final invoice unpaid on complete jobs
       if (jobStatus.includes('complete') && finalPaid && !/yes|paid/i.test(finalPaid) && name) {
-        alerts.push({ type:'invoice', priority:'high', icon:'💰',
-          title:`Final invoice unpaid — ${name}`,
-          body:`Job complete · ${g(j,'Total Job Value','Job Value')}`,
-          action:'View Job', color:'red' });
+        alerts.push({
+          type: 'urgent',
+          priority: 'high',
+          icon: '💰',
+          title: `Final invoice unpaid — ${name}`,
+          desc: `Job complete · ${g(j,'Total Job Value','Job Value') || ''}`,
+          tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
+        });
       }
     });
 
@@ -597,17 +644,6 @@ app.post('/webhook/email-reply', async (req, res) => {
     if (req.body.message?.data) data = JSON.parse(Buffer.from(req.body.message.data, 'base64').toString());
     await handleEmailReply(data, req.query.clientId || 'default');
   } catch (e) { console.error(e.message); }
-});
-
-// ─── DEBUG — test Sheets auth ─────────────────────────────────────────────────
-app.get('/api/debug', async (req, res) => {
-  try {
-    const sheets = getSheets();
-    const result = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    res.json({ ok: true, title: result.data.title, sheetId: SHEET_ID });
-  } catch (e) {
-    res.json({ ok: false, error: e.message, code: e.code, sheetId: SHEET_ID });
-  }
 });
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
