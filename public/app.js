@@ -950,7 +950,10 @@ function renderTeam() {
     return;
   }
 
-  el.innerHTML = team.map((m) => {
+  const crew = team.filter(m => !g(m,'Type','type','Member Type').toLowerCase().includes('sub'));
+  const subs = team.filter(m =>  g(m,'Type','type','Member Type').toLowerCase().includes('sub'));
+
+  const renderMember = (m, idx) => {
     const name  = g(m,'Name','name','Full Name') || 'Unknown';
     const role  = g(m,'Role','role','Position') || '—';
     const type  = g(m,'Type','type','Member Type') || 'Crew';
@@ -959,19 +962,72 @@ function renderTeam() {
     const isOn  = !active || active.toLowerCase() === 'yes';
     const row   = m.__row;
     const ini   = initials(name);
-
+    const globalIdx = allTeam.indexOf(m);
     return `
-      <div class="team-item">
+      <div class="team-item" onclick="showTeamDetail(${globalIdx})" style="cursor:pointer">
         <div class="team-avatar" style="color:${isOn?'var(--gold)':'var(--text3)'}">${ini}</div>
         <div class="team-body">
           <div class="team-name">${name}</div>
           <div class="team-role">${role}</div>
-          <div class="team-meta">${type}${jobs?' · '+jobs+' active job'+(parseInt(jobs)>1?'s':''):''}${isOn?' · <span class="text-green fw700">Active</span>':' · <span class="text-dim">Off today</span>'}</div>
+          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
         </div>
-        <div class="toggle ${isOn?'on':''}" onclick="toggleTeamMember(${row}, this)" title="${isOn?'Mark as off today':'Mark as active'}"></div>
-      </div>
-    `;
-  }).join('');
+        <div class="toggle ${isOn?'on':''}" onclick="event.stopPropagation();toggleTeamMember(${row}, this)"></div>
+      </div>`;
+  };
+
+  let html = '';
+  if (crew.length) {
+    html += `<div class="section-label" style="padding:10px 4px 6px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3)">Crew (${crew.length})</div>`;
+    html += crew.map(renderMember).join('');
+  }
+  if (subs.length) {
+    html += `<div class="section-label" style="padding:16px 4px 6px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3)">Subcontractors (${subs.length})</div>`;
+    html += subs.map(renderMember).join('');
+  }
+  el.innerHTML = html;
+}
+
+function showTeamDetail(idx) {
+  const m = allTeam[idx];
+  if (!m) return;
+  const name   = g(m,'Name','name','Full Name') || 'Unknown';
+  const role   = g(m,'Role','role','Position') || '—';
+  const type   = g(m,'Type','type','Member Type') || '—';
+  const phone  = g(m,'Phone','phone');
+  const email  = g(m,'Email','email');
+  const trade  = g(m,'Trade / Specialty','trade','Trade','Specialty') || '—';
+  const rate   = g(m,'Hourly Rate','hourlyRate','Rate') || '—';
+  const active = g(m,'Active','active','Is Active');
+  const jobs   = g(m,'Active Jobs','active_jobs','Current Assignment','Assignment') || '—';
+  const notes  = g(m,'Notes','notes') || '—';
+  const isOn   = !active || active.toLowerCase() === 'yes';
+
+  document.getElementById('tmAvatar').textContent = initials(name);
+  document.getElementById('tmName').textContent   = name;
+  document.getElementById('tmSub').textContent    = role;
+  document.getElementById('tmCall').href  = phone ? 'tel:' + phone.replace(/\D/g,'') : '#';
+  document.getElementById('tmEmail').href = email ? 'mailto:' + email : '#';
+
+  document.getElementById('tmBody').innerHTML = `
+    <div class="modal-section">
+      <div class="modal-section-label">Details</div>
+      <div class="detail-row"><div class="detail-key">Type</div><div class="detail-val">${type}</div></div>
+      <div class="detail-row"><div class="detail-key">Trade</div><div class="detail-val">${trade}</div></div>
+      <div class="detail-row"><div class="detail-key">Rate</div><div class="detail-val">${rate}</div></div>
+      <div class="detail-row"><div class="detail-key">Status</div><div class="detail-val">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}</div></div>
+      <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val">${phone||'—'}</div></div>
+      <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val" style="word-break:break-all">${email||'—'}</div></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Current Assignment</div>
+      <div style="color:var(--text2);font-size:14px">${jobs}</div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Notes</div>
+      <div style="color:var(--text2);font-size:14px">${notes}</div>
+    </div>
+  `;
+  openModal('teamModal');
 }
 
 async function toggleTeamMember(row, el) {

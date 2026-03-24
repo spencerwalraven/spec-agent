@@ -829,9 +829,28 @@
   </div>
 </div>
 
+<!-- Team Modal -->
+<div class="modal-overlay" id="teamModal" onclick="closeModal('teamModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="score-ring" id="tmAvatar" style="font-size:22px;background:var(--card2)">👤</div>
+      <div>
+        <div class="modal-title" id="tmName">—</div>
+        <div class="modal-sub" id="tmSub">—</div>
+      </div>
+    </div>
+    <div class="modal-body" id="tmBody"></div>
+    <div class="modal-actions">
+      <a class="btn btn-secondary" id="tmCall" href="#">📞 Call</a>
+      <a class="btn btn-primary" id="tmEmail" href="#">✉️ Email</a>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
