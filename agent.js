@@ -4,7 +4,12 @@ const { readLead, findLeadByEmail, updateLead } = require('./tools/sheets');
 const { sendEmail, readEmailThread, markAsRead } = require('./tools/gmail');
 const fs = require('fs');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy init — don't throw at startup if key is missing
+let openai;
+function getOpenAI() {
+  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai;
+}
 
 // Load client config
 function getClientConfig(clientId = 'default') {
@@ -152,7 +157,7 @@ async function runAgent(systemPrompt, userMessage, context) {
 
   // Loop: keep calling the model until it stops using tools
   for (let i = 0; i < 10; i++) {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model:    'gpt-4o',
       messages,
       tools:    TOOLS,

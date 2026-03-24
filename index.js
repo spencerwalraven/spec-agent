@@ -2,7 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const path    = require('path');
 const { google } = require('googleapis');
-const { handleNewLead, handleEmailReply } = require('./agent');
+let handleNewLead, handleEmailReply;
+try {
+  ({ handleNewLead, handleEmailReply } = require('./agent'));
+} catch (e) {
+  console.warn('⚠️  Agent module failed to load:', e.message);
+  handleNewLead = handleEmailReply = async () => ({ error: 'Agent not available' });
+}
 
 const app = express();
 app.use(express.json());
