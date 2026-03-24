@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const path    = require('path');
 const { google } = require('googleapis');
+
+// Catch unhandled errors so they appear in Railway logs
+process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
+process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
 let handleNewLead, handleEmailReply;
 try {
   ({ handleNewLead, handleEmailReply } = require('./agent'));
@@ -617,5 +621,9 @@ function scoreColor(score) {
   return 'blue';
 }
 
+// Health check — always responds even if sheets API is down
+app.get('/ping', (req, res) => res.send('pong'));
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SPEC Systems CRM v2.0 running on port ${PORT}`));
+console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}`);
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ SPEC Systems CRM running on port ${PORT}`));
