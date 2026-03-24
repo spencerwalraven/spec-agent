@@ -391,6 +391,7 @@ function showLeadDetail(idx) {
   const ts     = g(l,'Timestamp','timestamp','Submitted','Date');
   const last   = g(l,'Last Contact','lastContact','Last Contacted');
   const sc     = scoreClass(score, '');
+  const label  = sc === 'hot' ? 'Hot' : sc === 'warm' ? 'Warm' : sc === 'cold' ? 'Cold' : '';
 
   document.getElementById('lmRing').className = 'score-ring ' + sc;
   document.getElementById('lmRing').textContent = score || '—';
