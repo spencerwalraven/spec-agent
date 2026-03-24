@@ -599,6 +599,17 @@ app.post('/webhook/email-reply', async (req, res) => {
   } catch (e) { console.error(e.message); }
 });
 
+// ─── DEBUG — test Sheets auth ─────────────────────────────────────────────────
+app.get('/api/debug', async (req, res) => {
+  try {
+    const sheets = getSheets();
+    const result = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    res.json({ ok: true, title: result.data.title, sheetId: SHEET_ID });
+  } catch (e) {
+    res.json({ ok: false, error: e.message, code: e.code, sheetId: SHEET_ID });
+  }
+});
+
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -623,17 +634,6 @@ function scoreColor(score) {
 
 // Health check — always responds even if sheets API is down
 app.get('/ping', (req, res) => res.send('pong'));
-
-// Debug — test Google Sheets connection and return actual error
-app.get('/api/debug', async (req, res) => {
-  try {
-    const sheets = getSheets();
-    const result = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    res.json({ ok: true, title: result.data.title, sheetId: SHEET_ID });
-  } catch (e) {
-    res.json({ ok: false, error: e.message, code: e.code, sheetId: SHEET_ID });
-  }
-});
 
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}`);
