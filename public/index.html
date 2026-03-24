@@ -543,6 +543,24 @@
   .text-gold{color:var(--gold)}.text-green{color:var(--green)}.text-red{color:var(--red)}
   .w100{width:100%}
   .divider{height:1px;background:var(--border);margin:14px 0}
+
+  /* ── APPROVAL CARDS ───────────────────────────────────────────── */
+  .approval-card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--r);padding:16px;margin-bottom:10px;
+  }
+  .approval-card-header{
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+  }
+  .approval-client{font-size:17px;font-weight:800;margin-bottom:4px}
+  .approval-sub{font-size:13px;color:var(--text2);margin-bottom:14px}
+  .approval-actions{display:flex;gap:8px}
+  .approval-badge-row{
+    display:none;align-items:center;gap:6px;
+    background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);
+    border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer;
+  }
+  .approval-badge-row.has-pending{display:flex}
 </style>
 </head>
 <body>
@@ -606,10 +624,11 @@
           <div class="more-name">Alerts</div>
           <div class="more-desc" id="dashAlertDesc">Action needed</div>
         </button>
-        <button class="more-item" onclick="navigate('team')" style="cursor:pointer">
-          <div class="more-icon">👥</div>
-          <div class="more-name">Team</div>
-          <div class="more-desc">Manage members</div>
+        <button class="more-item" onclick="navigate('approvals')" style="cursor:pointer;position:relative">
+          <div class="more-icon">✅</div>
+          <div class="more-name">Approvals</div>
+          <div class="more-desc" id="dashApprovalDesc">Review queue</div>
+          <span id="dashApprovalBadge" style="display:none;position:absolute;top:10px;right:10px;background:var(--yellow);color:#000;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px">NEW</span>
         </button>
       </div>
     </section>
@@ -739,12 +758,26 @@
       </div>
     </section>
 
+    <!-- ── APPROVALS PAGE ──────────────────────────────────────────── -->
+    <section class="page" id="page-approvals">
+      <div style="margin-bottom:14px">
+        <div style="font-size:13px;color:var(--text2);line-height:1.5">
+          Review AI-generated documents before they're sent to clients. Tap <strong>Approve</strong> to send, or <strong>Flag</strong> to mark for revision.
+        </div>
+      </div>
+      <div id="approvalsList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+    </section>
+
     <!-- ── MORE PAGE ───────────────────────────────────────────────── -->
     <section class="page" id="page-more">
       <div class="more-grid">
         <button class="more-item" onclick="navigate('team')"><div class="more-icon">👥</div><div class="more-name">Team</div><div class="more-desc">Members &amp; status</div></button>
         <button class="more-item" onclick="navigate('marketing')"><div class="more-icon">📢</div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
         <button class="more-item" onclick="navigate('clients')"><div class="more-icon">🤝</div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
+        <button class="more-item" onclick="navigate('approvals')" style="position:relative"><div class="more-icon">✅</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
         <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
       </div>
     </section>

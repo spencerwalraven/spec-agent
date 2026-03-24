@@ -619,6 +619,75 @@ app.post('/api/marketing/:row/launch', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: APPROVALS ──────────────────────────────────────────────────────────
+app.get('/api/approvals', async (req, res) => {
+  try {
+    const rows = await readTab('Jobs');
+    const items = [];
+    rows.forEach((r, i) => {
+      const rowNum = i + 2;
+      const clientName = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim() || g(r,'Client Name','Name') || 'Unknown';
+      const jobId      = g(r, 'Job ID');
+      const serviceType= g(r, 'Service Type', 'Project Type');
+      const jobValue   = g(r, 'Total Job Value', 'Contract Amount', 'Job Value');
+      const checks = [
+        { type:'proposal', cols:['Proposal Status','Proposal Accepted'],    linkCols:['Proposal Doc Link','Proposal Link'],   label:'Proposal'     },
+        { type:'contract', cols:['Contract Status'],                         linkCols:['Contract Doc Link','Contract Link'],   label:'Contract'     },
+        { type:'template', cols:['Job Template Status','Job Plan Status'],   linkCols:['Job Template Link','Job Plan Link'],   label:'Job Template' },
+      ];
+      checks.forEach(({ type, cols, linkCols, label }) => {
+        if (g(r, ...cols) === 'Pending Approval') {
+          items.push({ _row: rowNum, jobId, clientName, serviceType, jobValue, type, label, docLink: g(r, ...linkCols) });
+        }
+      });
+    });
+    res.json(items);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/jobs/:row/approve', async (req, res) => {
+  try {
+    const row  = parseInt(req.params.row);
+    const { type } = req.body;
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const colMap = {
+      proposal: ['Proposal Status','Proposal Accepted'],
+      contract:  ['Contract Status'],
+      template:  ['Job Template Status','Job Plan Status'],
+    };
+    if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
+    await updateCell('Jobs', row, colMap[type], 'Approved');
+    // Fire Make webhook if configured
+    const urlMap = { proposal: process.env.MAKE_PROPOSAL_WEBHOOK, contract: process.env.MAKE_CONTRACT_WEBHOOK, template: process.env.MAKE_TEMPLATE_WEBHOOK };
+    const webhookUrl = urlMap[type];
+    if (webhookUrl) {
+      try {
+        const { default: nodeFetch } = await import('node-fetch').catch(() => ({ default: null }));
+        const fetchFn = nodeFetch || (typeof fetch !== 'undefined' ? fetch : null);
+        if (fetchFn) await fetchFn(webhookUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rowNumber: row, type, approved: true }) });
+      } catch (we) { console.warn('Webhook failed:', we.message); }
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/jobs/:row/flag', async (req, res) => {
+  try {
+    const row  = parseInt(req.params.row);
+    const { type, note } = req.body;
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const colMap = {
+      proposal: ['Proposal Status','Proposal Accepted'],
+      contract:  ['Contract Status'],
+      template:  ['Job Template Status','Job Plan Status'],
+    };
+    if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
+    await updateCell('Jobs', row, colMap[type], 'Flagged — Needs Revision');
+    if (note) await updateCell('Jobs', row, ['Job Notes','Notes'], note);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: SETTINGS ───────────────────────────────────────────────────────────
 app.get('/api/settings',  async (req, res) => {
   try { res.json(await readSettings()); }

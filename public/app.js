@@ -70,7 +70,11 @@ const DEMO = {
     calendlyLink: 'https://calendly.com/summit/30min',
     googleReviewLink: 'https://g.page/r/review',
     emailSignature: 'Spencer Walraven | Summit Remodeling | (555) 555-0100',
-  }
+  },
+  approvals: [
+    { _row: 3, jobId: 'JOB-002', clientName: 'The Hendersons', serviceType: 'Kitchen Remodel', jobValue: '$62,000', type: 'proposal', label: 'Proposal', docLink: 'https://docs.google.com' },
+    { _row: 4, jobId: 'JOB-003', clientName: 'Raj Patel',      serviceType: 'Basement Finish',  jobValue: '$48,000', type: 'contract', label: 'Contract', docLink: 'https://docs.google.com' },
+  ]
 };
 
 /* ─── STATE ────────────────────────────────────────────────────── */
@@ -113,7 +117,8 @@ async function api(path) {
     if (key === 'team')    return DEMO.team;
     if (key === 'alerts')  return DEMO.alerts;
     if (key === 'marketing') return DEMO.marketing;
-    if (key === 'settings') return DEMO.settings;
+    if (key === 'settings')   return DEMO.settings;
+    if (key === 'approvals')  return DEMO.approvals;
     if (key.startsWith('phases')) {
       const jobId = new URLSearchParams('?' + path.split('?')[1]).get('jobId') || '';
       return DEMO.phases[jobId] || [];
@@ -135,7 +140,7 @@ function setConnDot(state) {
 const PAGE_TITLES = {
   dashboard: 'Dashboard', leads: 'Leads', jobs: 'Jobs',
   clients: 'Clients', alerts: 'Alerts', team: 'Team',
-  marketing: 'Marketing', settings: 'Settings', more: 'More'
+  marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals', more: 'More'
 };
 
 function navigate(page) {
@@ -163,6 +168,7 @@ function navigate(page) {
     else if (page === 'team') loadTeam();
     else if (page === 'marketing') loadMarketing();
     else if (page === 'settings') loadSettings();
+    else if (page === 'approvals') loadApprovals();
   }
 }
 
@@ -170,7 +176,7 @@ async function refreshAll() {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   Object.keys(loaded).forEach(k => delete loaded[k]);
-  allLeads = []; allJobs = []; allClients = []; allTeam = []; allMarketing = [];
+  allLeads = []; allJobs = []; allClients = []; allTeam = []; allMarketing = []; allApprovals = [];
 
   // Reload current page
   const active = document.querySelector('.page.active');
@@ -245,6 +251,21 @@ async function loadDashboard() {
       badge.style.display = 'block';
       dot.style.display = 'block';
       if (dashDesc) dashDesc.textContent = `${urgentCount} urgent item${urgentCount > 1 ? 's' : ''}`;
+    }
+  }
+
+  // Load approvals silently for dashboard badge
+  if (!loaded['approvals-count']) {
+    loaded['approvals-count'] = true;
+    const pending = await api('/api/approvals');
+    const count = (pending || []).length;
+    const dashApprovalDesc = document.getElementById('dashApprovalDesc');
+    const dashApprovalBadge = document.getElementById('dashApprovalBadge');
+    if (count > 0) {
+      if (dashApprovalDesc) dashApprovalDesc.textContent = `${count} waiting for review`;
+      if (dashApprovalBadge) dashApprovalBadge.style.display = 'flex';
+    } else {
+      if (dashApprovalDesc) dashApprovalDesc.textContent = 'All clear';
     }
   }
 }
@@ -1125,6 +1146,125 @@ async function launchCampaign(row, btn) {
   } catch(e) {
     btn.textContent = 'Launch';
     toast('⚠️ Launch failed');
+  }
+}
+
+/* ─── APPROVALS PAGE ────────────────────────────────────────────── */
+let allApprovals = [];
+
+async function loadApprovals() {
+  allApprovals = await api('/api/approvals') || [];
+  renderApprovals();
+}
+
+function renderApprovals() {
+  const el = document.getElementById('approvalsList');
+  if (!el) return;
+
+  if (allApprovals.length === 0) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">All clear!</div>
+        <div class="empty-sub">No documents waiting for approval</div>
+      </div>`;
+    return;
+  }
+
+  const typeIcons = { proposal: '📄', contract: '📝', template: '📋' };
+  const typeColors = { proposal: 'badge-gold', contract: 'badge-blue', template: 'badge-gray' };
+
+  el.innerHTML = allApprovals.map((item, idx) => {
+    const icon  = typeIcons[item.type]  || '📄';
+    const badge = typeColors[item.type] || 'badge-gray';
+    const val   = item.jobValue ? `<span style="color:var(--gold);font-weight:800">${item.jobValue}</span>` : '';
+    return `
+      <div class="approval-card" id="apCard-${idx}">
+        <div class="approval-card-header">
+          <span class="badge ${badge}">${icon} ${item.label || item.type}</span>
+          ${item.jobId ? `<span style="font-size:11px;color:var(--text3)">${item.jobId}</span>` : ''}
+        </div>
+        <div class="approval-client">${item.clientName || '—'}</div>
+        <div class="approval-sub">${item.serviceType || '—'} ${val ? '· ' + val : ''}</div>
+        <div class="approval-actions">
+          ${item.docLink
+            ? `<a class="btn btn-secondary" href="${item.docLink}" target="_blank" style="flex:1;text-align:center">👁 View Doc</a>`
+            : `<button class="btn btn-secondary" disabled style="flex:1;opacity:.4">No Link</button>`
+          }
+          <button class="btn btn-green" style="flex:1" onclick="approveItem(${idx}, event)">✅ Approve</button>
+          <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)">🚩 Flag</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function approveItem(idx, e) {
+  e?.stopPropagation();
+  const item = allApprovals[idx];
+  if (!item) return;
+  const btn = e?.currentTarget;
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  if (!usingDemo) {
+    try {
+      const res = await fetch(`/api/jobs/${item._row}/approve`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ type: item.type }),
+      });
+      if (!res.ok) throw new Error('Failed');
+    } catch {
+      toast('⚠️ Could not approve — try again');
+      if (btn) { btn.textContent = '✅ Approve'; btn.disabled = false; }
+      return;
+    }
+  }
+
+  // Remove from list and re-render
+  allApprovals.splice(idx, 1);
+  renderApprovals();
+  toast(`✓ ${item.label} approved — sending now`);
+  // Update dashboard badge
+  const badge = document.getElementById('dashApprovalBadge');
+  const desc  = document.getElementById('dashApprovalDesc');
+  if (allApprovals.length === 0) {
+    if (badge) badge.style.display = 'none';
+    if (desc)  desc.textContent = 'All clear';
+  } else {
+    if (desc) desc.textContent = `${allApprovals.length} waiting for review`;
+  }
+}
+
+async function flagItem(idx, e) {
+  e?.stopPropagation();
+  const item = allApprovals[idx];
+  if (!item) return;
+  const btn = e?.currentTarget;
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  if (!usingDemo) {
+    try {
+      const res = await fetch(`/api/jobs/${item._row}/flag`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ type: item.type }),
+      });
+      if (!res.ok) throw new Error('Failed');
+    } catch {
+      toast('⚠️ Could not flag — try again');
+      if (btn) { btn.textContent = '🚩 Flag'; btn.disabled = false; }
+      return;
+    }
+  }
+
+  allApprovals.splice(idx, 1);
+  renderApprovals();
+  toast(`🚩 ${item.label} flagged — marked "Needs Revision"`);
+  const badge = document.getElementById('dashApprovalBadge');
+  const desc  = document.getElementById('dashApprovalDesc');
+  if (allApprovals.length === 0) {
+    if (badge) badge.style.display = 'none';
+    if (desc)  desc.textContent = 'All clear';
+  } else {
+    if (desc) desc.textContent = `${allApprovals.length} waiting for review`;
   }
 }
 
