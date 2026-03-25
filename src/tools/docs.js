@@ -1,11 +1,18 @@
 /**
  * Google Docs + Drive tool library
- * Creates documents from markdown-style text, returns shareable links.
+ * Creates beautifully formatted professional documents.
  */
 
 require('dotenv').config();
 const { google } = require('googleapis');
 const { logger } = require('../utils/logger');
+
+// Brand colors (RGB 0–1)
+const NAVY  = { red: 0.039, green: 0.133, blue: 0.251 }; // #0A2240
+const GOLD  = { red: 0.749, green: 0.580, blue: 0.220 }; // #BF9438
+const GRAY  = { red: 0.400, green: 0.400, blue: 0.400 };
+
+function rgb(c) { return { color: { rgbColor: c } }; }
 
 function getAuth() {
   const auth = new google.auth.OAuth2(
@@ -17,111 +24,243 @@ function getAuth() {
 }
 
 /**
- * Create a Google Doc with a title and plain text body.
+ * Detect what kind of line this is so we can format it properly.
+ */
+function classifyLine(text) {
+  const t = text.trim();
+  if (!t || t === '\n') return 'empty';
+  if (/^[═─=\-]{4,}$/.test(t)) return 'divider';
+  if (/^(ESTIMATE|PROPOSAL|CONTRACT|KICKOFF|PROJECT PLAN|INVOICE)\s*[—\-:]/i.test(t)) return 'title';
+  if (/^#{1,2}\s/.test(t)) return 'heading';
+  if (/^[A-Z][A-Z\s&\/\(\)]+$/.test(t) && t.length >= 4 && t.length <= 60) return 'section';
+  if (/^(TOTAL|GRAND TOTAL|SUBTOTAL|PROJECT TOTAL|ESTIMATE TOTAL)[:\s]/i.test(t)) return 'total';
+  if (/^(Prepared by|Date:|Client:|Company:|Address:|Job ID:|Proposal #:|Contract #:)/i.test(t)) return 'meta';
+  if (/^\$[\d,]+/.test(t) || /\$[\d,]+\s*$/.test(t)) return 'amount';
+  if (/^Phase \d+:|^PHASE \d+/i.test(t)) return 'phase';
+  return 'body';
+}
+
+/**
+ * Create a professional Google Doc with full branding and formatting.
  * Returns { docId, docUrl }
  */
-async function createDoc({ title, body }) {
+async function createDoc({ title, body, companyName }) {
   const auth  = getAuth();
   const docs  = google.docs({ version: 'v1', auth });
   const drive = google.drive({ version: 'v3', auth });
 
-  // Create the document
+  // ── 1. Create blank document ─────────────────────────────────────────────
   const created = await docs.documents.create({ requestBody: { title } });
   const docId   = created.data.documentId;
   logger.info('Docs', `documents.create returned docId: ${docId}`);
 
-  if (!docId) {
-    logger.error('Docs', `documents.create response: ${JSON.stringify(created.data).slice(0, 300)}`);
-    throw new Error('Google Docs API returned no documentId');
-  }
+  if (!docId) throw new Error('Google Docs API returned no documentId');
 
-  // Insert the content (chunk if needed to stay under API limits)
-  if (body) {
-    const MAX_CHUNK = 40000;
-    const text = body.slice(0, MAX_CHUNK); // truncate to safe size
-    await docs.documents.batchUpdate({
-      documentId: docId,
-      requestBody: {
-        requests: [{
-          insertText: {
-            location: { index: 1 },
-            text,
-          },
-        }],
+  // ── 2. Build clean text to insert ───────────────────────────────────────
+  const cleanBody = (body || '')
+    .replace(/^#{1,3}\s+/gm, '')        // strip markdown headings
+    .replace(/\*\*(.*?)\*\*/g, '$1')    // strip bold markers
+    .replace(/\*(.*?)\*/g, '$1')        // strip italic markers
+    .replace(/`(.*?)`/g, '$1')          // strip code markers
+    .slice(0, 45000);                   // hard limit
+
+  const insertText = cleanBody.endsWith('\n') ? cleanBody : cleanBody + '\n';
+
+  await docs.documents.batchUpdate({
+    documentId: docId,
+    requestBody: {
+      requests: [{
+        insertText: { location: { index: 1 }, text: insertText },
+      }],
+    },
+  });
+
+  // ── 3. Apply formatting ──────────────────────────────────────────────────
+  try {
+    const doc     = await docs.documents.get({ documentId: docId });
+    const content = doc.data.body?.content || [];
+    const reqs    = [];
+    let   isFirst = true;
+
+    // Set document margins
+    reqs.push({
+      updateDocumentStyle: {
+        documentStyle: {
+          marginTop:    { magnitude: 72,  unit: 'PT' },
+          marginBottom: { magnitude: 72,  unit: 'PT' },
+          marginLeft:   { magnitude: 72,  unit: 'PT' },
+          marginRight:  { magnitude: 72,  unit: 'PT' },
+        },
+        fields: 'marginTop,marginBottom,marginLeft,marginRight',
       },
     });
 
-    // Apply professional formatting based on paragraph content patterns (best-effort)
-    try {
-      const doc = await docs.documents.get({ documentId: docId });
-      const content = doc.data.body?.content || [];
-      const formatRequests = [];
+    for (const block of content) {
+      if (!block.paragraph) continue;
+      const elems   = block.paragraph.elements || [];
+      const rawText = elems.map(el => el.textRun?.content || '').join('');
+      const kind    = classifyLine(rawText);
+      const start   = block.startIndex;
+      const end     = block.endIndex;
+      const textEnd = end - 1;
 
-      for (const block of content) {
-        if (!block.paragraph) continue;
+      if (kind === 'empty' || kind === 'divider') continue;
 
-        const paraText = (block.paragraph.elements || [])
-          .map(el => el.textRun?.content || '')
-          .join('');
-        const trimmed = paraText.trimEnd();
-
-        if (!trimmed) continue;
-
-        // HEADING_1: main document title lines (ESTIMATE, PROPOSAL, CONTRACT, etc.)
-        if (/^(ESTIMATE|PROPOSAL|CONTRACT|KICKOFF|PROJECT PLAN)\s*[—\-]/i.test(trimmed)) {
-          formatRequests.push({
-            updateParagraphStyle: {
-              range: { startIndex: block.startIndex, endIndex: block.endIndex },
-              paragraphStyle: { namedStyleType: 'HEADING_1' },
-              fields: 'namedStyleType',
+      if (kind === 'title' || (isFirst && kind !== 'meta')) {
+        reqs.push({
+          updateParagraphStyle: {
+            range: { startIndex: start, endIndex: end },
+            paragraphStyle: {
+              namedStyleType: 'HEADING_1',
+              spaceBelow: { magnitude: 6, unit: 'PT' },
+              spaceAbove: { magnitude: 0, unit: 'PT' },
             },
-          });
-        }
-        // HEADING_2: all-caps section headers (no colon, length >= 4)
-        else if (/^[A-Z][A-Z\s&\/]+$/.test(trimmed) && trimmed.length >= 4) {
-          formatRequests.push({
-            updateParagraphStyle: {
-              range: { startIndex: block.startIndex, endIndex: block.endIndex },
-              paragraphStyle: { namedStyleType: 'HEADING_2' },
-              fields: 'namedStyleType',
+            fields: 'namedStyleType,spaceBelow,spaceAbove',
+          },
+        });
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: 22, unit: 'PT' },
+              foregroundColor: rgb(NAVY),
+              fontFamily: 'Arial',
             },
-          });
-        }
-        // Bold: total/subtotal lines
-        else if (/^(TOTAL|GRAND TOTAL|SUBTOTAL|TOTAL ESTIMATE)[:\s]/i.test(trimmed)) {
-          formatRequests.push({
-            updateTextStyle: {
-              range: { startIndex: block.startIndex, endIndex: block.endIndex - 1 },
-              textStyle: { bold: true },
-              fields: 'bold',
-            },
-          });
-        }
-        // Italic: metadata lines
-        else if (/^(Prepared by|Date|Client|Company|Address):/.test(trimmed)) {
-          formatRequests.push({
-            updateTextStyle: {
-              range: { startIndex: block.startIndex, endIndex: block.endIndex - 1 },
-              textStyle: { italic: true },
-              fields: 'italic',
-            },
-          });
-        }
-      }
+            fields: 'bold,fontSize,foregroundColor,fontFamily',
+          },
+        });
+        isFirst = false;
 
-      if (formatRequests.length > 0) {
-        logger.info('Docs', `Applying ${formatRequests.length} formatting requests`);
-        await docs.documents.batchUpdate({
-          documentId: docId,
-          requestBody: { requests: formatRequests },
+      } else if (kind === 'heading' || kind === 'section') {
+        reqs.push({
+          updateParagraphStyle: {
+            range: { startIndex: start, endIndex: end },
+            paragraphStyle: {
+              namedStyleType: 'HEADING_2',
+              spaceAbove: { magnitude: 14, unit: 'PT' },
+              spaceBelow: { magnitude: 4,  unit: 'PT' },
+            },
+            fields: 'namedStyleType,spaceAbove,spaceBelow',
+          },
+        });
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: 11, unit: 'PT' },
+              foregroundColor: rgb(NAVY),
+              fontFamily: 'Arial',
+            },
+            fields: 'bold,fontSize,foregroundColor,fontFamily',
+          },
+        });
+
+      } else if (kind === 'phase') {
+        reqs.push({
+          updateParagraphStyle: {
+            range: { startIndex: start, endIndex: end },
+            paragraphStyle: {
+              namedStyleType: 'HEADING_3',
+              spaceAbove: { magnitude: 10, unit: 'PT' },
+              spaceBelow: { magnitude: 2,  unit: 'PT' },
+            },
+            fields: 'namedStyleType,spaceAbove,spaceBelow',
+          },
+        });
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: 10, unit: 'PT' },
+              foregroundColor: rgb(GOLD),
+              fontFamily: 'Arial',
+            },
+            fields: 'bold,fontSize,foregroundColor,fontFamily',
+          },
+        });
+
+      } else if (kind === 'total') {
+        reqs.push({
+          updateParagraphStyle: {
+            range: { startIndex: start, endIndex: end },
+            paragraphStyle: {
+              spaceAbove: { magnitude: 10, unit: 'PT' },
+              spaceBelow: { magnitude: 6,  unit: 'PT' },
+            },
+            fields: 'spaceAbove,spaceBelow',
+          },
+        });
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              bold: true,
+              fontSize: { magnitude: 14, unit: 'PT' },
+              foregroundColor: rgb(NAVY),
+              fontFamily: 'Arial',
+            },
+            fields: 'bold,fontSize,foregroundColor,fontFamily',
+          },
+        });
+
+      } else if (kind === 'meta') {
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              italic: true,
+              fontSize: { magnitude: 9, unit: 'PT' },
+              foregroundColor: rgb(GRAY),
+              fontFamily: 'Arial',
+            },
+            fields: 'italic,fontSize,foregroundColor,fontFamily',
+          },
+        });
+
+      } else if (kind === 'amount') {
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              bold: true,
+              fontFamily: 'Arial',
+            },
+            fields: 'bold,fontFamily',
+          },
+        });
+
+      } else {
+        reqs.push({
+          updateTextStyle: {
+            range: { startIndex: start, endIndex: textEnd },
+            textStyle: {
+              fontSize: { magnitude: 10, unit: 'PT' },
+              fontFamily: 'Arial',
+            },
+            fields: 'fontSize,fontFamily',
+          },
         });
       }
-    } catch (fmtErr) {
-      logger.warn('Docs', `Formatting step failed (non-fatal): ${fmtErr.message}`);
     }
+
+    if (reqs.length > 0) {
+      logger.info('Docs', `Applying ${reqs.length} formatting requests`);
+      // Send in batches of 50 to stay under API limits
+      for (let i = 0; i < reqs.length; i += 50) {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: reqs.slice(i, i + 50) },
+        });
+      }
+    }
+  } catch (fmtErr) {
+    logger.warn('Docs', `Formatting step failed (non-fatal): ${fmtErr.message}`);
   }
 
-  // Make it readable by anyone with the link (best-effort — don't fail if this errors)
+  // ── 4. Make readable by anyone with link ─────────────────────────────────
   try {
     await drive.permissions.create({
       fileId: docId,
