@@ -1072,8 +1072,26 @@ function showTeamDetail(idx) {
       <div class="modal-section-label">Notes</div>
       <div style="color:var(--text2);font-size:14px">${notes}</div>
     </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Sub Portal</div>
+      <div style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px">
+        <div style="flex:1;font-size:13px;color:var(--text2);word-break:break-all">${location.origin}/sub/${encodeURIComponent(name)}</div>
+        <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0" onclick="copySubLink('${encodeURIComponent(name)}')">Copy</button>
+        <a href="/sub/${encodeURIComponent(name)}" target="_blank" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0;text-decoration:none">Open ↗</a>
+      </div>
+    </div>
   `;
   openModal('teamModal');
+}
+
+function copySubLink(encodedName) {
+  const url = `${location.origin}/sub/${encodedName}`;
+  navigator.clipboard.writeText(url).then(() => toast('✅ Sub portal link copied!')).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = url; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); document.body.removeChild(el);
+    toast('✅ Sub portal link copied!');
+  });
 }
 
 async function toggleTeamMember(row, el) {

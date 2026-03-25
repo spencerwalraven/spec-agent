@@ -891,6 +891,82 @@ app.post('/webhook/email-reply', (req, res) => {
   route('email_reply', data).catch(console.error);
 });
 
+// ─── SUB PORTAL API ───────────────────────────────────────────────────────────
+app.get('/api/sub/:name', async (req, res) => {
+  try {
+    const subName = decodeURIComponent(req.params.name).toLowerCase();
+    const settings = await readSettings();
+
+    // Get all phases assigned to this sub
+    const phaseRows = await readTab('Job Phases');
+    const myPhases  = phaseRows.filter(p => {
+      const assigned = (g(p,'Assigned To','Assigned Name','assignedTo') || '').toLowerCase();
+      const trade    = (g(p,'Trade','Assigned Trade') || '').toLowerCase();
+      return assigned.includes(subName) || trade.includes(subName);
+    });
+
+    if (!myPhases.length) return res.status(404).json({ error: 'No phases found for this sub' });
+
+    // Group by job and enrich with job data
+    const jobRows = await readTab('Jobs');
+    const jobMap  = {};
+    jobRows.forEach(j => { jobMap[g(j,'Job ID') || ''] = j; });
+
+    const phases = myPhases.map((p, i) => {
+      const jobId  = g(p,'Job ID') || '';
+      const job    = jobMap[jobId] || {};
+      const status = g(p,'Status','Phase Status') || 'Pending';
+      return {
+        _row:      p._row || (i + 2),
+        phaseId:   g(p,'Phase ID') || '',
+        jobId,
+        phaseName: g(p,'Phase','Phase Name') || '—',
+        trade:     g(p,'Trade','Assigned Trade') || '',
+        status,
+        startDate: g(p,'Start Date','Phase Start') || '',
+        endDate:   g(p,'End Date','Due Date','Phase End') || '',
+        materials: g(p,'Materials Needed','Materials') || '',
+        notes:     g(p,'Description','Notes') || '',
+        // Job info
+        clientFirst:  g(job,'First Name') || '',
+        address:      g(job,'Street Address','Address') || '',
+        city:         g(job,'City') || '',
+        projectType:  g(job,'Service Type','Project Type') || '',
+      };
+    }).sort((a, b) => {
+      // Sort: in-progress first, then pending by start date, then complete
+      const order = { 'in progress': 0, 'active': 0, 'pending': 1, 'complete': 2, 'done': 2 };
+      const ao = order[(a.status||'').toLowerCase()] ?? 1;
+      const bo = order[(b.status||'').toLowerCase()] ?? 1;
+      return ao - bo;
+    });
+
+    res.json({
+      subName: decodeURIComponent(req.params.name),
+      company: { name: settings.companyName, phone: settings.phone, email: settings.email },
+      phases,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sub marks a phase complete
+app.post('/api/sub/phase/:row/complete', async (req, res) => {
+  try {
+    const row  = parseInt(req.params.row);
+    const { notes } = req.body || {};
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    await updateCell('Job Phases', row, 'Status', 'Complete');
+    await updateCell('Job Phases', row, 'Completion Date', new Date().toLocaleDateString('en-US'));
+    if (notes) await updateCell('Job Phases', row, 'Description', notes);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── SUB PORTAL PAGE ──────────────────────────────────────────────────────────
+app.get('/sub/:name', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sub.html'));
+});
+
 // ─── CLIENT STATUS PAGE API ───────────────────────────────────────────────────
 app.get('/api/status/:jobId', async (req, res) => {
   try {

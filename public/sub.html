@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>My Work Schedule</title>
+  <style>
+    :root {
+      --navy:  #0A2240;
+      --gold:  #BF9438;
+      --bg:    #F4F5F7;
+      --card:  #ffffff;
+      --text1: #111827;
+      --text2: #6B7280;
+      --text3: #9CA3AF;
+      --green: #22C55E;
+      --red:   #EF4444;
+      --border:#E5E7EB;
+      --r:     12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text1); min-height: 100vh; }
+
+    .header { background: var(--navy); padding: 20px 20px 28px; }
+    .company-tag { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+    .sub-name { font-size: 24px; font-weight: 800; color: #fff; }
+    .sub-sub { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 3px; }
+
+    .summary-strip {
+      display: flex; gap: 0;
+      background: var(--card);
+      margin: 14px 16px 0;
+      border-radius: var(--r);
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .summary-item { flex: 1; padding: 14px 0; text-align: center; border-right: 1px solid var(--border); }
+    .summary-item:last-child { border-right: none; }
+    .summary-num { font-size: 22px; font-weight: 800; color: var(--navy); }
+    .summary-label { font-size: 11px; color: var(--text2); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+
+    .section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+      color: var(--text2); padding: 16px 16px 8px;
+    }
+
+    .phase-card {
+      background: var(--card); margin: 0 16px 10px; border-radius: var(--r);
+      border: 2px solid transparent;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden;
+      transition: border-color .15s;
+    }
+    .phase-card.active  { border-color: var(--navy); }
+    .phase-card.done    { opacity: .65; }
+
+    .phase-top { padding: 16px 16px 12px; }
+    .phase-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .phase-name { font-size: 17px; font-weight: 800; color: var(--text1); line-height: 1.2; }
+    .phase-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; flex-shrink: 0; white-space: nowrap; }
+    .badge-active  { background: rgba(10,34,64,.1);   color: var(--navy); }
+    .badge-pending { background: var(--border);        color: var(--text2); }
+    .badge-done    { background: rgba(34,197,94,.12);  color: #166534; }
+
+    .phase-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+    .phase-meta span { display: flex; align-items: center; gap: 4px; }
+
+    .phase-detail { font-size: 13px; color: var(--text2); line-height: 1.5; padding: 0 16px 14px; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px; }
+    .detail-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    .detail-row:last-child { margin-bottom: 0; }
+    .detail-icon { flex-shrink: 0; }
+
+    .complete-section { padding: 0 16px 16px; }
+    .notes-input {
+      width: 100%; padding: 10px 12px; font-size: 14px; color: var(--text1);
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; resize: none; min-height: 70px; margin-bottom: 10px;
+    }
+    .notes-input:focus { outline: none; border-color: var(--gold); }
+    .complete-btn {
+      width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700;
+      background: var(--navy); color: #fff; border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .complete-btn:active { opacity: .85; }
+    .complete-btn.done-state { background: var(--green); }
+    .complete-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .contact-bar {
+      background: var(--navy); margin: 4px 16px 0; border-radius: var(--r);
+      padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .contact-info { color: rgba(255,255,255,.7); font-size: 13px; }
+    .contact-company { color: #fff; font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+    .contact-links { display: flex; gap: 8px; }
+    .contact-link {
+      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      text-decoration: none; color: var(--navy); background: var(--gold);
+    }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 12px; color: var(--text2); }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--navy); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer { text-align: center; padding: 20px 16px 32px; font-size: 12px; color: var(--text3); }
+    .powered { color: var(--gold); font-weight: 600; }
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1f2937; color:#fff; padding:10px 20px; border-radius:999px; font-size:14px; font-weight:600; z-index:999; transition:opacity .3s; }
+  </style>
+</head>
+<body>
+<div id="root"><div class="loading"><div class="spinner"></div><div>Loading your schedule…</div></div></div>
+
+<script>
+  const subName = decodeURIComponent(location.pathname.split('/sub/')[1]?.split('/')[0] || '');
+  let _toast = null;
+
+  function toast(msg, dur = 2500) {
+    if (_toast) _toast.remove();
+    const el = document.createElement('div');
+    el.className = 'toast'; el.textContent = msg;
+    document.body.appendChild(el); _toast = el;
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, dur);
+  }
+
+  function fmtDate(d) {
+    if (!d) return null;
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt)) return d;
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch { return d; }
+  }
+
+  function badgeClass(s) {
+    const sl = (s||'').toLowerCase();
+    if (sl.includes('complete') || sl.includes('done')) return 'badge-done';
+    if (sl.includes('progress') || sl.includes('active')) return 'badge-active';
+    return 'badge-pending';
+  }
+  function badgeText(s) {
+    const sl = (s||'').toLowerCase();
+    if (sl.includes('complete') || sl.includes('done')) return '✓ Done';
+    if (sl.includes('progress') || sl.includes('active')) return '▶ Active';
+    return 'Upcoming';
+  }
+  function cardClass(s) {
+    const sl = (s||'').toLowerCase();
+    if (sl.includes('complete') || sl.includes('done')) return 'done';
+    if (sl.includes('progress') || sl.includes('active')) return 'active';
+    return '';
+  }
+  function isDone(s) { return (s||'').toLowerCase().includes('complete') || (s||'').toLowerCase().includes('done'); }
+
+  function render(data) {
+    const { subName: name, company, phases } = data;
+    const total    = phases.length;
+    const done     = phases.filter(p => isDone(p.status)).length;
+    const upcoming = phases.filter(p => !isDone(p.status)).length;
+
+    document.title = `${name} — Work Schedule`;
+
+    document.getElementById('root').innerHTML = `
+      <div class="header">
+        <div class="company-tag">${company.name}</div>
+        <div class="sub-name">Hey, ${name.split(' ')[0]} 👋</div>
+        <div class="sub-sub">Here's your current work schedule</div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="summary-item">
+          <div class="summary-num">${upcoming}</div>
+          <div class="summary-label">Upcoming</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-num">${done}</div>
+          <div class="summary-label">Complete</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-num">${total}</div>
+          <div class="summary-label">Total</div>
+        </div>
+      </div>
+
+      ${upcoming > 0 ? `<div class="section-label">Your Phases</div>` : ''}
+
+      ${phases.filter(p => !isDone(p.status)).map(p => phaseCard(p)).join('')}
+
+      ${done > 0 ? `<div class="section-label">Completed</div>` : ''}
+      ${phases.filter(p => isDone(p.status)).map(p => phaseCard(p)).join('')}
+
+      ${total === 0 ? `<div class="empty-state"><div class="empty-icon">📋</div><div style="font-size:16px;font-weight:700">No phases assigned yet</div><div style="font-size:13px;margin-top:6px">Check back soon</div></div>` : ''}
+
+      <div class="contact-bar">
+        <div>
+          <div class="contact-company">${company.name}</div>
+          <div class="contact-info">Questions? Reach out anytime.</div>
+        </div>
+        <div class="contact-links">
+          ${company.phone ? `<a class="contact-link" href="tel:${company.phone}">📞 Call</a>` : ''}
+        </div>
+      </div>
+
+      <div class="footer">Powered by <span class="powered">SPEC Systems</span></div>
+    `;
+  }
+
+  function phaseCard(p) {
+    const done = isDone(p.status);
+    const startFmt = fmtDate(p.startDate);
+    const endFmt   = fmtDate(p.endDate);
+    return `
+      <div class="phase-card ${cardClass(p.status)}" id="card-${p._row}">
+        <div class="phase-top">
+          <div class="phase-header">
+            <div class="phase-name">${p.phaseName}</div>
+            <div class="phase-badge ${badgeClass(p.status)}">${badgeText(p.status)}</div>
+          </div>
+          <div class="phase-meta">
+            <span>🏠 ${p.clientFirst ? p.clientFirst + "'s" : ''} ${p.projectType}</span>
+            ${p.address ? `<span>📍 ${p.address}${p.city ? ', ' + p.city : ''}</span>` : ''}
+            ${startFmt ? `<span>📅 ${startFmt}${endFmt ? ' → ' + endFmt : ''}</span>` : ''}
+            ${p.trade ? `<span>🔧 ${p.trade}</span>` : ''}
+          </div>
+        </div>
+        ${p.materials || p.notes ? `
+        <div class="phase-detail">
+          ${p.materials ? `<div class="detail-row"><span class="detail-icon">🪵</span><span><strong>Materials:</strong> ${p.materials}</span></div>` : ''}
+          ${p.notes ? `<div class="detail-row"><span class="detail-icon">📝</span><span>${p.notes}</span></div>` : ''}
+        </div>` : ''}
+        ${!done ? `
+        <div class="complete-section">
+          <textarea class="notes-input" id="notes-${p._row}" placeholder="Add any notes (optional) — materials used, issues, what was completed…"></textarea>
+          <button class="complete-btn" onclick="markComplete(${p._row}, this)">✅ Mark Phase Complete</button>
+        </div>` : `
+        <div style="padding:10px 16px 14px;font-size:13px;color:#166534;font-weight:600">✓ Marked complete</div>`}
+      </div>
+    `;
+  }
+
+  async function markComplete(row, btn) {
+    const notes = document.getElementById(`notes-${row}`)?.value?.trim() || '';
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`/api/sub/phase/${row}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      btn.classList.add('done-state');
+      btn.textContent = '✓ Phase Complete';
+      toast('✅ Phase marked complete!');
+      // Reload after 1.5s to refresh the view
+      setTimeout(() => load(), 1500);
+    } catch (e) {
+      toast('❌ Could not update — try again');
+      btn.disabled = false;
+      btn.textContent = '✅ Mark Phase Complete';
+    }
+  }
+
+  async function load() {
+    if (!subName) {
+      document.getElementById('root').innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div style="font-size:16px;font-weight:700">No sub name in URL</div></div>`;
+      return;
+    }
+    try {
+      const res  = await fetch(`/api/sub/${encodeURIComponent(subName)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Not found');
+      render(data);
+    } catch (e) {
+      document.getElementById('root').innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div style="font-size:16px;font-weight:700">No schedule found</div><div style="font-size:13px;margin-top:6px">${e.message}</div></div>`;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>
