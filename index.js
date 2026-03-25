@@ -1901,6 +1901,25 @@ function scoreColor(score) {
   return 'blue';
 }
 
+// ─── PWA ICON GENERATOR ───────────────────────────────────────────────────────
+// Generates a PNG icon on the fly from SVG using sharp (if available) or
+// falls back to serving the SVG with a PNG content-type hint.
+app.get('/api/icon/:size', async (req, res) => {
+  const size = parseInt(req.params.size) || 192;
+  // Try sharp first (zero-config on Railway's Node image)
+  try {
+    const sharp = require('sharp');
+    const fs    = require('fs');
+    const svgPath = path.join(__dirname, 'public', 'icon.svg');
+    const png = await sharp(fs.readFileSync(svgPath)).resize(size, size).png().toBuffer();
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(png);
+  } catch (_) {}
+  // Fallback: redirect to SVG
+  res.redirect('/icon.svg');
+});
+
 // Health check — always responds even if sheets API is down
 app.get('/ping', (req, res) => res.send('pong'));
 
