@@ -1998,17 +1998,30 @@ async function triggerAgent(type) {
 }
 
 /* ─── INIT ──────────────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', async () => {
-  // Load user role before first render so nav + dashboard are role-correct
-  try {
-    const me = await fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
-    if (me?.role) currentUser = { name: me.name || '', role: me.role };
-  } catch (_) {}
-
+window.addEventListener('DOMContentLoaded', () => {
+  // Start rendering immediately with default role — don't block on /api/me
   applyRoleNav(currentUser.role);
   navigate('dashboard');
   initPullToRefresh();
   connectActivityStream();
+
+  // Load user role in background — update nav if role differs from default
+  fetch('/api/me')
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null)
+    .then(me => {
+      if (me?.role) {
+        const prevRole = currentUser.role;
+        currentUser = { name: me.name || '', role: me.role };
+        // Rebuild nav only if role actually changed
+        if (me.role !== prevRole) applyRoleNav(me.role);
+        // Update greeting name if dashboard is still active
+        const greetEl = document.getElementById('greetSub');
+        if (greetEl && me.name && me.name !== 'Owner') {
+          greetEl.textContent = greet() + `, ${me.name}`;
+        }
+      }
+    });
 
   // Pre-load settings for Calendly link
   api('/api/settings').then(s => {
