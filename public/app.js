@@ -140,7 +140,8 @@ function setConnDot(state) {
 const PAGE_TITLES = {
   dashboard: 'Dashboard', leads: 'Leads', jobs: 'Jobs',
   clients: 'Clients', alerts: 'Alerts', team: 'Team',
-  marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals', more: 'More'
+  marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals',
+  agents: 'AI Agents', more: 'More'
 };
 
 function navigate(page) {
@@ -1363,10 +1364,136 @@ function initPullToRefresh() {
   }, { passive: true });
 }
 
+/* ─── AI AGENT ACTIVITY STREAM ──────────────────────────────────── */
+const agentEvents = [];   // in-memory log (max 200)
+let sseConnected  = false;
+let sseSource     = null;
+let sseReconnectTimer = null;
+
+function connectActivityStream() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+
+  try {
+    sseSource = new EventSource('/api/activity-stream');
+
+    sseSource.onopen = () => {
+      sseConnected = true;
+      setAgentStatus(true);
+    };
+
+    sseSource.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'connected') { setAgentStatus(true); return; }
+        pushAgentEvent(event);
+      } catch (_) {}
+    };
+
+    sseSource.onerror = () => {
+      sseConnected = false;
+      setAgentStatus(false);
+      sseSource.close();
+      sseSource = null;
+      // Reconnect after 5s
+      clearTimeout(sseReconnectTimer);
+      sseReconnectTimer = setTimeout(connectActivityStream, 5000);
+    };
+  } catch (_) {
+    setAgentStatus(false);
+  }
+}
+
+function setAgentStatus(online) {
+  const badges = ['dashLiveBadge', 'agentsLiveBadge'];
+  badges.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'live-badge' + (online ? '' : ' offline');
+    const textEl = el.querySelector('span:last-child') || el;
+    if (id === 'agentsLiveText') {
+      const t = document.getElementById('agentsLiveText');
+      if (t) t.textContent = online ? 'LIVE' : 'OFFLINE';
+    }
+    el.innerHTML = `<span class="live-dot"></span>${online ? 'LIVE' : 'OFFLINE'}`;
+  });
+  // Show/hide badge on dashboard quick action
+  const badge = document.getElementById('dashAgentBadge');
+  if (badge) badge.style.display = online ? 'block' : 'none';
+}
+
+function pushAgentEvent(event) {
+  agentEvents.unshift(event);           // newest first
+  if (agentEvents.length > 200) agentEvents.pop();
+
+  renderAgentLog('dashAgentLog',  agentEvents.slice(0, 5));  // dashboard: last 5
+  renderAgentLog('agentsLog',     agentEvents);               // agents page: all
+}
+
+function renderAgentLog(containerId, events) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!events.length) {
+    el.innerHTML = '<div class="agent-empty">Waiting for agent activity…</div>';
+    return;
+  }
+  el.innerHTML = events.map(ev => {
+    const dotClass = { info:'dot-info', success:'dot-success', warn:'dot-warn',
+                       error:'dot-error', agent:'dot-agent' }[ev.level] || 'dot-info';
+    const time = ev.ts ? new Date(ev.ts).toLocaleTimeString('en-US',
+      { hour:'numeric', minute:'2-digit', hour12:true }) : '';
+    const msg = String(ev.message || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `
+      <div class="agent-event">
+        <div class="agent-event-dot ${dotClass}"></div>
+        <div class="agent-event-body">
+          <div class="agent-event-line">
+            <span class="agent-name">${ev.agent || 'Agent'}</span> — ${msg}
+          </div>
+          ${time ? `<div class="agent-event-time">${time}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  // Auto-scroll agents page log to show newest
+  if (containerId === 'agentsLog') el.scrollTop = 0;
+}
+
+/* ─── MANUAL TRIGGER ────────────────────────────────────────────── */
+async function triggerAgent(type) {
+  const rowInput = document.getElementById('triggerRow');
+  const rowNumber = rowInput ? parseInt(rowInput.value) : null;
+
+  if (!rowNumber || rowNumber < 2) {
+    toast('Enter a valid row number first (≥ 2)');
+    return;
+  }
+
+  // Visual feedback
+  const btns = document.querySelectorAll('.trigger-btn');
+  btns.forEach(b => { if (b.getAttribute('onclick')?.includes(type)) b.classList.add('running'); });
+  toast(`🤖 Firing ${type} on row ${rowNumber}…`, 2000);
+
+  try {
+    const res = await fetch('/webhook/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, rowNumber }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    toast(`✅ Agent triggered — watch the live feed`);
+  } catch (e) {
+    toast(`❌ Trigger failed: ${e.message}`, 3000);
+  }
+
+  setTimeout(() => {
+    btns.forEach(b => b.classList.remove('running'));
+  }, 3000);
+}
+
 /* ─── INIT ──────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
   navigate('dashboard');
   initPullToRefresh();
+  connectActivityStream();   // start SSE feed
 
   // Pre-load settings to get Calendly link
   api('/api/settings').then(s => {
