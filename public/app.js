@@ -763,9 +763,29 @@ async function showJobDetail(idx) {
       <div class="modal-section-label">Notes</div>
       <div class="notes-box">${notes}</div>
     </div>` : ''}
+
+    ${jobId ? `
+    <div class="modal-section">
+      <div class="modal-section-label">Client Status Page</div>
+      <div style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px">
+        <div style="flex:1;font-size:13px;color:var(--text2);word-break:break-all">${location.origin}/status/${jobId}</div>
+        <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0" onclick="copyStatusLink('${jobId}')">Copy</button>
+        <a href="/status/${jobId}" target="_blank" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0;text-decoration:none">Open ↗</a>
+      </div>
+    </div>` : ''}
   `;
 
   openModal('jobModal');
+}
+
+function copyStatusLink(jobId) {
+  const url = `${location.origin}/status/${jobId}`;
+  navigator.clipboard.writeText(url).then(() => toast('✅ Status link copied!')).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = url; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); document.body.removeChild(el);
+    toast('✅ Status link copied!');
+  });
 }
 
 /* ─── CHANGE JOB STATUS ─────────────────────────────────────────── */

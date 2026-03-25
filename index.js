@@ -891,6 +891,60 @@ app.post('/webhook/email-reply', (req, res) => {
   route('email_reply', data).catch(console.error);
 });
 
+// ─── CLIENT STATUS PAGE API ───────────────────────────────────────────────────
+app.get('/api/status/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const rows = await readTab('Jobs');
+    const job  = rows.find(r => (g(r,'Job ID') || '').toUpperCase() === jobId.toUpperCase());
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const settings = await readSettings();
+
+    // Load phases
+    const phaseRows = await readTab('Job Phases');
+    const phases = phaseRows
+      .filter(p => (g(p,'Job ID') || '').toUpperCase() === jobId.toUpperCase())
+      .map(p => ({
+        name:   g(p,'Phase','Phase Name') || '—',
+        trade:  g(p,'Trade','Assigned Trade') || '',
+        status: g(p,'Status','Phase Status') || 'Pending',
+        start:  g(p,'Start Date','Phase Start') || '',
+        end:    g(p,'End Date','Due Date','Phase End') || '',
+      }));
+
+    const totalPhases    = phases.length;
+    const completePhases = phases.filter(p => p.status.toLowerCase().includes('complete')).length;
+    const progressPct    = totalPhases > 0 ? Math.round((completePhases / totalPhases) * 100) : 0;
+
+    res.json({
+      company: {
+        name:  settings.companyName || 'Your Contractor',
+        phone: settings.phone || '',
+        email: settings.email || '',
+      },
+      job: {
+        id:          g(job,'Job ID') || jobId,
+        clientName:  `${g(job,'First Name')||''} ${g(job,'Last Name')||''}`.trim(),
+        projectType: g(job,'Service Type','Project Type') || 'Remodeling Project',
+        status:      g(job,'Job Status','Status') || 'In Progress',
+        startDate:   g(job,'Site Visit Date','Kickoff Date','Start Date') || '',
+        endDate:     g(job,'Est. Completion','Estimated End','End Date') || '',
+        lastUpdate:  g(job,'Last Client Update','Last Update') || '',
+        notes:       g(job,'Job Notes','Notes') || '',
+        address:     g(job,'Street Address','Address') || '',
+      },
+      phases,
+      progress: { total: totalPhases, complete: completePhases, pct: progressPct },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── CLIENT STATUS PAGE ───────────────────────────────────────────────────────
+app.get('/status/:jobId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'status.html'));
+});
+
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
