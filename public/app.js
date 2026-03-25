@@ -949,15 +949,18 @@ async function showJobDetail(idx) {
     <div class="modal-section">
       <div class="modal-section-label">Documents</div>
       ${[
-        {name:'Estimate', icon:'💰', link: estimateLink},
-        {name:'Proposal', icon:'📄', link: proposalLink},
-        {name:'Contract', icon:'📝', link: contractLink},
-        {name:'Kickoff Doc', icon:'🚀', link: kickoffLink},
+        {name:'Estimate',    icon:'💰', link:estimateLink, event:'generate_estimate'},
+        {name:'Proposal',    icon:'📄', link:proposalLink, event:'generate_proposal'},
+        {name:'Contract',    icon:'📝', link:contractLink, event:'generate_contract'},
+        {name:'Kickoff Doc', icon:'🚀', link:kickoffLink,  event:'plan_project'},
       ].map(d => `
         <div class="doc-link">
           <div class="doc-icon">${d.icon}</div>
           <div class="doc-name">${d.name}</div>
-          ${d.link ? `<a class="doc-btn" href="${d.link}" target="_blank">Open ↗</a>` : `<span style="font-size:12px;color:var(--text3)">No link</span>`}
+          ${d.link
+            ? `<a class="doc-btn" href="${d.link}" target="_blank">Open ↗</a>`
+            : `<button class="doc-btn" style="color:var(--gold);cursor:pointer"
+                 onclick="triggerDocGen('${d.event}',${row})">Generate</button>`}
         </div>
       `).join('')}
     </div>
@@ -1100,6 +1103,36 @@ async function changeJobStatus(newStatus, btn) {
     renderJobs();
   } catch {
     toast('⚠️ Could not update status');
+  }
+}
+
+/* ─── GENERATE DOCUMENT ─────────────────────────────────────────── */
+async function triggerDocGen(eventType, rowNumber) {
+  if (usingDemo) { toast('⚠️ Connect to Google Sheets to generate documents'); return; }
+  const btn = event?.target;
+  if (btn) { btn.textContent = '⏳ Generating…'; btn.disabled = true; }
+  try {
+    const res = await fetch('/webhook/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: eventType, rowNumber }),
+    });
+    if (res.ok) {
+      toast('✓ Agent started — doc will appear in a minute');
+      if (btn) { btn.textContent = '⏳ Working…'; }
+      // Refresh the job after 90s so the new link appears
+      setTimeout(() => {
+        delete loaded['jobs'];
+        allJobs = [];
+        if (document.querySelector('.page.active')?.id === 'page-jobs') loadJobs();
+      }, 90000);
+    } else {
+      toast('⚠️ Could not start agent');
+      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+    }
+  } catch {
+    toast('⚠️ Network error');
+    if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
   }
 }
 
