@@ -15,6 +15,16 @@ function getGmail() {
 }
 
 /**
+ * Encode a subject line for RFC 2822 — handles emojis and non-ASCII safely.
+ */
+function encodeSubject(subject) {
+  if (/[^\x00-\x7F]/.test(subject)) {
+    return `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`;
+  }
+  return subject;
+}
+
+/**
  * Send an email (plain text).
  * Returns { messageId, threadId }
  */
@@ -24,7 +34,7 @@ async function sendEmail({ to, subject, body, threadId = null, replyToMessageId 
   // Build RFC 2822 message
   const headers = [
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     'Content-Type: text/plain; charset=utf-8',
     'MIME-Version: 1.0',
   ];

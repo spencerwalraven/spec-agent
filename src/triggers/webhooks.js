@@ -33,7 +33,10 @@ const TALLY_FIELD_MAP = {
   'Tell us about your project':                      'Tell us about your project',
   'When are you hoping to get started?':             'Timeline',
   'What is your approximate budget for this project?': 'Budget',
-  'What is your address?':                           'Street Address', // handled specially below
+  'What is your address?':                           'Street Address',
+  'City':                                            'City',
+  'State':                                           'State',
+  'Zip Code':                                        'Zip Code',
   'How did you hear about us?':                      'How did you hear about us?',
 };
 
