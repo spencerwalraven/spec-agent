@@ -8,7 +8,7 @@
  */
 
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
-const { toolReadLead, toolUpdateLead, toolReadSettings, updateCell, appendRow, readRow } = require('../tools/sheets');
+const { toolReadLead, toolUpdateLead, toolReadSettings, updateCell, appendRow, readRow, getNextRep } = require('../tools/sheets');
 const { toolSendEmail, toolReadThread, sendEmail }                                         = require('../tools/gmail');
 const { toolNotifyOwner }                                                                   = require('../tools/notify');
 const { logger }                                                                            = require('../utils/logger');
@@ -142,6 +142,28 @@ class LeadAgent extends BaseAgent {
   // ── Handle a brand-new lead ──────────────────────────────────────────────
 
   async handleNewLead({ rowNumber }) {
+    // Get next rep in round-robin rotation BEFORE running the agent
+    const rep = await getNextRep();
+    const repName      = rep?.name        || null;
+    const repCalendly  = rep?.calendlyLink || null;
+    const repEmail     = rep?.email        || null;
+
+    // If a rep was assigned, store it in the lead record immediately
+    if (repName && rowNumber) {
+      try {
+        await updateCell('Leads', rowNumber, ['Assigned To', 'Sales Rep', 'Assigned Rep'], repName);
+      } catch (_) {} // column may not exist — not critical
+    }
+
+    const repBlock = repName
+      ? `
+ASSIGNED SALES REP (use this for the email — NOT the owner's info):
+- Rep Name: ${repName}
+- Rep Calendly Link: ${repCalendly || 'use the Calendly link from settings'}
+- Sign the email with: ${repName}
+`
+      : `Sign the email with the owner's name from settings.`;
+
     const systemPrompt = `
 You are an expert sales AI for a home remodeling company. Your job is to qualify new leads and send warm, personal outreach emails.
 
@@ -155,17 +177,19 @@ TASK — in this exact order:
 4. Update the lead's score field in the sheet
 5. Write and send a personalized outreach email:
    - Reference their specific project description by name
-   - Feel like it's personally written by the owner — warm, conversational, NOT salesy
-   - End with a clear call-to-action: book a consultation via the Calendly link
-   - Sign with the owner's name and company
+   - Feel like it's personally written — warm, conversational, NOT salesy
+   - End with a clear call-to-action: book a consultation via the Calendly link below
+   - Sign with the assigned rep's name (see below)
 6. Update lead status to "Contacted"
 7. Update last contact date to today
 8. If the score is Hot (≥80), notify the owner immediately
 
+${repBlock}
+
 IMPORTANT:
 - Write email in plain text, no markdown, no bullet points, no headers
 - Keep emails under 200 words — concise is better
-- Always read settings first so you have the owner name, Calendly link, and email signature
+- Use the ASSIGNED REP's Calendly link and name, not the owner's, unless no rep is assigned
     `.trim();
 
     const userMessage = `New lead arrived at row ${rowNumber}. Score them, send personalized outreach, and update the sheet.`;

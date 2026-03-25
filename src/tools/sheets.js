@@ -184,6 +184,93 @@ async function getLastRow(tabName) {
   return (res.data.values || []).length;
 }
 
+// ─── ROUND ROBIN REP ASSIGNMENT ──────────────────────────────────────────────
+
+/**
+ * Write a single key→value pair to the Settings tab.
+ * Finds the existing row for that key and updates it, or appends a new row.
+ */
+async function writeSettings(key, value) {
+  const sheets = getSheets();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: 'Settings!A1:B60',
+  });
+  const rows = res.data.values || [];
+  const rowIdx = rows.findIndex(r => r[0]?.trim() === key);
+  if (rowIdx !== -1) {
+    // Update existing row
+    const sheetRow = rowIdx + 1;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `Settings!B${sheetRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[value]] },
+    });
+  } else {
+    // Append new key-value row
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'Settings!A:B',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [[key, value]] },
+    });
+  }
+}
+
+/**
+ * Get the next sales rep in round-robin rotation.
+ * Reads Team tab for active reps with Calendly links.
+ * Tracks current index in Settings tab under "Round Robin Index".
+ * Returns { name, email, phone, calendlyLink } or null if no reps configured.
+ */
+async function getNextRep() {
+  try {
+    const rows = await readTab('Team');
+
+    // Filter to active reps who have a Calendly link (salespeople)
+    const reps = rows.filter(r => {
+      const active = g(r, 'Active', 'Status') || '';
+      const calendly = g(r, 'Calendly Link', 'Calendly URL', 'Calendly') || '';
+      const name = g(r, 'Name', 'Full Name', 'Employee Name', 'Salesperson') || '';
+      // Include if they have a name and calendly link, and aren't explicitly inactive
+      return name && calendly && !['no', 'inactive', 'false', 'off'].includes(active.toLowerCase());
+    });
+
+    if (!reps.length) return null;
+
+    // Get current index from Settings
+    const settings = await readSettings();
+    const raw = settings['Round Robin Index'] !== undefined
+      ? settings['Round Robin Index']
+      : (await (async () => {
+          const sheets = getSheets();
+          const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Settings!A1:B60' });
+          const rows2 = res.data.values || [];
+          const found = rows2.find(r => r[0]?.trim() === 'Round Robin Index');
+          return found ? found[1] : '0';
+        })());
+
+    const idx = parseInt(raw) || 0;
+    const rep = reps[idx % reps.length];
+
+    // Advance the index for next time
+    await writeSettings('Round Robin Index', String((idx + 1) % reps.length));
+
+    return {
+      name:        g(rep, 'Name', 'Full Name', 'Employee Name', 'Salesperson'),
+      email:       g(rep, 'Email', 'Email Address'),
+      phone:       g(rep, 'Phone', 'Phone Number', 'Cell'),
+      calendlyLink: g(rep, 'Calendly Link', 'Calendly URL', 'Calendly'),
+      role:        g(rep, 'Role', 'Title', 'Position') || 'Estimator',
+    };
+  } catch (err) {
+    console.warn('[sheets] getNextRep failed:', err.message);
+    return null;
+  }
+}
+
 // ─── AGENT TOOL WRAPPERS ─────────────────────────────────────────────────────
 // These are the functions the Anthropic agent tool-use loop calls.
 
@@ -236,7 +323,9 @@ async function toolAppendPhase({ data }) {
 module.exports = {
   // Core
   readTab, readRow, updateCell, updateRow, appendRow,
-  readSettings, findRowByEmail, getLastRow, g,
+  readSettings, writeSettings, findRowByEmail, getLastRow, g,
+  // Round robin
+  getNextRep,
   // Agent tool wrappers
   toolReadLead, toolReadJob, toolReadClient,
   toolUpdateLead, toolUpdateJob, toolUpdateClient,
