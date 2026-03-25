@@ -70,6 +70,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             subject: `💰 Payment Received — ${clientName}`,
             message: `${clientName} just paid $${amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${isFinal ? '(final invoice)' : '(deposit)'} via Stripe.\n\nJob: ${g(job,'Service Type','Project Type') || 'Project'}\nJob ID: ${jobId}\n\nThe sheet has been updated automatically.`,
             urgent: true,
+            eventType: 'paymentReceived',
           });
 
           logger.success('Stripe', `Payment recorded: ${clientName} paid $${amountPaid} (${isFinal ? 'final' : 'deposit'})`);
@@ -87,11 +88,34 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
-const COOKIE_NAME   = 'spec_auth';
-const SESS_SECRET   = process.env.SESSION_SECRET || 'spec-crm-secret-please-change';
+const COOKIE_NAME = 'spec_auth';
+const SESS_SECRET = process.env.SESSION_SECRET || 'spec-crm-secret-please-change';
 
-function signToken(pw) {
-  return crypto.createHmac('sha256', SESS_SECRET).update(pw).digest('hex');
+/**
+ * Parse configured users from env vars.
+ * LOGIN_USERS="name:password:role,name2:password2:role2"
+ * Roles: owner | sales | field
+ * Falls back to LOGIN_PASSWORD (treated as owner).
+ */
+function getUsers() {
+  const users = [];
+  if (process.env.LOGIN_USERS) {
+    process.env.LOGIN_USERS.split(',').forEach(entry => {
+      const parts = entry.trim().split(':');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        users.push({ name: parts[0].trim(), password: parts[1].trim(), role: (parts[2] || 'sales').trim() });
+      }
+    });
+  }
+  // Backward compat: single LOGIN_PASSWORD → owner
+  if (process.env.LOGIN_PASSWORD && !users.some(u => u.role === 'owner')) {
+    users.push({ name: 'Owner', password: process.env.LOGIN_PASSWORD, role: 'owner' });
+  }
+  return users;
+}
+
+function signUserToken(name, role, password) {
+  return crypto.createHmac('sha256', SESS_SECRET).update(`${name}|${role}|${password}`).digest('hex');
 }
 
 function parseCookies(req) {
@@ -103,10 +127,47 @@ function parseCookies(req) {
   return out;
 }
 
-function isAuthenticated(req) {
+/** Returns { name, role } or null. Supports legacy single-password cookies. */
+function getAuthSession(req) {
+  const cookie = parseCookies(req)[COOKIE_NAME] || '';
+  if (!cookie) return null;
+  const users = getUsers();
+  if (!users.length) return { name: 'Owner', role: 'owner' }; // no auth configured
+
+  // New cookie format: base64url(name).role.hmac
+  const parts = cookie.split('.');
+  if (parts.length === 3) {
+    const [b64, role, hmac] = parts;
+    let name;
+    try { name = Buffer.from(b64, 'base64url').toString(); } catch { return null; }
+    const user = users.find(u => u.name === name && u.role === role);
+    if (!user) return null;
+    if (hmac !== signUserToken(name, role, user.password)) return null;
+    return { name, role };
+  }
+
+  // Legacy format: bare hmac — check LOGIN_PASSWORD owner
   const pw = process.env.LOGIN_PASSWORD;
-  if (!pw) return true;  // No password set → open access (dev mode)
-  return parseCookies(req)[COOKIE_NAME] === signToken(pw);
+  if (pw) {
+    const legacy = crypto.createHmac('sha256', SESS_SECRET).update(pw).digest('hex');
+    if (cookie === legacy) return { name: 'Owner', role: 'owner' };
+  }
+  return null;
+}
+
+function isAuthenticated(req) {
+  const users = getUsers();
+  if (!users.length) return true; // dev mode — no auth configured
+  return getAuthSession(req) !== null;
+}
+
+function setSessionCookie(res, user) {
+  const b64  = Buffer.from(user.name).toString('base64url');
+  const hmac = signUserToken(user.name, user.role, user.password);
+  const val  = `${b64}.${user.role}.${hmac}`;
+  res.setHeader('Set-Cookie',
+    `${COOKIE_NAME}=${val}; HttpOnly; Path=/; Max-Age=${7 * 24 * 3600}; SameSite=Strict`
+  );
 }
 
 // Paths that never require a login
@@ -125,11 +186,33 @@ app.use((req, res, next) => {
            || req.path === '/favicon.ico'
            || req.path.endsWith('.png') || req.path.endsWith('.ico')
            || req.path.endsWith('.json'); // manifest.json
-  if (pub || isAuthenticated(req)) return next();
-  if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+
+  if (!pub && !isAuthenticated(req)) {
+    if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    return res.redirect('/login');
   }
-  res.redirect('/login');
+
+  // Role-based restrictions — non-owners can't write settings or toggle team
+  const session = getAuthSession(req);
+  if (session && session.role !== 'owner') {
+    if (req.method === 'POST' && req.path === '/api/settings') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+    if (req.method === 'POST' && /^\/api\/team\/\d+\/toggle/.test(req.path)) {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+  }
+
+  next();
+});
+
+// Who am I?
+app.get('/api/me', (req, res) => {
+  const session = getAuthSession(req);
+  if (!session) return res.status(401).json({ error: 'Unauthorized' });
+  res.json(session);
 });
 
 // Login page
@@ -141,12 +224,17 @@ app.get('/login', (req, res) => {
 // Login form submit
 app.post('/login', (req, res) => {
   const { password } = req.body;
-  const pw = process.env.LOGIN_PASSWORD;
-  if (!pw || password === pw) {
-    const maxAge = 7 * 24 * 3600; // 7 days
-    res.setHeader('Set-Cookie',
-      `${COOKIE_NAME}=${signToken(pw || '')}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Strict`
-    );
+  const users = getUsers();
+
+  if (!users.length) {
+    // No auth configured — set open owner session
+    setSessionCookie(res, { name: 'Owner', role: 'owner', password: '' });
+    return res.redirect('/');
+  }
+
+  const user = users.find(u => u.password === password);
+  if (user) {
+    setSessionCookie(res, user);
     return res.redirect('/');
   }
   res.redirect('/login?error=1');
@@ -218,12 +306,17 @@ async function readSettings() {
     const sheets = getSheets();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: 'Settings!A1:B50',
+      range: 'Settings!A1:B80',
     });
     const rows = res.data.values || [];
     const map = {};
     rows.forEach(r => {
-      if (r[0] && r[1] && !String(r[0]).startsWith('▸')) map[r[0].trim()] = r[1];
+      if (r[0] && r[1] !== undefined && !String(r[0]).startsWith('▸')) map[r[0].trim()] = String(r[1]).trim();
+    });
+    // Collect "Notify: X" preference keys
+    const notifyPrefs = {};
+    Object.entries(map).forEach(([k, v]) => {
+      if (k.startsWith('Notify: ')) notifyPrefs[k] = v.toLowerCase();
     });
     return {
       companyName:      map['Company Name']               || '',
@@ -234,29 +327,41 @@ async function readSettings() {
       calendlyLink:     map['Calendly Link']              || '',
       googleReviewLink: map['Google Review Link']         || '',
       emailSignature:   map['Email Signature']            || '',
+      emailTone:        map['Email Tone']                 || '',
+      aboutUs:          map['About Us']                   || '',
+      keySellingPoints: map['Key Selling Points']         || '',
+      notifyPrefs,
     };
   } catch (e) { return {}; }
 }
 
-// Write Settings — update specific labeled rows in column B
+// Write Settings — update existing rows or append new ones
 async function writeSettings(data) {
   const sheets = getSheets();
-  // Read to find the row index of each label
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID, range: 'Settings!A1:A50',
+    spreadsheetId: SHEET_ID, range: 'Settings!A1:A80',
   });
-  const labels = (res.data.values || []).map(r => (r[0] || '').trim());
+  const existingRows = res.data.values || [];
+  const labels = existingRows.map(r => (r[0] || '').trim());
+
   const writeMap = {
-    'Company Name':              data.companyName      || '',
-    'Owner / Salesperson Name':  data.ownerName        || '',
-    'Company Phone':             data.phone            || '',
-    'Company Email':             data.email            || '',
-    'Company Address':           data.address          || '',
-    'Calendly Link':             data.calendlyLink     || '',
-    'Google Review Link':        data.googleReviewLink || '',
-    'Email Signature':           data.emailSignature   || '',
+    'Company Name':              data.companyName      ?? '',
+    'Owner / Salesperson Name':  data.ownerName        ?? '',
+    'Company Phone':             data.phone            ?? '',
+    'Company Email':             data.email            ?? '',
+    'Company Address':           data.address          ?? '',
+    'Calendly Link':             data.calendlyLink     ?? '',
+    'Google Review Link':        data.googleReviewLink ?? '',
+    'Email Signature':           data.emailSignature   ?? '',
+    'Email Tone':                data.emailTone        ?? '',
+    'About Us':                  data.aboutUs          ?? '',
+    'Key Selling Points':        data.keySellingPoints ?? '',
+    ...Object.fromEntries(Object.entries(data.notifyPrefs || {}).map(([k, v]) => [k, v])),
   };
+
+  const toAppend = [];
   for (const [label, value] of Object.entries(writeMap)) {
+    if (!label) continue;
     const rowIdx = labels.indexOf(label);
     if (rowIdx !== -1) {
       await sheets.spreadsheets.values.update({
@@ -265,7 +370,20 @@ async function writeSettings(data) {
         valueInputOption: 'RAW',
         requestBody: { values: [[value]] },
       });
+    } else {
+      // Key doesn't exist yet — batch append after the loop
+      toAppend.push([label, value]);
     }
+  }
+
+  if (toAppend.length) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'Settings!A:B',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: toAppend },
+    });
   }
 }
 
@@ -1007,6 +1125,7 @@ app.post('/api/jobs/:row/field-issue', async (req, res) => {
       subject: `⚠️ Issue Flagged — ${clientName} ${projectType}`,
       message: `A field issue was flagged on the ${clientName} job (row ${row}).\n\nSeverity: ${severity || 'Unknown'}\n\nIssue: ${issue}\n\nLogged at: ${timestamp}`,
       urgent: true,
+      eventType: 'fieldIssue',
     });
 
     res.json({ ok: true });
@@ -1101,6 +1220,7 @@ app.get('/api/change-order/approve/:token', async (req, res) => {
       subject: `✅ Change Order Approved — ${g(co, 'Client Name')}`,
       message: `${g(co, 'Client Name')} approved the change order.\n\nChange: ${g(co, 'Description')}\nCost Impact: +$${costImpact.toLocaleString()}\nTimeline: +${g(co, 'Timeline Impact') || 0} days\n\nJob value has been updated automatically.`,
       urgent: true,
+      eventType: 'changeOrder',
     });
 
     res.send(changeOrderResponsePage('approved', co, companyName));
@@ -1127,6 +1247,7 @@ app.get('/api/change-order/decline/:token', async (req, res) => {
       subject: `❌ Change Order Declined — ${g(co, 'Client Name')}`,
       message: `${g(co, 'Client Name')} declined the change order.\n\nChange: ${g(co, 'Description')}\nCost Impact: $${g(co, 'Cost Impact') || 0}\n\nFollow up with the client to discuss alternatives.`,
       urgent: true,
+      eventType: 'changeOrder',
     });
 
     res.send(changeOrderResponsePage('declined', co, companyName));
@@ -1449,6 +1570,7 @@ app.get('/api/proposal/approve/:token', async (req, res) => {
       subject: `🎉 Proposal Approved — ${clientName}!`,
       message: `${clientName} just approved their ${projectType} proposal!\n\nJob Value: ${jobValue ? '$' + jobValue : 'TBD'}\n\nThe contract is being generated now and will be ready for your review shortly.`,
       urgent: true,
+      eventType: 'proposalApproved',
     });
 
     res.send(proposalResponsePage('approved', job, companyName));
@@ -1479,6 +1601,7 @@ app.get('/api/proposal/decline/:token', async (req, res) => {
       subject: `Proposal Declined — ${clientName}`,
       message: `${clientName} declined their ${projectType} proposal.\n\nThis sometimes means they need more time or have questions — worth a personal follow-up call.\n\nJob status updated to Lost.`,
       urgent: false,
+      eventType: 'proposalDeclined',
     });
 
     res.send(proposalResponsePage('declined', job, companyName));
@@ -1807,6 +1930,7 @@ app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
       subject: `🗓️ Kickoff Date Confirmed — ${clientFirst}!`,
       message: `${clientFirst} selected ${fmtDate} as their ${projectType} kickoff date.\n\nJob record has been updated. Make sure your crew is ready!`,
       urgent: true,
+      eventType: 'kickoffConfirmed',
     });
 
     // Send confirmation to client

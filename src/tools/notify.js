@@ -1,20 +1,44 @@
 /**
  * Owner notification tool — sends email + optional SMS to the business owner.
+ *
+ * Notification preferences (stored in Settings tab):
+ *   Notify: <EventName> → "both" | "email" | "sms" | "none"
+ *
+ * Event names map to eventType param:
+ *   newLead, proposalApproved, proposalDeclined, paymentReceived,
+ *   kickoffConfirmed, changeOrder, fieldIssue, jobComplete
  */
 
 const { sendEmail }          = require('./gmail');
 const { readSettings }       = require('./sheets');
 const { textOwner, sendSms } = require('./sms');
 
+// Map camelCase eventType keys to Settings tab label prefixes
+const EVENT_LABELS = {
+  newLead:          'New Lead',
+  proposalApproved: 'Proposal Approved',
+  proposalDeclined: 'Proposal Declined',
+  paymentReceived:  'Payment Received',
+  kickoffConfirmed: 'Kickoff Confirmed',
+  changeOrder:      'Change Order',
+  fieldIssue:       'Field Issue',
+  jobComplete:      'Job Complete',
+};
+
 /**
- * Send an alert email to the owner.
- * If urgent=true, also sends a text message.
+ * Send an alert email/SMS to the owner.
+ * @param {string}  subject
+ * @param {string}  message
+ * @param {string}  [ownerEmail]  - override; reads from settings if omitted
+ * @param {boolean} [urgent]      - send SMS in addition to email (default behavior)
+ * @param {string}  [eventType]   - if set, checks notification preference from Settings
  */
-async function notifyOwner({ subject, message, ownerEmail = null, urgent = false }) {
+async function notifyOwner({ subject, message, ownerEmail = null, urgent = false, eventType = null }) {
   const settings = await readSettings().catch(err => {
     console.error('[notify] Failed to read settings:', err.message);
     return {};
   });
+
   if (!ownerEmail) ownerEmail = settings.ownerEmail || settings.email;
   const ownerPhone = settings.phone;
 
@@ -23,31 +47,51 @@ async function notifyOwner({ subject, message, ownerEmail = null, urgent = false
     return 'Notification skipped (no owner email configured)';
   }
 
-  // Always send email
-  try {
-    await sendEmail({
-      to:      ownerEmail,
-      subject: `🔔 SPEC CRM Alert: ${subject}`,
-      body:    message,
-    });
-  } catch (emailErr) {
-    console.error('[notify] Failed to send owner email:', emailErr.message);
-    return `Owner email failed: ${emailErr.message}`;
+  // Resolve notification preference for this event type
+  let pref = null; // null = use default behavior
+  if (eventType && EVENT_LABELS[eventType]) {
+    const label = `Notify: ${EVENT_LABELS[eventType]}`;
+    pref = (settings.notifyPrefs || {})[label] || null;
   }
 
-  // Send SMS for urgent alerts
-  if (urgent && ownerPhone) {
+  // "none" — suppress entirely
+  if (pref === 'none') {
+    console.log(`[notify] Suppressed (pref=none) for event: ${eventType}`);
+    return 'Notification suppressed by preference';
+  }
+
+  const sendSMSOnly  = pref === 'sms';
+  const sendBoth     = pref === 'both' || (!pref && urgent);
+  const sendEmailOnly = pref === 'email' || (!pref && !urgent);
+
+  // Send SMS if preference is "sms" or "both" (or legacy urgent=true)
+  if ((sendSMSOnly || sendBoth) && ownerPhone) {
     try {
-      const phone = ownerPhone.replace(/\D/g, '');
-      const e164  = phone.startsWith('1') ? `+${phone}` : `+1${phone}`;
-      const smsBody = `🔔 SPEC CRM: ${subject}\n\n${message.slice(0, 280)}`;
+      const phone   = ownerPhone.replace(/\D/g, '');
+      const e164    = phone.startsWith('1') ? `+${phone}` : `+1${phone}`;
+      const smsBody = `🔔 ${subject}\n\n${message.slice(0, 280)}`;
       await sendSms(e164, smsBody);
     } catch (smsErr) {
       console.warn('[notify] SMS failed (non-fatal):', smsErr.message);
     }
+    if (sendSMSOnly) return 'Owner notified via SMS';
   }
 
-  return `Owner notified at ${ownerEmail}${urgent && ownerPhone ? ' + text sent' : ''}`;
+  // Send email (default, or when pref is "email" or "both")
+  if (!sendSMSOnly) {
+    try {
+      await sendEmail({
+        to:      ownerEmail,
+        subject: `🔔 CRM Alert: ${subject}`,
+        body:    message,
+      });
+    } catch (emailErr) {
+      console.error('[notify] Failed to send owner email:', emailErr.message);
+      return `Owner email failed: ${emailErr.message}`;
+    }
+  }
+
+  return `Owner notified at ${ownerEmail}${sendBoth && ownerPhone ? ' + text sent' : ''}`;
 }
 
 /**

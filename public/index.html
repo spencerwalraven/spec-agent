@@ -932,7 +932,73 @@
         </div>
       </div>
 
+      <!-- ── BUSINESS PROFILE ───────────────────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-label">AI Business Profile</div>
+        <div class="settings-row">
+          <div class="settings-field">
+            <span class="sfield-icon">🎙️</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Email Tone</div>
+              <select id="sEmailTone" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
+                <option value="">Default (professional)</option>
+                <option value="warm and professional">Warm &amp; Professional</option>
+                <option value="friendly and conversational">Friendly &amp; Conversational</option>
+                <option value="casual and personable">Casual &amp; Personable</option>
+                <option value="formal and polished">Formal &amp; Polished</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-field">
+            <span class="sfield-icon">🏢</span>
+            <div class="sfield-body">
+              <div class="sfield-label">About Us <span style="font-size:11px;color:var(--text3)">(injected into AI emails)</span></div>
+              <textarea id="sAboutUs" rows="3" placeholder="Family-owned since 2005. We specialize in kitchen and bath remodels with a focus on quality and communication..." style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;resize:vertical;padding:4px 0;line-height:1.5"></textarea>
+            </div>
+          </div>
+          <div class="settings-field">
+            <span class="sfield-icon">⭐</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Key Selling Points <span style="font-size:11px;color:var(--text3)">(highlighted in proposals)</span></div>
+              <textarea id="sKeyPoints" rows="3" placeholder="20-year warranty on all work&#10;Licensed, bonded, and insured&#10;Always on-time and on-budget..." style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;resize:vertical;padding:4px 0;line-height:1.5"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── NOTIFICATION PREFERENCES ──────────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-label">Notification Preferences</div>
+        <div class="settings-row" id="notifyPrefsRow">
+          <div style="padding:12px 16px;font-size:13px;color:var(--text3)">Loading…</div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);padding:6px 4px 0">
+          <strong>both</strong> = email + text &nbsp;·&nbsp; <strong>email</strong> = email only &nbsp;·&nbsp; <strong>sms</strong> = text only &nbsp;·&nbsp; <strong>none</strong> = silent
+        </div>
+      </div>
+
       <button class="btn btn-primary btn-full" onclick="saveSettings()">💾 Save Settings</button>
+
+      <!-- ── USERS / TEAM ACCESS ────────────────────────────────────── -->
+      <div class="settings-section" style="margin-top:8px">
+        <div class="settings-label">Team Access</div>
+        <div class="settings-row">
+          <div class="settings-field">
+            <span class="sfield-icon">👥</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Multi-User Setup</div>
+              <div style="font-size:13px;color:var(--text3);line-height:1.5;padding:4px 0">Set <strong style="color:var(--text)">LOGIN_USERS</strong> in your Railway environment:<br><code style="background:var(--card2);padding:2px 6px;border-radius:4px;font-size:12px">name:password:role,name2:pass2:sales</code><br>Roles: <strong style="color:var(--text)">owner</strong> · <strong style="color:var(--text)">sales</strong> · <strong style="color:var(--text)">field</strong></div>
+            </div>
+          </div>
+          <div class="settings-field" id="currentUserField">
+            <span class="sfield-icon">🔑</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Logged In As</div>
+              <div id="currentUserDisplay" style="font-size:15px;font-weight:600;color:var(--text)">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="settings-section" style="margin-top:8px">
         <div class="settings-label">About</div>

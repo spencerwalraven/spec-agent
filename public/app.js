@@ -197,12 +197,18 @@ async function refreshAll() {
 /* ─── DASHBOARD ─────────────────────────────────────────────────── */
 async function loadDashboard() {
   document.getElementById('greetSub').textContent = greet();
-  const data = await api('/api/summary');
+  const [data, me] = await Promise.all([api('/api/summary'), api('/api/me').catch(() => null)]);
   if (!data) return;
 
   const cn = data.companyName || '—';
   document.getElementById('companyName').textContent = cn;
   if (cn !== '—') document.title = cn + ' CRM';
+
+  // Show logged-in user name in greeting if not owner or if multi-user
+  if (me && me.name && me.name !== 'Owner') {
+    const greetEl = document.getElementById('greetSub');
+    if (greetEl) greetEl.textContent = `${greet()}, ${me.name}`;
+  }
 
   // KPI cards
   const kpiGrid = document.getElementById('kpiGrid');
@@ -1530,8 +1536,20 @@ function relTime(str) {
 }
 
 /* ─── SETTINGS PAGE ─────────────────────────────────────────────── */
+// Notification event label → Settings tab key
+const NOTIFY_EVENTS = [
+  { key: 'Notify: New Lead',          label: 'New Lead',          icon: '👋' },
+  { key: 'Notify: Proposal Approved', label: 'Proposal Approved', icon: '🎉' },
+  { key: 'Notify: Proposal Declined', label: 'Proposal Declined', icon: '❌' },
+  { key: 'Notify: Payment Received',  label: 'Payment Received',  icon: '💰' },
+  { key: 'Notify: Kickoff Confirmed', label: 'Kickoff Confirmed', icon: '🗓️' },
+  { key: 'Notify: Change Order',      label: 'Change Order',      icon: '📝' },
+  { key: 'Notify: Field Issue',       label: 'Field Issue',       icon: '⚠️' },
+  { key: 'Notify: Job Complete',      label: 'Job Complete',      icon: '✅' },
+];
+
 async function loadSettings() {
-  const s = await api('/api/settings');
+  const [s, me] = await Promise.all([api('/api/settings'), api('/api/me').catch(() => null)]);
   if (!s) return;
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||''; };
   set('sCompanyName', s.companyName);
@@ -1542,21 +1560,69 @@ async function loadSettings() {
   set('sCalendly',    s.calendlyLink);
   set('sReviewLink',  s.googleReviewLink);
   set('sSignature',   s.emailSignature);
+  // Business profile
+  set('sEmailTone',   s.emailTone);
+  set('sAboutUs',     s.aboutUs);
+  set('sKeyPoints',   s.keySellingPoints);
   // Cache calendly link globally for use in lead modal
   _calendlyLink = s.calendlyLink || s.calendly_link || '';
+
+  // Notification preferences
+  const prefs = s.notifyPrefs || {};
+  const notifyRow = document.getElementById('notifyPrefsRow');
+  if (notifyRow) {
+    notifyRow.innerHTML = NOTIFY_EVENTS.map(ev => {
+      const val = prefs[ev.key] || 'email';
+      return `<div class="settings-field">
+        <span class="sfield-icon">${ev.icon}</span>
+        <div class="sfield-body">
+          <div class="sfield-label">${ev.label}</div>
+          <select data-notify-key="${ev.key}" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
+            <option value="both"  ${val==='both'  ?'selected':''}>Both (email + text)</option>
+            <option value="email" ${val==='email' ?'selected':''}>Email only</option>
+            <option value="sms"   ${val==='sms'   ?'selected':''}>Text only</option>
+            <option value="none"  ${val==='none'  ?'selected':''}>None (silent)</option>
+          </select>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Show current user
+  if (me) {
+    const el = document.getElementById('currentUserDisplay');
+    if (el) el.textContent = `${me.name} (${me.role})`;
+  }
+
+  // Hide settings write for non-owner
+  if (me && me.role !== 'owner') {
+    document.querySelectorAll('#page-settings input, #page-settings select, #page-settings textarea').forEach(el => el.disabled = true);
+    document.querySelectorAll('#page-settings button').forEach(el => el.style.display = 'none');
+  }
 }
 
 async function saveSettings() {
   const get = id => document.getElementById(id)?.value || '';
+
+  // Collect notification preferences from dynamic dropdowns
+  const notifyPrefs = {};
+  document.querySelectorAll('[data-notify-key]').forEach(el => {
+    notifyPrefs[el.dataset.notifyKey] = el.value;
+  });
+
   const body = {
-    companyName:   get('sCompanyName'),
-    phone:         get('sPhone'),
-    email:         get('sEmail'),
-    address:       get('sAddress'),
-    ownerName:     get('sOwnerName'),
-    calendlyLink:  get('sCalendly'),
+    companyName:      get('sCompanyName'),
+    phone:            get('sPhone'),
+    email:            get('sEmail'),
+    address:          get('sAddress'),
+    ownerName:        get('sOwnerName'),
+    calendlyLink:     get('sCalendly'),
     googleReviewLink: get('sReviewLink'),
-    emailSignature: get('sSignature'),
+    emailSignature:   get('sSignature'),
+    emailTone:        get('sEmailTone'),
+    aboutUs:          get('sAboutUs'),
+    keySellingPoints: get('sKeyPoints'),
+    notifyPrefs,
   };
   try {
     if (!usingDemo) {

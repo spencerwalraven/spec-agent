@@ -152,13 +152,20 @@ async function readSettings() {
   const sheets = getSheets();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: 'Settings!A1:B60',
+    range: 'Settings!A1:B80',
   });
   const rows = res.data.values || [];
   const map = {};
   rows.forEach(r => {
-    if (r[0] && r[1] && !String(r[0]).startsWith('▸')) map[r[0].trim()] = r[1].trim();
+    if (r[0] && r[1] !== undefined && !String(r[0]).startsWith('▸')) map[r[0].trim()] = String(r[1]).trim();
   });
+
+  // Collect all "Notify: X" preference entries into a sub-object
+  const notifyPrefs = {};
+  Object.entries(map).forEach(([k, v]) => {
+    if (k.startsWith('Notify: ')) notifyPrefs[k] = v.toLowerCase();
+  });
+
   return {
     companyName:      map['Company Name']                || '',
     ownerName:        map['Owner / Salesperson Name']    || '',
@@ -171,6 +178,12 @@ async function readSettings() {
     ownerEmail:       map['Owner Email']                 || map['Company Email'] || '',
     leadReplyDelay:   map['Lead Reply Delay']            || '3',
     clientReplyDelay: map['Client Reply Delay']          || '1',
+    // Business profile — injected into AI prompts
+    emailTone:        map['Email Tone']                  || '',
+    aboutUs:          map['About Us']                    || '',
+    keySellingPoints: map['Key Selling Points']          || '',
+    // Notification preferences keyed by "Notify: X" → "both"|"email"|"sms"|"none"
+    notifyPrefs,
   };
 }
 
@@ -307,7 +320,20 @@ async function toolUpdateClient({ rowNumber, field, value }) {
 
 async function toolReadSettings() {
   const s = await readSettings();
-  return JSON.stringify(s, null, 2);
+  // Build communication guidelines from business profile fields so agents
+  // automatically incorporate them without each prompt needing explicit instructions.
+  const guidelines = [];
+  if (s.emailTone)        guidelines.push(`Write all emails in a ${s.emailTone} tone.`);
+  if (s.aboutUs)          guidelines.push(`Company background to weave in naturally: ${s.aboutUs}`);
+  if (s.keySellingPoints) guidelines.push(`Key selling points to highlight when relevant: ${s.keySellingPoints}`);
+
+  const output = { ...s };
+  if (guidelines.length) {
+    output._communication_guidelines = guidelines.join(' ');
+  }
+  // Don't expose internal notifyPrefs object to AI — it's not actionable
+  delete output.notifyPrefs;
+  return JSON.stringify(output, null, 2);
 }
 
 async function toolReadPhases({ jobId }) {
