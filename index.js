@@ -450,7 +450,7 @@ app.get('/api/summary', async (req, res) => {
     });
 
     res.json({
-      companyName: settings.companyName || 'SPEC Systems',
+      companyName: settings.companyName || '',
       newLeadsThisMonth: newLeadsThisMonth || 0,
       activeJobs,
       pipelineValue,
@@ -634,6 +634,7 @@ app.post('/api/phases/:row/actual-cost', async (req, res) => {
 app.post('/api/phases/:row/status', async (req, res) => {
   try {
     const rowNum = parseInt(req.params.row);
+    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
     const { status } = req.body;
     const ok = await updateCell('Job Phases', rowNum, 'Status', status);
     if (status === 'Complete') {
@@ -709,6 +710,7 @@ app.get('/api/team', async (req, res) => {
 app.post('/api/team/:row/toggle', async (req, res) => {
   try {
     const rowNum = parseInt(req.params.row);
+    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
     const { active } = req.body;
     const ok = await updateCell('Team', rowNum, 'Active', active ? 'Yes' : 'No');
     res.json({ success: ok });
@@ -851,6 +853,7 @@ app.get('/api/marketing', async (req, res) => {
 app.post('/api/marketing/:row/launch', async (req, res) => {
   try {
     const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
     await updateCell('Marketing Library', row, ['Status', 'Campaign Status'], 'Launched');
     // Also try to write today's date to Launch Date
     try {
@@ -1927,7 +1930,7 @@ app.post('/api/jobs/:row/sync-calendar', async (req, res) => {
     const kickoffDate = g(job,'Site Visit Date','Kickoff Date','Start Date');
     if (kickoffDate) {
       const r = await calendarTool.createKickoffEvent(job, kickoffDate);
-      created++; links.push(r.eventLink);
+      if (r) { created++; if (r.eventLink) links.push(r.eventLink); }
     }
 
     // Phase events
@@ -1987,7 +1990,7 @@ app.get('/ping', (req, res) => res.send('pong'));
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ SPEC Systems CRM running on port ${PORT}`);
+  console.log(`✅ CRM running on port ${PORT}`);
   // Start cron scheduler after server is up
   if (startScheduler) {
     try { startScheduler(); }

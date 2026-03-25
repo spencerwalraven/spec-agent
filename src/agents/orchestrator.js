@@ -59,7 +59,8 @@ async function route(type, payload = {}) {
 
       case 'email_reply': {
         // Determine if this is a lead or active client
-        const email = payload.from?.match(/<(.+)>/)?.[1] || payload.from || payload.email;
+        const fromStr = typeof payload.from === 'string' ? payload.from : (payload.email || '');
+        const email = fromStr.match(/<(.+)>/)?.[1] || fromStr || payload.email;
         if (!email) { logger.warn('Orchestrator', 'No sender email in email_reply event'); return; }
 
         // Check Leads first

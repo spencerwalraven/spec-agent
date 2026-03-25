@@ -7,6 +7,7 @@ require('dotenv').config();
 const { google } = require('googleapis');
 
 const SHEET_ID = process.env.SHEET_ID;
+if (!SHEET_ID) console.error('⚠️  SHEET_ID env var is not set — all Sheets API calls will fail');
 
 function getSheets() {
   const auth = new google.auth.OAuth2(
@@ -70,8 +71,9 @@ async function readRow(tabName, rowNumber) {
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tabName}!1:1` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tabName}!A${rowNumber}:CZ${rowNumber}` }),
   ]);
-  const headers = (hRes.data.values || [[]])[0];
+  const headers = (hRes.data.values || [[]])[0] || [];
   const row     = (rRes.data.values || [[]])[0] || [];
+  if (!headers.length) return { _row: rowNumber };
   const obj = { _row: rowNumber };
   headers.forEach((h, i) => { obj[h] = row[i] || ''; });
   return obj;

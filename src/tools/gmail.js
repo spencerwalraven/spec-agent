@@ -108,11 +108,12 @@ async function searchMessages(query, maxResults = 20) {
 
 // ─── HELPER ──────────────────────────────────────────────────────────────────
 
-function extractBody(payload) {
-  if (!payload) return '';
+function extractBody(payload, depth = 0) {
+  if (!payload || depth > 10) return '';
   // Prefer text/plain
   if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    try { return Buffer.from(payload.body.data, 'base64').toString('utf-8'); }
+    catch (_) { return ''; }
   }
   // Walk parts
   if (payload.parts) {

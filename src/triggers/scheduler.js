@@ -163,7 +163,7 @@ async function runDailyBriefing() {
     });
     const ownerEmail = settingsMap['Company Email'] || settingsMap['Gmail Send-From Address'] || '';
     const ownerName  = settingsMap['Owner / Salesperson Name'] || 'there';
-    const companyName= settingsMap['Company Name'] || 'SPEC Systems';
+    const companyName= settingsMap['Company Name'] || 'Your Company';
     if (!ownerEmail) { logger.warn('Scheduler', 'No owner email for daily briefing'); return; }
 
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });

@@ -11,7 +11,10 @@ const { textOwner, sendSms } = require('./sms');
  * If urgent=true, also sends a text message.
  */
 async function notifyOwner({ subject, message, ownerEmail = null, urgent = false }) {
-  const settings = await readSettings().catch(() => ({}));
+  const settings = await readSettings().catch(err => {
+    console.error('[notify] Failed to read settings:', err.message);
+    return {};
+  });
   if (!ownerEmail) ownerEmail = settings.ownerEmail || settings.email;
   const ownerPhone = settings.phone;
 
@@ -21,11 +24,16 @@ async function notifyOwner({ subject, message, ownerEmail = null, urgent = false
   }
 
   // Always send email
-  await sendEmail({
-    to:      ownerEmail,
-    subject: `🔔 SPEC CRM Alert: ${subject}`,
-    body:    message,
-  });
+  try {
+    await sendEmail({
+      to:      ownerEmail,
+      subject: `🔔 SPEC CRM Alert: ${subject}`,
+      body:    message,
+    });
+  } catch (emailErr) {
+    console.error('[notify] Failed to send owner email:', emailErr.message);
+    return `Owner email failed: ${emailErr.message}`;
+  }
 
   // Send SMS for urgent alerts
   if (urgent && ownerPhone) {
@@ -46,10 +54,16 @@ async function notifyOwner({ subject, message, ownerEmail = null, urgent = false
  * Send a text directly to a client or sub.
  */
 async function textPerson({ to, message }) {
-  const phone = (to || '').replace(/\D/g, '');
-  if (!phone) return 'No phone number provided';
+  if (!to || typeof to !== 'string') return 'No valid phone number provided';
+  const phone = to.replace(/\D/g, '');
+  if (phone.length < 10) return 'Phone number too short';
   const e164 = phone.startsWith('1') ? `+${phone}` : `+1${phone}`;
-  return await sendSms(e164, message);
+  try {
+    return await sendSms(e164, message);
+  } catch (err) {
+    console.warn('[notify] SMS to client failed (non-fatal):', err.message);
+    return `SMS failed: ${err.message}`;
+  }
 }
 
 // ─── AGENT TOOL WRAPPERS ──────────────────────────────────────────────────────

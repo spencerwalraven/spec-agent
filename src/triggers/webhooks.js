@@ -179,7 +179,13 @@ router.post('/gmail-push', async (req, res) => {
     // Decode the Pub/Sub envelope
     const b64 = req.body?.message?.data;
     if (!b64) return;
-    const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+    let payload;
+    try {
+      payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+    } catch (decodeErr) {
+      logger.warn('Webhook', `Gmail push: failed to decode payload — ${decodeErr.message}`);
+      return;
+    }
     const { historyId, emailAddress } = payload;
     if (!historyId) return;
 
@@ -193,10 +199,12 @@ router.post('/gmail-push', async (req, res) => {
 
     for (const msg of messages) {
       const parsed = parseMessage(msg);
+      if (!parsed) continue;
 
       // Skip sent messages (from us) and drafts
-      if (parsed.labelIds.includes('SENT'))  continue;
-      if (parsed.labelIds.includes('DRAFT')) continue;
+      const labelIds = parsed.labelIds || [];
+      if (labelIds.includes('SENT'))  continue;
+      if (labelIds.includes('DRAFT')) continue;
 
       // Dedup — skip if we've already queued this message
       if (isDuplicate(parsed.messageId)) {
