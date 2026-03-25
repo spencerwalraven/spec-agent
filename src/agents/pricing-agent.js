@@ -114,33 +114,40 @@ const EXECUTORS = {
   },
 
   fetch_material_prices: async ({ material, location }) => {
-    // Use fetch to get pricing context from search
+    const apiKey = process.env.TAVILY_API_KEY;
+    if (!apiKey) {
+      return `Use your training knowledge for typical 2024-2025 US market costs for: ${material}${location ? ` in ${location}` : ''}`;
+    }
     try {
-      const query = encodeURIComponent(`${material} cost price 2024 2025 ${location || ''}`);
-      // Fetch DuckDuckGo instant answer / search snippet
-      const res = await fetch(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(8000),
+      const query = `${material} cost price per unit installed 2024 2025${location ? ` ${location}` : ' Midwest USA'}`;
+      const res = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key:      apiKey,
+          query,
+          search_depth: 'basic',
+          max_results:  5,
+          include_answer: true,
+        }),
+        signal: AbortSignal.timeout(10000),
       });
       const data = await res.json();
 
-      // Extract useful pricing context
       const snippets = [];
-      if (data.Abstract)      snippets.push(data.Abstract);
-      if (data.AbstractText)  snippets.push(data.AbstractText);
-      if (data.Answer)        snippets.push(`Answer: ${data.Answer}`);
-      if (data.RelatedTopics?.length) {
-        data.RelatedTopics.slice(0, 3).forEach(t => {
-          if (t.Text) snippets.push(t.Text);
+      if (data.answer) snippets.push(`Summary: ${data.answer}`);
+      if (data.results?.length) {
+        data.results.slice(0, 4).forEach(r => {
+          if (r.content) snippets.push(`[${r.title}] ${r.content.slice(0, 300)}`);
         });
       }
 
       const result = snippets.length
-        ? snippets.join('\n')
-        : `No instant data found. Use your training knowledge for typical 2024-2025 costs for: ${material}`;
+        ? snippets.join('\n\n')
+        : `No results found. Use training knowledge for: ${material}`;
 
-      logger.info('PricingAgent', `Material search: "${material}" → ${result.slice(0, 100)}…`);
-      return result || `Use typical market rates for ${material} in ${location || 'Midwest USA'}`;
+      logger.info('PricingAgent', `Tavily search: "${material.slice(0, 60)}" → ${result.slice(0, 100)}…`);
+      return result;
     } catch (err) {
       logger.warn('PricingAgent', `fetch_material_prices failed: ${err.message} — using knowledge fallback`);
       return `Use your training knowledge for typical 2024-2025 US market costs for: ${material}${location ? ` in ${location}` : ''}`;
