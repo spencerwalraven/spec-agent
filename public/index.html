@@ -1049,7 +1049,36 @@
         <button class="more-item" onclick="navigate('approvals')" style="position:relative"><div class="more-icon">✅</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
         <button class="more-item" onclick="navigate('conversations')"><div class="more-icon">💬</div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
         <button class="more-item" onclick="navigate('agents')"><div class="more-icon">🤖</div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
+        <button class="more-item" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
         <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+      </div>
+    </section>
+
+    <!-- ── ANALYTICS ─────────────────────────────────────────────────── -->
+    <section class="page" id="page-analytics">
+      <div style="padding:4px 0 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text1)">Analytics</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">Revenue, sources &amp; team</div>
+        </div>
+        <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadAnalytics()">↻ Refresh</button>
+      </div>
+
+      <!-- Profitability Summary -->
+      <div id="analyticsProfit">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+
+      <!-- Lead Source Breakdown -->
+      <div style="font-size:16px;font-weight:700;color:var(--text1);margin:20px 0 10px">Lead Sources</div>
+      <div id="analyticsLeadSources">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+
+      <!-- Team Performance -->
+      <div style="font-size:16px;font-weight:700;color:var(--text1);margin:20px 0 10px">Team Performance</div>
+      <div id="analyticsTeam">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>
     </section>
 

@@ -1078,6 +1078,25 @@ app.post('/api/sub/phase/:row/complete', async (req, res) => {
     await updateCell('Job Phases', row, 'Status', 'Complete');
     await updateCell('Job Phases', row, 'Completion Date', new Date().toLocaleDateString('en-US'));
     if (notes) await updateCell('Job Phases', row, 'Description', notes);
+
+    // Text the client that this phase is done
+    try {
+      const phaseRows = await readTab('Job Phases');
+      const phase     = phaseRows[row - 2];
+      const phaseName = g(phase, 'Phase Name', 'Phase') || 'A phase';
+      const jobId     = g(phase, 'Job ID') || '';
+      if (jobId) {
+        const jobRows = await readTab('Jobs');
+        const job     = jobRows.find(j => g(j, 'Job ID') === jobId);
+        const phone   = job ? g(job, 'Phone Number', 'Phone') : '';
+        const firstName = job ? g(job, 'First Name') : '';
+        if (phone) {
+          const { textPerson } = require('./src/tools/notify');
+          const msg = `Hey ${firstName || 'there'} 👋 Quick update on your project — the ${phaseName} phase just wrapped up! We'll keep you posted as we move to the next step. Any questions, just reply!`;
+          await textPerson({ to: phone, message: msg });
+        }
+      }
+    } catch (smsErr) { console.warn('Phase complete SMS failed:', smsErr.message); }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1139,6 +1158,104 @@ app.get('/api/status/:jobId', async (req, res) => {
 // ─── CLIENT STATUS PAGE ───────────────────────────────────────────────────────
 app.get('/status/:jobId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'status.html'));
+});
+
+// ─── PHOTO LOG API ────────────────────────────────────────────────────────────
+
+// Upload a photo (base64) for a job — stores in Google Drive, logs in Job Photos tab
+app.post('/api/jobs/:row/photos', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const { imageData, mimeType = 'image/jpeg', caption = '' } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'imageData required' });
+
+    // Read job to get jobId
+    const { readRow } = require('./src/tools/sheets');
+    const job    = await readRow('Jobs', row);
+    const jobId  = job?.['Job ID'] || `ROW${row}`;
+    const clientName = `${job?.['First Name'] || ''} ${job?.['Last Name'] || ''}`.trim();
+
+    // Upload to Google Drive
+    const { google } = require('googleapis');
+    const { Readable } = require('stream');
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+    const drive = google.drive({ version: 'v3', auth });
+
+    const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg';
+    const filename = `${jobId}_${Date.now()}.${ext}`;
+    const buffer = Buffer.from(imageData, 'base64');
+
+    const file = await drive.files.create({
+      requestBody: { name: filename },
+      media: { mimeType, body: Readable.from(buffer) },
+      fields: 'id',
+    });
+    const fileId = file.data.id;
+
+    // Make it publicly readable
+    await drive.permissions.create({
+      fileId,
+      requestBody: { role: 'reader', type: 'anyone' },
+    });
+
+    const photoUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    // Append to Job Photos tab
+    const sheets = getSheets();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'Job Photos!A:F',
+      valueInputOption: 'RAW',
+      requestBody: { values: [[jobId, row, clientName, caption, photoUrl, timestamp]] },
+    }).catch(async () => {
+      // Tab may not exist — create it first via a write to row 1, then append
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: 'Job Photos!A1:F1',
+        valueInputOption: 'RAW',
+        requestBody: { values: [['Job ID', 'Job Row', 'Client Name', 'Caption', 'Photo URL', 'Timestamp']] },
+      }).catch(() => {});
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SHEET_ID,
+        range: 'Job Photos!A:F',
+        valueInputOption: 'RAW',
+        requestBody: { values: [[jobId, row, clientName, caption, photoUrl, timestamp]] },
+      }).catch(() => {});
+    });
+
+    res.json({ ok: true, photoUrl, fileId, timestamp });
+  } catch (e) {
+    console.error('Photo upload error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get all photos for a job (by jobId — used by status page)
+app.get('/api/jobs/:jobId/photos', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const sheets = getSheets();
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Job Photos!A:F',
+    }).catch(() => ({ data: { values: [] } }));
+    const rows   = result.data.values || [];
+    if (rows.length < 2) return res.json([]);
+    const headers = rows[0];
+    const photos  = rows.slice(1)
+      .filter(r => (r[0] || '').toUpperCase() === jobId.toUpperCase())
+      .map(r => ({
+        jobId:     r[0] || '',
+        caption:   r[3] || '',
+        photoUrl:  r[4] || '',
+        timestamp: r[5] || '',
+      }))
+      .reverse(); // newest first
+    res.json(photos);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── PROPOSAL APPROVAL API ────────────────────────────────────────────────────
@@ -1250,6 +1367,156 @@ function proposalResponsePage(type, job) {
     <div class="powered">Powered by SPEC Systems</div>
   </div></body></html>`;
 }
+
+// ─── ANALYTICS: JOB PROFITABILITY ─────────────────────────────────────────────
+app.get('/api/analytics/profitability', async (req, res) => {
+  try {
+    const [jobs, phases] = await Promise.all([readTab('Jobs'), readTab('Job Phases')]);
+
+    const results = jobs
+      .filter(j => g(j, 'Job ID'))
+      .map(j => {
+        const jobId       = g(j, 'Job ID');
+        const clientName  = `${g(j,'First Name','')} ${g(j,'Last Name','')}`.trim();
+        const projectType = g(j, 'Service Type', 'Project Type');
+        const jobStatus   = g(j, 'Job Status', 'Status');
+        const contractVal = parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0;
+
+        // Sum estimated cost from phases
+        const jobPhases   = phases.filter(p => g(p, 'Job ID') === jobId);
+        const estCost     = jobPhases.reduce((sum, p) => {
+          return sum + (parseFloat((g(p,'Estimated Cost','Est Cost') || '0').replace(/[^0-9.]/g,'')) || 0);
+        }, 0);
+        const actualCost  = jobPhases.reduce((sum, p) => {
+          return sum + (parseFloat((g(p,'Actual Cost','Actual') || '0').replace(/[^0-9.]/g,'')) || 0);
+        }, 0);
+
+        const margin      = contractVal > 0 ? Math.round(((contractVal - (actualCost || estCost)) / contractVal) * 100) : null;
+        const overBudget  = actualCost > 0 && estCost > 0 && actualCost > estCost;
+        const phasesDone  = jobPhases.filter(p => /complete/i.test(g(p,'Status',''))).length;
+
+        return {
+          jobId, clientName, projectType, jobStatus,
+          contractVal, estCost, actualCost,
+          margin, overBudget,
+          totalPhases: jobPhases.length,
+          phasesDone,
+        };
+      })
+      .filter(j => j.contractVal > 0 || j.totalPhases > 0)
+      .sort((a, b) => b.contractVal - a.contractVal);
+
+    // Summary stats
+    const total       = results.reduce((s, j) => s + j.contractVal, 0);
+    const totalEst    = results.reduce((s, j) => s + j.estCost, 0);
+    const totalActual = results.reduce((s, j) => s + j.actualCost, 0);
+    const avgMargin   = results.filter(j => j.margin !== null).length > 0
+      ? Math.round(results.filter(j => j.margin !== null).reduce((s, j) => s + j.margin, 0) / results.filter(j => j.margin !== null).length)
+      : null;
+
+    res.json({ jobs: results, summary: { total, totalEst, totalActual, avgMargin, jobCount: results.length } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ANALYTICS: LEAD SOURCES ───────────────────────────────────────────────────
+app.get('/api/analytics/lead-sources', async (req, res) => {
+  try {
+    const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
+
+    const sourceMap = {};
+
+    leads.forEach(l => {
+      const source = g(l, 'How did you hear about us?', 'Lead Source', 'Source', 'Referral Source') || 'Unknown';
+      const status = (g(l, 'Lead Status', 'Status') || '').toLowerCase();
+      const converted = /convert/.test(status);
+
+      if (!sourceMap[source]) {
+        sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0, jobs: [] };
+      }
+      sourceMap[source].leads++;
+      if (converted) sourceMap[source].converted++;
+    });
+
+    // Match converted leads to jobs for revenue
+    jobs.forEach(j => {
+      const source = g(j, 'Lead Source', 'How did you hear about us?', 'Source') || 'Unknown';
+      const value  = parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0;
+      if (value > 0) {
+        if (!sourceMap[source]) sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0, jobs: [] };
+        sourceMap[source].totalValue += value;
+      }
+    });
+
+    const results = Object.values(sourceMap)
+      .map(s => ({
+        ...s,
+        conversionRate: s.leads > 0 ? Math.round((s.converted / s.leads) * 100) : 0,
+        avgJobValue:    s.converted > 0 ? Math.round(s.totalValue / s.converted) : 0,
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue);
+
+    res.json(results);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ANALYTICS: TEAM PERFORMANCE ──────────────────────────────────────────────
+app.get('/api/analytics/team', async (req, res) => {
+  try {
+    const [team, jobs, phases] = await Promise.all([
+      readTab('Team'), readTab('Jobs'), readTab('Job Phases'),
+    ]);
+
+    const teamStats = team.map(t => {
+      const name   = g(t, 'Name', 'Team Member');
+      const role   = g(t, 'Role', 'Position');
+      const active = g(t, 'Active', 'Is Active');
+
+      // Jobs this person is assigned to (as salesperson or crew)
+      const assignedJobs = jobs.filter(j =>
+        g(j,'Salesperson','Sales Rep','Assigned Rep') === name
+      );
+      const closedJobs = assignedJobs.filter(j =>
+        /contract|signed|active|progress|complete/i.test(g(j,'Job Status','Status','Contract Status'))
+      );
+      const totalRevenue = closedJobs.reduce((s, j) =>
+        s + (parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0), 0
+      );
+
+      // Phases assigned to this person
+      const assignedPhases = phases.filter(p =>
+        (g(p,'Assigned Name','Assigned To') || '').toLowerCase().includes((name || '').toLowerCase())
+      );
+      const donePhases = assignedPhases.filter(p => /complete/i.test(g(p,'Status','')));
+      const ratings    = assignedPhases
+        .map(p => parseFloat(g(p,'Phase Rating','Rating') || ''))
+        .filter(n => !isNaN(n));
+      const avgRating  = ratings.length > 0
+        ? Math.round((ratings.reduce((s, n) => s + n, 0) / ratings.length) * 10) / 10
+        : null;
+
+      return {
+        name, role, active,
+        totalLeadsAssigned:   assignedJobs.length,
+        jobsClosed:           closedJobs.length,
+        totalRevenue,
+        phasesAssigned:       assignedPhases.length,
+        phasesDone:           donePhases.length,
+        avgRating,
+      };
+    });
+
+    res.json(teamStats);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ANALYTICS: WEATHER CHECK (manual trigger) ────────────────────────────────
+app.post('/api/weather/check', async (req, res) => {
+  try {
+    const { runWeatherAlerts } = require('./src/triggers/scheduler');
+    res.json({ ok: true, message: 'Weather check started' });
+    runWeatherAlerts().catch(console.error);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

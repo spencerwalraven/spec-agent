@@ -172,6 +172,7 @@ function navigate(page) {
     else if (page === 'approvals')     loadApprovals();
     else if (page === 'conversations') loadConversations();
     else if (page === 'field')         loadField();
+    else if (page === 'analytics')     loadAnalytics();
   }
 }
 
@@ -1760,6 +1761,23 @@ async function loadField() {
               <div style="color:var(--text3);font-size:13px">Loading phases…</div>
             </div>
 
+            <!-- Photo Upload -->
+            <div style="margin:14px 0 0">
+              <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📸 Add Photo</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:6px;background:var(--bg2,#F4F5F7);border:1px dashed var(--border);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text2)">
+                  📷 Choose Photo
+                  <input type="file" accept="image/*" capture="environment" id="photo-input-${row}" style="display:none"
+                    onchange="previewPhoto(${row}, this)">
+                </label>
+                <div id="photo-preview-${row}" style="display:none;align-items:center;gap:8px">
+                  <img id="photo-thumb-${row}" style="width:52px;height:52px;border-radius:8px;object-fit:cover" src="">
+                  <input id="photo-caption-${row}" placeholder="Caption (optional)" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;flex:1;min-width:0">
+                  <button onclick="uploadPhoto(${row}, event)" style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer" id="upload-btn-${row}">Upload</button>
+                </div>
+              </div>
+            </div>
+
             <div class="field-actions">
               <button class="btn btn-gold" style="flex:1;font-size:15px;padding:14px" onclick="submitFieldUpdate(${row}, event)">✅ Log Update</button>
             </div>
@@ -1916,5 +1934,173 @@ async function submitFieldIssue(row, e) {
   } finally {
     btn.disabled = false;
     btn.textContent = '🚨 Alert Owner Now';
+  }
+}
+
+// ─── PHOTO LOG ────────────────────────────────────────────────────────────────
+
+function previewPhoto(row, input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const thumb   = document.getElementById(`photo-thumb-${row}`);
+    const preview = document.getElementById(`photo-preview-${row}`);
+    if (thumb)   thumb.src = e.target.result;
+    if (preview) preview.style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhoto(row, e) {
+  e.stopPropagation();
+  const input   = document.getElementById(`photo-input-${row}`);
+  const caption = document.getElementById(`photo-caption-${row}`)?.value?.trim() || '';
+  const btn     = document.getElementById(`upload-btn-${row}`);
+  const file    = input?.files?.[0];
+  if (!file) { toast('⚠️ Choose a photo first'); return; }
+
+  btn.disabled    = true;
+  btn.textContent = 'Uploading…';
+
+  try {
+    const reader = new FileReader();
+    const imageData = await new Promise((resolve, reject) => {
+      reader.onload  = e => resolve(e.target.result.split(',')[1]); // base64 part only
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const res = await fetch(`/api/jobs/${row}/photos`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ imageData, mimeType: file.type, caption }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    toast(`📸 Photo uploaded!`);
+    // Hide preview
+    document.getElementById(`photo-preview-${row}`).style.display = 'none';
+    input.value = '';
+    if (document.getElementById(`photo-caption-${row}`)) document.getElementById(`photo-caption-${row}`).value = '';
+  } catch (err) {
+    toast(`❌ Upload failed: ${err.message}`, 4000);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Upload';
+  }
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+
+function fmt$(n) {
+  if (!n && n !== 0) return '—';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+async function loadAnalytics() {
+  const [profitEl, sourcesEl, teamEl] = [
+    document.getElementById('analyticsProfit'),
+    document.getElementById('analyticsLeadSources'),
+    document.getElementById('analyticsTeam'),
+  ];
+
+  // Load all three in parallel
+  const [profitData, sourcesData, teamData] = await Promise.all([
+    api('/api/analytics/profitability').catch(() => null),
+    api('/api/analytics/lead-sources').catch(() => null),
+    api('/api/analytics/team').catch(() => null),
+  ]);
+
+  // ── PROFITABILITY ──
+  if (profitEl && profitData) {
+    const { jobs, summary } = profitData;
+    const marginColor = m => m === null ? 'var(--text3)' : m >= 30 ? '#22C55E' : m >= 15 ? '#F59E0B' : '#EF4444';
+    profitEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">${fmt$(summary.total)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Pipeline</div>
+        </div>
+        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:${marginColor(summary.avgMargin)}">${summary.avgMargin !== null ? summary.avgMargin + '%' : '—'}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Avg Margin</div>
+        </div>
+        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">${summary.jobCount}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Jobs</div>
+        </div>
+      </div>
+      <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:10px">Job Profitability</div>
+      ${jobs.map(j => `
+        <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div>
+              <div style="font-weight:700;color:var(--text1)">${j.clientName}</div>
+              <div style="font-size:12px;color:var(--text2)">${j.projectType || ''} · ${j.jobId}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:800;color:var(--navy)">${fmt$(j.contractVal)}</div>
+              ${j.margin !== null ? `<div style="font-size:12px;font-weight:700;color:${marginColor(j.margin)}">${j.margin}% margin</div>` : ''}
+            </div>
+          </div>
+          ${j.overBudget ? `<div style="background:#FEF2F2;color:#DC2626;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;margin-top:4px">⚠️ Over estimated budget — review actual costs</div>` : ''}
+          <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--text2)">
+            <span>Est: ${fmt$(j.estCost)}</span>
+            ${j.actualCost > 0 ? `<span>Actual: ${fmt$(j.actualCost)}</span>` : ''}
+            <span>${j.phasesDone}/${j.totalPhases} phases done</span>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  } else if (profitEl) {
+    profitEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:20px 0">No profitability data yet — add job values and phases to get started.</div>`;
+  }
+
+  // ── LEAD SOURCES ──
+  if (sourcesEl && sourcesData?.length) {
+    const max = Math.max(...sourcesData.map(s => s.leads), 1);
+    sourcesEl.innerHTML = sourcesData.map(s => `
+      <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-weight:700;color:var(--text1)">${s.source}</div>
+          <div style="font-size:12px;color:var(--text2)">${s.leads} lead${s.leads !== 1 ? 's' : ''} · ${s.conversionRate}% close rate</div>
+        </div>
+        <div style="background:#F4F5F7;border-radius:99px;height:6px;overflow:hidden">
+          <div style="background:var(--navy);height:100%;width:${Math.round((s.leads / max) * 100)}%;border-radius:99px;transition:width .5s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--text2)">
+          <span>${s.converted} converted</span>
+          <span>${s.totalValue > 0 ? fmt$(s.totalValue) + ' revenue' : 'No revenue tracked'}</span>
+          ${s.avgJobValue > 0 ? `<span>Avg ${fmt$(s.avgJobValue)}/job</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } else if (sourcesEl) {
+    sourcesEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No lead source data yet — add "How did you hear about us?" to your lead form.</div>`;
+  }
+
+  // ── TEAM PERFORMANCE ──
+  if (teamEl && teamData?.length) {
+    const active = teamData.filter(t => /yes|active/i.test(t.active || ''));
+    teamEl.innerHTML = (active.length ? active : teamData).map(t => `
+      <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div>
+            <div style="font-weight:700;color:var(--text1)">${t.name}</div>
+            <div style="font-size:12px;color:var(--text2)">${t.role || ''}</div>
+          </div>
+          ${t.avgRating !== null ? `<div style="font-size:18px;font-weight:800;color:var(--gold)">★ ${t.avgRating}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2)">
+          ${t.jobsClosed > 0 ? `<span>🏆 ${t.jobsClosed} jobs closed</span>` : ''}
+          ${t.totalRevenue > 0 ? `<span>💰 ${fmt$(t.totalRevenue)} revenue</span>` : ''}
+          ${t.phasesAssigned > 0 ? `<span>📋 ${t.phasesDone}/${t.phasesAssigned} phases done</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } else if (teamEl) {
+    teamEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No team data yet.</div>`;
   }
 }

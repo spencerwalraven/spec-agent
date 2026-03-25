@@ -301,18 +301,28 @@ Write the proposal in professional language. Be specific about scope of work. Th
   // ── Send proposal follow-up ───────────────────────────────────────────────
 
   async sendProposalFollowUp({ rowNumber }) {
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || 'https://your-app.railway.app');
+
     const systemPrompt = `
 You are following up on a proposal sent to a client for a home remodeling company.
 
 TASK:
-1. Read settings and job data
-2. Check the proposal sent date and thread ID
-3. Send a warm follow-up email:
-   - Reference their specific project
-   - Ask if they had a chance to review the proposal
-   - Offer to answer any questions
-   - Don't be pushy — just a helpful check-in
-4. Update last contact date
+1. Read settings and job data (row ${rowNumber})
+2. Check proposal status — if already Approved or Declined, do nothing and stop
+3. Read "Proposal Token" from the job data. Build these URLs:
+   Approve: ${baseUrl}/api/proposal/approve/[token]
+   Decline: ${baseUrl}/api/proposal/decline/[token]
+4. Use send_email with HTML to send a warm follow-up that:
+   - Is short and casual — not pushy at all
+   - References their specific project type by name
+   - Includes a big "✅ Yes, Let's Do It!" button (using the approve URL above) and a smaller "Not Right Now" link
+   - Mentions they can reply with any questions
+   - Sounds like it's from a real person, not a marketing email
+5. Update last contact date
+
+Example tone: "Hey [first name] — just wanted to check in on the [project type] proposal I sent over. Did you get a chance to look through it? Happy to jump on a quick call if you have any questions. If you're ready to move forward, you can approve it right here 👇"
 
 Row: ${rowNumber}
     `.trim();

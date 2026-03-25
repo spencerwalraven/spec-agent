@@ -17,8 +17,10 @@ const cron   = require('node-cron');
 const { route }  = require('../agents/orchestrator');
 const { readTab, g } = require('../tools/sheets');
 const { logger } = require('../utils/logger');
-let gmailWatch;
-try { gmailWatch = require('../tools/gmail-watch'); } catch (_) {}
+const { notifyOwner } = require('../tools/notify');
+let gmailWatch, weatherTool;
+try { gmailWatch  = require('../tools/gmail-watch'); } catch (_) {}
+try { weatherTool = require('../tools/weather');     } catch (_) {}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -144,6 +146,40 @@ async function runThirtyDayCheckIns() {
   }
 }
 
+// ─── WEATHER ALERTS — daily 7:00am ───────────────────────────────────────────
+async function runWeatherAlerts() {
+  if (!weatherTool || !process.env.OPENWEATHER_API_KEY) return;
+  logger.info('Scheduler', 'Running weather alerts…');
+  const jobs = await readTab('Jobs');
+  for (const job of jobs) {
+    const status = (g(job, 'Job Status', 'Status') || '').toLowerCase();
+    if (!status.includes('progress') && !status.includes('active')) continue;
+
+    const address = [
+      g(job, 'Street Address', 'Address'),
+      g(job, 'City'),
+      g(job, 'State'),
+    ].filter(Boolean).join(', ');
+
+    if (!address) continue;
+
+    const alerts = await weatherTool.checkWeatherAlerts(address);
+    if (!alerts?.length) continue;
+
+    const clientName  = `${g(job,'First Name','')} ${g(job,'Last Name','')}`.trim() || 'Client';
+    const projectType = g(job, 'Service Type', 'Project Type') || 'Project';
+    const summary     = weatherTool.summarizeAlerts(alerts);
+
+    await notifyOwner({
+      subject: `⛈️ Weather Alert — ${clientName} job site`,
+      message: `Heads up — significant weather is forecast for the ${clientName} ${projectType} job site at ${address} in the next 48 hours.\n\nForecast: ${summary}\n\nYou may want to adjust the schedule or notify your crew.`,
+      urgent: true,
+    }).catch(err => logger.error('Scheduler', `Weather notify failed: ${err.message}`));
+
+    logger.warn('Scheduler', `Weather alert sent for ${clientName}: ${summary}`);
+  }
+}
+
 // ─── MONTHLY REPORT — 1st of each month at 7:00am ────────────────────────────
 async function runMonthlyReport() {
   const now   = new Date();
@@ -175,6 +211,9 @@ function startScheduler() {
 
   // 30-day check-ins — daily at 11:30am
   cron.schedule('30 11 * * *', runThirtyDayCheckIns, { timezone: 'America/Chicago' });
+
+  // Weather alerts — daily at 7:00am (before scan so owner has heads up)
+  cron.schedule('0 7 * * *', runWeatherAlerts, { timezone: 'America/Chicago' });
 
   // Smart daily scan — every morning at 7:30am (runs BEFORE other tasks)
   cron.schedule('30 7 * * *', async () => {
@@ -209,5 +248,6 @@ module.exports = {
   startScheduler,
   // Export runners for manual testing
   runNurtureSequence, runProposalFollowUps, runWeeklyUpdates,
-  runInvoiceFollowUps, runReviewFollowUps, runThirtyDayCheckIns, runMonthlyReport,
+  runInvoiceFollowUps, runReviewFollowUps, runThirtyDayCheckIns,
+  runMonthlyReport, runWeatherAlerts,
 };

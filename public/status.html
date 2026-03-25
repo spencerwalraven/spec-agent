@@ -243,6 +243,61 @@
     .error-title { font-size: 20px; font-weight: 800; color: var(--text1); margin-bottom: 8px; }
     .error-sub { font-size: 14px; color: var(--text2); }
 
+    /* ── PHOTO GALLERY ── */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .photo-thumb {
+      aspect-ratio: 4/3;
+      border-radius: 8px;
+      object-fit: cover;
+      width: 100%;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .photo-thumb:hover { opacity: .85; }
+    .photo-caption {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 3px;
+      text-align: center;
+    }
+    .photo-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.9);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+    .photo-lightbox.open { display: flex; }
+    .lightbox-img {
+      max-width: 100%;
+      max-height: 80vh;
+      border-radius: 10px;
+      object-fit: contain;
+    }
+    .lightbox-caption {
+      color: rgba(255,255,255,.7);
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
     /* ── AUTO-REFRESH BADGE ── */
     .refresh-badge {
       position: fixed;
@@ -261,6 +316,13 @@
 
 <div id="root"><div class="loading"><div class="spinner"></div><div>Loading your project…</div></div></div>
 <div class="refresh-badge" id="refreshBadge" style="display:none">🔄 Auto-refreshing</div>
+
+<!-- LIGHTBOX -->
+<div class="photo-lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-close" onclick="closeLightbox()">✕</div>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="">
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
 
 <script>
   // Get Job ID from URL: /status/JOB-001
@@ -397,6 +459,9 @@
         `).join('')}
       </div>` : ''}
 
+      <!-- PHOTO GALLERY (injected async) -->
+      <div id="photoSection"></div>
+
       <!-- CONTACT -->
       <div class="contact-card">
         <div class="contact-title">Questions? We're here.</div>
@@ -421,6 +486,9 @@
       const fill = document.getElementById('progressFill');
       if (fill) fill.style.width = progress.pct + '%';
     }, 100);
+
+    // Load photos async
+    loadPhotos(job.id);
   }
 
   function renderError(msg) {
@@ -443,6 +511,38 @@
     } catch (e) {
       renderError(e.message);
     }
+  }
+
+  function openLightbox(url, caption) {
+    document.getElementById('lightboxImg').src = url;
+    document.getElementById('lightboxCaption').textContent = caption || '';
+    document.getElementById('lightbox').classList.add('open');
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+  }
+
+  async function loadPhotos(jobId) {
+    try {
+      const res    = await fetch(`/api/jobs/${jobId}/photos`);
+      const photos = await res.json();
+      const section = document.getElementById('photoSection');
+      if (!section || !photos?.length) return;
+      section.innerHTML = `
+        <div class="card">
+          <div class="card-title">📸 Job Site Photos</div>
+          <div class="photo-grid">
+            ${photos.map(p => `
+              <div>
+                <img class="photo-thumb" src="${p.photoUrl}" alt="${p.caption || 'Job photo'}"
+                     onclick="openLightbox('${p.photoUrl}', '${(p.caption || p.timestamp || '').replace(/'/g,'&#39;')}')">
+                ${p.caption ? `<div class="photo-caption">${p.caption}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } catch (_) {}
   }
 
   // Load on page open
