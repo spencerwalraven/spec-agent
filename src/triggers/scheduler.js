@@ -352,6 +352,33 @@ async function runWeatherAlerts() {
   }
 }
 
+// ─── SUB CONFIRMATION FOLLOW-UPS — daily 8:30am ──────────────────────────────
+async function runSubConfirmations() {
+  logger.info('Scheduler', 'Running sub confirmation follow-ups…');
+  let phases;
+  try { phases = await readTab('Job Phases'); }
+  catch (err) { logger.warn('Scheduler', `Could not read Job Phases: ${err.message}`); return; }
+
+  for (const phase of phases) {
+    // Only phases that have a sub assigned but not yet confirmed
+    const subEmail     = g(phase, 'Sub Email', 'Assigned Sub Email', 'Subcontractor Email') || '';
+    const subPhone     = g(phase, 'Sub Phone', 'Assigned Sub Phone') || '';
+    const confirmed    = g(phase, 'Sub Confirmed', 'Confirmation Status') || '';
+    const notifyDate   = g(phase, 'Sub Notified Date', 'Sub Notification Date');
+    if (!subEmail && !subPhone) continue;
+    if (/yes|confirmed/i.test(confirmed)) continue;
+    if (!notifyDate) continue;
+    const days = daysBetween(notifyDate);
+    // Follow up after 2 days, again at 4 days, escalate at 6 days
+    const followupStep = parseInt(g(phase, 'Sub Confirmation Step', 'Sub Followup Step') || '0') || 0;
+    if ((days >= 2 && followupStep === 0) ||
+        (days >= 4 && followupStep === 1) ||
+        (days >= 6 && followupStep === 2)) {
+      await safeRoute('confirm_subs', { phaseRow: phase._row });
+    }
+  }
+}
+
 // ─── MONTHLY REPORT — 1st of each month at 7:00am ────────────────────────────
 async function runMonthlyReport() {
   const now   = new Date();
@@ -405,6 +432,9 @@ function startScheduler() {
   // Monthly performance report — 1st of month at 7:00am
   cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: 'America/Chicago' });
 
+  // Sub confirmation follow-ups — daily at 8:30am
+  cron.schedule('30 8 * * *', runSubConfirmations, { timezone: 'America/Chicago' });
+
   // Gmail watch renewal — every day at 6:00am (watch expires after 7 days)
   cron.schedule('0 6 * * *', async () => {
     if (!gmailWatch) return;
@@ -424,5 +454,5 @@ module.exports = {
   // Export runners for manual testing
   runDailyBriefing, runNurtureSequence, runProposalFollowUps, runWeeklyUpdates,
   runInvoiceFollowUps, runReviewFollowUps, runThirtyDayCheckIns,
-  runMonthlyReport, runWeatherAlerts,
+  runMonthlyReport, runWeatherAlerts, runSubConfirmations,
 };

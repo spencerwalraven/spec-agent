@@ -179,6 +179,7 @@ const PUBLIC_PREFIXES = [
   '/api/change-order/approve', '/api/change-order/decline',
   '/api/kickoff/select',
   '/api/stripe/webhook',
+  '/webhook/sms',
 ];
 
 app.use((req, res, next) => {

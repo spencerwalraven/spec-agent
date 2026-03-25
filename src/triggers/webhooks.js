@@ -303,6 +303,38 @@ router.post('/calendly', async (req, res) => {
   }
 });
 
+// ─── TWILIO INBOUND SMS ───────────────────────────────────────────────────────
+// Twilio hits this synchronously and expects a TwiML response.
+// We call the SMS agent inline (it's fast — single Claude call) and reply immediately.
+router.post('/sms', async (req, res) => {
+  // Parse Twilio form-encoded body
+  const fromPhone = req.body?.From || '';
+  const message   = req.body?.Body || '';
+
+  if (!fromPhone || !message) {
+    // Return empty TwiML to avoid Twilio error — no reply sent
+    res.set('Content-Type', 'text/xml');
+    return res.status(200).send('<Response></Response>');
+  }
+
+  logger.info('Webhook', `Inbound SMS from ${fromPhone}: ${message.slice(0, 80)}`);
+
+  try {
+    const smsAgent = require('../agents/sms-agent');
+    const reply    = await smsAgent.handleInbound({ fromPhone, message });
+
+    // Respond with TwiML <Message>
+    res.set('Content-Type', 'text/xml');
+    res.status(200).send(
+      `<Response><Message>${reply.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</Message></Response>`
+    );
+  } catch (err) {
+    logger.error('Webhook', `SMS handler failed: ${err.message}`);
+    res.set('Content-Type', 'text/xml');
+    res.status(200).send('<Response><Message>Thanks for reaching out! We\'ll be in touch shortly.</Message></Response>');
+  }
+});
+
 // ─── MANUAL AGENT TRIGGER (dashboard buttons) ─────────────────────────────────
 // POST /webhook/trigger { type: 'generate_proposal', rowNumber: 5 }
 router.post('/trigger', (req, res) => {

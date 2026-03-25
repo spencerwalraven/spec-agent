@@ -5,42 +5,57 @@
  * to the correct agent and method.
  *
  * Event types:
- *   new_lead          → LeadAgent.handleNewLead
- *   email_reply       → LeadAgent.handleEmailReply  (lead phase)
- *                     → ClientAgent.handleClientMessage (job phase)
- *   nurture_step      → LeadAgent.handleNurtureStep
- *   calendly_booking  → LeadAgent.handleCalendlyBooking
- *   lead_converted    → LeadAgent.handleConversion
- *   estimate_ready    → JobAgent.generateEstimate
- *   generate_proposal → JobAgent.generateProposal
- *   proposal_followup → JobAgent.sendProposalFollowUp
- *   proposal_decision → JobAgent.handleProposalDecision
- *   generate_contract → JobAgent.generateContract
- *   contract_followup → (tbd)
- *   generate_template → JobAgent.generateJobTemplate
- *   notify_subs       → JobAgent.notifySubs
- *   weekly_update     → ClientAgent.sendWeeklyUpdate
- *   client_message    → ClientAgent.handleClientMessage
- *   satisfaction_check→ ClientAgent.midJobSatisfactionCheck
- *   deposit_invoice   → ClientAgent.generateDepositInvoice
- *   final_invoice     → ClientAgent.generateFinalInvoice
- *   job_complete      → ClientAgent.handleJobCompletion
- *   review_followup   → ClientAgent.sendReviewFollowUp
- *   thirty_day        → ClientAgent.thirtyDayCheckIn
+ *   new_lead                  → LeadAgent.handleNewLead
+ *   email_reply               → LeadAgent.handleEmailReply (lead)
+ *                               ClientAgent.handleClientMessage (job)
+ *   nurture_step              → LeadAgent.handleNurtureStep
+ *   calendly_booking          → LeadAgent.handleCalendlyBooking
+ *   lead_converted            → LeadAgent.handleConversion
+ *   estimate_ready            → PricingAgent.generateEstimate
+ *   generate_proposal         → JobAgent.generateProposal
+ *   proposal_followup         → JobAgent.sendProposalFollowUp
+ *   proposal_decision         → JobAgent.handleProposalDecision
+ *   generate_contract         → JobAgent.generateContract
+ *   generate_template         → JobAgent.generateJobTemplate
+ *   notify_subs               → JobAgent.notifySubs
+ *   contract_signed           → WelcomeAgent.sendWelcome + deposit invoice chain
+ *   client_welcome            → WelcomeAgent.sendWelcome
+ *   deposit_invoice           → ClientAgent.generateDepositInvoice
+ *   final_invoice             → ClientAgent.generateFinalInvoice
+ *   deposit_invoice_followup  → PaymentAgent.followUpDeposit
+ *   final_invoice_followup    → PaymentAgent.followUpFinal
+ *   confirm_subs              → SubConfirmationAgent.followUpSub
+ *   weekly_update             → ClientAgent.sendWeeklyUpdate
+ *   client_message            → ClientAgent.handleClientMessage
+ *   satisfaction_check        → ClientAgent.midJobSatisfactionCheck
+ *   job_complete              → ClientAgent.handleJobCompletion
+ *   review_followup           → ClientAgent.sendReviewFollowUp
+ *   thirty_day                → ClientAgent.thirtyDayCheckIn
+ *   monthly_report            → MarketingAgent.generateMonthlyReport
+ *   daily_scan                → SmartOrchestrator.runDailyScan
+ *   scan_leads                → SmartOrchestrator.scanLeads
+ *   scan_jobs                 → SmartOrchestrator.scanJobs
+ *   plan_project              → PlanningAgent.planProject
+ *   change_order              → ChangeOrderAgent.generateChangeOrder
+ *   learn_from_job            → LearningAgent.learnFromJob
+ *   synthesize_learnings      → LearningAgent.synthesizeLearnings
  */
 
-const leadAgent          = require('./lead-agent');
-const jobAgent           = require('./job-agent');
-const clientAgent        = require('./client-agent');
-const marketingAgent     = require('./marketing-agent');
-const pricingAgent       = require('./pricing-agent');
-const planningAgent      = require('./planning-agent');
-const learningAgent      = require('./learning-agent');
-const smartOrchestrator  = require('./smart-orchestrator');
-const changeOrderAgent   = require('./change-order-agent');
-const { logger }         = require('../utils/logger');
-const { findRowByEmail, updateCell, readSettings } = require('../tools/sheets');
-const { createJobFromLead } = require('../tools/jobs');
+const leadAgent              = require('./lead-agent');
+const jobAgent               = require('./job-agent');
+const clientAgent            = require('./client-agent');
+const marketingAgent         = require('./marketing-agent');
+const pricingAgent           = require('./pricing-agent');
+const planningAgent          = require('./planning-agent');
+const learningAgent          = require('./learning-agent');
+const smartOrchestrator      = require('./smart-orchestrator');
+const changeOrderAgent       = require('./change-order-agent');
+const welcomeAgent           = require('./welcome-agent');
+const paymentAgent           = require('./payment-agent');
+const subConfirmationAgent   = require('./sub-confirmation-agent');
+const { logger }             = require('../utils/logger');
+const { findRowByEmail, updateCell, readSettings, readTab } = require('../tools/sheets');
+const { createJobFromLead }  = require('../tools/jobs');
 
 /**
  * Route an event to the appropriate agent.
@@ -127,6 +142,29 @@ async function route(type, payload = {}) {
 
       case 'notify_subs':
         return await jobAgent.notifySubs({ rowNumber: payload.rowNumber });
+
+      // ── CONTRACT SIGNED / ONBOARDING ──────────────────────────────────
+      case 'contract_signed': {
+        // 1. Send welcome email
+        await welcomeAgent.sendWelcome({ rowNumber: payload.rowNumber });
+        // 2. Kick off the deposit invoice chain (short delay so emails don't arrive at same second)
+        await new Promise(r => setTimeout(r, 5000));
+        return await clientAgent.generateDepositInvoice({ rowNumber: payload.rowNumber });
+      }
+
+      case 'client_welcome':
+        return await welcomeAgent.sendWelcome({ rowNumber: payload.rowNumber });
+
+      // ── PAYMENT FOLLOW-UPS ────────────────────────────────────────────
+      case 'deposit_invoice_followup':
+        return await paymentAgent.followUpDeposit({ rowNumber: payload.rowNumber });
+
+      case 'final_invoice_followup':
+        return await paymentAgent.followUpFinal({ rowNumber: payload.rowNumber });
+
+      // ── SUB CONFIRMATION ──────────────────────────────────────────────
+      case 'confirm_subs':
+        return await subConfirmationAgent.followUpSub({ phaseRow: payload.phaseRow || payload.rowNumber });
 
       // ── CLIENT / ACTIVE JOB ────────────────────────────────────────────
       case 'weekly_update':
