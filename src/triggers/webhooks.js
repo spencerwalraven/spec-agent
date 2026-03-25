@@ -38,19 +38,23 @@ const TALLY_FIELD_MAP = {
 };
 
 function parseTallyPayload(body) {
-  // Tally format: { data: { fields: [{ label, type, value }] } }
+  // Tally format: { data: { fields: [{ label, type, value, options }] } }
   const fields = body?.data?.fields || body?.fields || [];
+
+  // Debug: log all field labels so we can catch mapping mismatches
+  logger.info('Tally', `Fields received: ${fields.map(f => `"${f.label}"`).join(', ')}`);
+
   const lead = {
     Timestamp: new Date().toLocaleDateString('en-US'),
     Status: 'New',
   };
 
   for (const field of fields) {
-    const label = field.label || '';
+    const label = field.label?.trim() || '';
     const col   = TALLY_FIELD_MAP[label];
 
     // Address field — Tally sends as object with line1/city/state/zip
-    if (label === 'What is your address?' || field.type === 'ADDRESS') {
+    if (label === 'What is your address?' || field.type === 'INPUT_ADDRESS' || field.type === 'ADDRESS') {
       const addr = field.value || {};
       if (addr.line1 || addr.street) lead['Street Address'] = addr.line1 || addr.street || '';
       if (addr.city)                 lead['City']           = addr.city;
@@ -59,18 +63,32 @@ function parseTallyPayload(body) {
       continue;
     }
 
-    // Multiple choice / dropdown — value is array of option objects
+    // Multiple choice / dropdown — Tally sends value as array of UUID strings
+    // The options array maps UUID → human-readable text
     if (Array.isArray(field.value)) {
-      const text = field.value.map(v => v.text || v.label || String(v)).join(', ');
+      const opts = field.options || [];
+      const text = field.value.map(v => {
+        // v could be a UUID string or already an object with .text
+        if (typeof v === 'object') return v.text || v.label || JSON.stringify(v);
+        const opt = opts.find(o => o.id === v);
+        return opt ? opt.text : v; // fall back to raw UUID if no match
+      }).join(', ');
       if (col) lead[col] = text;
       continue;
     }
 
-    // Standard text/number
+    // Single UUID string (some Tally single-select fields)
+    if (typeof field.value === 'string' && field.options?.length) {
+      const opt = field.options.find(o => o.id === field.value);
+      if (opt && col) { lead[col] = opt.text; continue; }
+    }
+
+    // Standard text/number/date
     const value = String(field.value ?? '');
     if (col) lead[col] = value;
   }
 
+  logger.info('Tally', `Parsed lead data: ${JSON.stringify(lead)}`);
   return lead;
 }
 
