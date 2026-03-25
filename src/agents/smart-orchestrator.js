@@ -16,7 +16,7 @@
 
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
 const { readTab, readSettings, toolReadSettings, updateCell } = require('../tools/sheets');
-const { toolNotifyOwner } = require('../tools/notify');
+const { toolNotifyOwner, toolTextClient } = require('../tools/notify');
 const { logger } = require('../utils/logger');
 
 // ─── TOOL DEFINITIONS ────────────────────────────────────────────────────────
@@ -74,12 +74,13 @@ const TOOLS = [
   },
   {
     name: 'notify_owner',
-    description: 'Send the owner a summary or urgent alert.',
+    description: 'Send the owner a summary or urgent alert. Set urgent=true to also text them — use when a job is behind schedule, invoice is overdue, or something needs immediate attention.',
     input_schema: {
       type: 'object',
       properties: {
         subject: { type: 'string' },
         message: { type: 'string' },
+        urgent:  { type: 'boolean', description: 'Also send a text for urgent situations' },
       },
       required: ['subject', 'message'],
     },
@@ -91,6 +92,7 @@ const TOOLS = [
 const EXECUTORS = {
   read_settings:  async ()     => toolReadSettings(),
   notify_owner:   async (args) => toolNotifyOwner(args),
+  text_client:    async (args) => toolTextClient(args),
 
   read_all_leads: async () => {
     const rows = await readTab('Leads');

@@ -14,7 +14,7 @@ const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
 const { toolReadJob, toolUpdateJob, toolReadClient, toolUpdateClient, toolReadSettings, readRow, updateCell } = require('../tools/sheets');
 const { toolSendEmail, toolReadThread } = require('../tools/gmail');
 const { toolCreateDoc }                 = require('../tools/docs');
-const { toolNotifyOwner }               = require('../tools/notify');
+const { toolNotifyOwner, toolTextClient } = require('../tools/notify');
 
 // ─── TOOL DEFINITIONS ─────────────────────────────────────────────────────────
 
@@ -77,11 +77,27 @@ const TOOLS = [
   },
   {
     name: 'notify_owner',
-    description: 'Send urgent alert to owner',
+    description: 'Send urgent alert to owner. Set urgent=true to also send a text — use for contract signings, job completions, overdue invoices.',
     input_schema: {
       type: 'object',
-      properties: { subject: { type: 'string' }, message: { type: 'string' } },
+      properties: {
+        subject: { type: 'string' },
+        message: { type: 'string' },
+        urgent:  { type: 'boolean', description: 'Also send a text for time-sensitive alerts' },
+      },
       required: ['subject', 'message'],
+    },
+  },
+  {
+    name: 'text_client',
+    description: 'Send a text message to a client. Use for appointment reminders, job start notifications, and invoice alerts.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        phone:   { type: 'string', description: 'Client phone number' },
+        message: { type: 'string', description: 'Text message (keep under 160 chars)' },
+      },
+      required: ['phone', 'message'],
     },
   },
 ];
@@ -107,6 +123,7 @@ const EXECUTORS = {
   create_document:   async (args)      => toolCreateDoc(args),
   read_settings:     async ()          => toolReadSettings(),
   notify_owner:      async (args)      => toolNotifyOwner(args),
+  text_client:       async (args)      => toolTextClient(args),
 };
 
 // ─── CLIENT AGENT ─────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
 const { toolReadLead, toolUpdateLead, toolReadSettings, updateCell, appendRow, readRow, getNextRep } = require('../tools/sheets');
 const { toolSendEmail, toolReadThread, sendEmail }                                         = require('../tools/gmail');
-const { toolNotifyOwner }                                                                   = require('../tools/notify');
+const { toolNotifyOwner, toolTextClient }                                                   = require('../tools/notify');
 const { logger }                                                                            = require('../utils/logger');
 
 // ─── TOOL DEFINITIONS (Anthropic format) ─────────────────────────────────────
@@ -72,14 +72,27 @@ const TOOLS = [
   },
   {
     name:        'notify_owner',
-    description: 'Send an urgent alert email to the business owner. Use for hot leads, booked appointments, complex situations.',
+    description: 'Send an urgent alert email to the business owner. Set urgent=true to also send a text — use for hot leads (score 75+), booked appointments, and conversions.',
     input_schema: {
       type: 'object',
       properties: {
         subject: { type: 'string' },
         message: { type: 'string' },
+        urgent:  { type: 'boolean', description: 'Also send a text message for time-sensitive alerts' },
       },
       required: ['subject', 'message'],
+    },
+  },
+  {
+    name:        'text_client',
+    description: 'Send a text message directly to a lead or client. Use for appointment confirmations and time-sensitive follow-ups.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        phone:   { type: 'string', description: 'Phone number of the recipient' },
+        message: { type: 'string', description: 'Text message body (keep under 160 chars)' },
+      },
+      required: ['phone', 'message'],
     },
   },
 ];
@@ -130,6 +143,7 @@ const EXECUTORS = {
   read_email_thread: async (args) => toolReadThread(args),
   read_settings:     async ()     => toolReadSettings(),
   notify_owner:      async (args) => toolNotifyOwner(args),
+  text_client:       async (args) => toolTextClient(args),
 };
 
 // ─── LEAD AGENT CLASS ─────────────────────────────────────────────────────────
