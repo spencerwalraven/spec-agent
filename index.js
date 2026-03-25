@@ -194,6 +194,78 @@ function daysBetween(dateStr) {
 // ─── API: HEALTH ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
+// ─── API: SETUP — Gmail Watch ────────────────────────────────────────────────
+// POST /api/setup/gmail-watch  — call once per client to enable push notifications
+app.post('/api/setup/gmail-watch', async (req, res) => {
+  try {
+    const { startWatch } = require('./src/tools/gmail-watch');
+    const result = await startWatch();
+    res.json({ ok: true, expiration: result.expiration, historyId: result.historyId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── API: CONVERSATIONS ──────────────────────────────────────────────────────
+// Returns all leads/jobs that have an email thread, sorted by last contact
+app.get('/api/conversations', async (req, res) => {
+  try {
+    const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
+    const conversations = [];
+
+    leads.forEach((r, i) => {
+      const threadId = g(r, 'Email Thread ID', 'emailThread');
+      if (!threadId) return;
+      const name = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim();
+      conversations.push({
+        _row:       i + 2,
+        source:     'lead',
+        name,
+        email:      g(r, 'Email'),
+        threadId,
+        lastContact: g(r, 'Last Contact', 'Last Contacted'),
+        status:     g(r, 'Status', 'Lead Status'),
+        project:    g(r, 'Service Requested', 'Service Type', 'Project Type'),
+      });
+    });
+
+    jobs.forEach((r, i) => {
+      const threadId = g(r, 'Client Email Thread', 'Email Thread ID', 'emailThread');
+      if (!threadId) return;
+      const name = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim();
+      conversations.push({
+        _row:       i + 2,
+        source:     'job',
+        name,
+        email:      g(r, 'Email'),
+        threadId,
+        jobId:      g(r, 'Job ID'),
+        lastContact: g(r, 'Last Contact', 'Last Client Contact'),
+        status:     g(r, 'Job Status', 'Status'),
+        project:    g(r, 'Service Type', 'Project Type'),
+      });
+    });
+
+    // Sort newest contact first
+    conversations.sort((a, b) => {
+      const da = a.lastContact ? new Date(a.lastContact) : new Date(0);
+      const db = b.lastContact ? new Date(b.lastContact) : new Date(0);
+      return db - da;
+    });
+
+    res.json(conversations);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: THREAD ─────────────────────────────────────────────────────────────
+app.get('/api/thread/:threadId', async (req, res) => {
+  try {
+    const { readThread } = require('./src/tools/gmail');
+    const messages = await readThread(req.params.threadId);
+    res.json(messages);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: SUMMARY ──────────────────────────────────────────────────────────
 app.get('/api/summary', async (req, res) => {
   try {

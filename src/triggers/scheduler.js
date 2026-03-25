@@ -17,6 +17,8 @@ const cron   = require('node-cron');
 const { route }  = require('../agents/orchestrator');
 const { readTab, g } = require('../tools/sheets');
 const { logger } = require('../utils/logger');
+let gmailWatch;
+try { gmailWatch = require('../tools/gmail-watch'); } catch (_) {}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -176,6 +178,17 @@ function startScheduler() {
 
   // Monthly performance report — 1st of month at 7:00am
   cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: 'America/Chicago' });
+
+  // Gmail watch renewal — every day at 6:00am (watch expires after 7 days)
+  cron.schedule('0 6 * * *', async () => {
+    if (!gmailWatch) return;
+    try {
+      await gmailWatch.startWatch();
+      logger.success('Scheduler', 'Gmail watch renewed');
+    } catch (err) {
+      logger.error('Scheduler', `Gmail watch renewal failed: ${err.message}`);
+    }
+  }, { timezone: 'America/Chicago' });
 
   logger.success('Scheduler', '✅ All cron jobs scheduled');
 }

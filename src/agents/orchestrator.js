@@ -34,7 +34,8 @@ const jobAgent       = require('./job-agent');
 const clientAgent    = require('./client-agent');
 const marketingAgent = require('./marketing-agent');
 const { logger }     = require('../utils/logger');
-const { findRowByEmail } = require('../tools/sheets');
+const { findRowByEmail, updateCell, readSettings } = require('../tools/sheets');
+const { createJobFromLead } = require('../tools/jobs');
 
 /**
  * Route an event to the appropriate agent.
@@ -87,8 +88,16 @@ async function route(type, payload = {}) {
       case 'calendly_booking':
         return await leadAgent.handleCalendlyBooking(payload);
 
-      case 'lead_converted':
-        return await leadAgent.handleConversion({ rowNumber: payload.rowNumber });
+      case 'lead_converted': {
+        const leadRow = payload.rowNumber;
+        // 1. Mark lead converted
+        await updateCell('Leads', leadRow, ['Status', 'Lead Status'], 'Converted');
+        // 2. Create job row from lead data
+        const { jobId, rowNumber: jobRow } = await createJobFromLead(leadRow);
+        logger.success('Orchestrator', `Lead row ${leadRow} converted → Job ${jobId} at row ${jobRow}`);
+        // 3. Run the agent's conversion handler (sends confirmation email, notifies owner)
+        return await leadAgent.handleConversion({ rowNumber: leadRow, jobId, jobRow });
+      }
 
       // ── JOB LIFECYCLE ──────────────────────────────────────────────────
       case 'estimate_ready':

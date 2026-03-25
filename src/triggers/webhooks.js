@@ -12,7 +12,8 @@ const express = require('express');
 const router  = express.Router();
 const { route } = require('../agents/orchestrator');
 const { logger } = require('../utils/logger');
-const { appendRow, getLastRow } = require('../tools/sheets');
+const { appendRow, getLastRow, findRowByEmail } = require('../tools/sheets');
+const { getNewMessages, parseMessage } = require('../tools/gmail-watch');
 
 // Fire-and-forget helper
 function fireAndForget(type, payload) {
@@ -104,46 +105,104 @@ router.post('/new-lead', async (req, res) => {
   }
 });
 
-// ─── EMAIL REPLY (Gmail push notification or Make.com) ────────────────────────
+// ─── GMAIL PUSH (Google Pub/Sub) ──────────────────────────────────────────────
+// Google pushes here whenever a new email arrives in the inbox.
+// Payload: { message: { data: base64({ emailAddress, historyId }), ... } }
+router.post('/gmail-push', async (req, res) => {
+  res.status(200).send('OK');  // must respond 200 fast or Pub/Sub retries
+
+  try {
+    // Decode the Pub/Sub envelope
+    const b64 = req.body?.message?.data;
+    if (!b64) return;
+    const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
+    const { historyId, emailAddress } = payload;
+    if (!historyId) return;
+
+    logger.info('Webhook', `Gmail push — historyId ${historyId} (${emailAddress})`);
+
+    // Fetch all new messages since this historyId
+    const messages = await getNewMessages(historyId);
+    if (!messages.length) return;
+
+    for (const msg of messages) {
+      const parsed = parseMessage(msg);
+
+      // Skip sent messages (from us), drafts, and non-replies
+      if (parsed.labelIds.includes('SENT'))  continue;
+      if (parsed.labelIds.includes('DRAFT')) continue;
+
+      // Extract sender email
+      const fromEmail = parsed.from?.match(/<(.+)>/)?.[1] || parsed.from;
+      if (!fromEmail) continue;
+
+      logger.info('Webhook', `New email from ${fromEmail} — reply: ${parsed.isReply}`);
+
+      // Only route replies (not brand new inbound leads — those come via Tally)
+      if (parsed.isReply) {
+        fireAndForget('email_reply', {
+          from:      parsed.from,
+          subject:   parsed.subject,
+          threadId:  parsed.threadId,
+          messageId: parsed.messageId,
+          body:      parsed.body,
+        });
+      }
+    }
+  } catch (err) {
+    logger.error('Webhook', `Gmail push handler failed: ${err.message}`);
+  }
+});
+
+// ─── EMAIL REPLY (manual / Make.com fallback) ────────────────────────────────
 router.post('/email-reply', (req, res) => {
   res.status(200).json({ received: true });
-
-  // Handle Gmail Pub/Sub format
   let data = req.body;
   if (req.body?.message?.data) {
     try { data = JSON.parse(Buffer.from(req.body.message.data, 'base64').toString()); }
-    catch (_) { logger.warn('Webhook', 'Failed to decode Pub/Sub message'); return; }
+    catch (_) { logger.warn('Webhook', 'Failed to decode message'); return; }
   }
-
   logger.info('Webhook', `Email reply from ${data.from || 'unknown'}`);
   fireAndForget('email_reply', data);
 });
 
 // ─── CALENDLY BOOKING ─────────────────────────────────────────────────────────
-router.post('/calendly', (req, res) => {
+router.post('/calendly', async (req, res) => {
   res.status(200).json({ received: true });
 
-  const event = req.body?.payload || req.body;
-  if (!event) return;
+  try {
+    // Calendly v2 webhook format
+    const event     = req.body?.payload || req.body;
+    if (!event) return;
 
-  // Calendly sends invitee info nested under payload.invitee
-  const invitee     = event.invitee || event;
-  const scheduled   = event.scheduled_event || event;
-  const inviteeEmail = invitee.email || '';
-  const inviteeName  = invitee.name  || '';
+    const invitee      = event.invitee      || {};
+    const scheduled    = event.scheduled_event || event;
+    const inviteeEmail = invitee.email || event.email || '';
+    const inviteeName  = invitee.name  || event.name  || '';
+    const startTime    = scheduled.start_time || event.start_time || '';
+    const meetingType  = scheduled.name || event.event_type_name || 'Consultation';
 
-  // Find the row number from Questions or pass it if Make enriches it
-  const rowNumber = event.rowNumber || event.row || null;
+    logger.info('Webhook', `Calendly booking — ${inviteeName} (${inviteeEmail})`);
 
-  logger.info('Webhook', `Calendly booking — ${inviteeName} (${inviteeEmail})`);
-  fireAndForget('calendly_booking', {
-    rowNumber:       rowNumber ? parseInt(rowNumber) : null,
-    inviteeEmail,
-    inviteeName,
-    appointmentDate: scheduled.start_time || '',
-    appointmentTime: '',
-    meetingType:     scheduled.name || 'Consultation',
-  });
+    // Try to find the lead row by email so we can pass rowNumber to agent
+    let rowNumber = event.rowNumber || event.row || null;
+    if (!rowNumber && inviteeEmail) {
+      try {
+        const lead = await findRowByEmail('Leads', inviteeEmail);
+        if (lead?._row) rowNumber = lead._row;
+      } catch (_) {}
+    }
+
+    fireAndForget('calendly_booking', {
+      rowNumber: rowNumber ? parseInt(rowNumber) : null,
+      inviteeEmail,
+      inviteeName,
+      appointmentDate: startTime,
+      meetingType,
+    });
+  } catch (err) {
+    logger.error('Webhook', `Calendly handler failed: ${err.message}`);
+  }
 });
 
 // ─── MANUAL AGENT TRIGGER (dashboard buttons) ─────────────────────────────────

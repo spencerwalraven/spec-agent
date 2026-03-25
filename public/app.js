@@ -141,7 +141,7 @@ const PAGE_TITLES = {
   dashboard: 'Dashboard', leads: 'Leads', jobs: 'Jobs',
   clients: 'Clients', alerts: 'Alerts', team: 'Team',
   marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals',
-  agents: 'AI Agents', more: 'More'
+  conversations: 'Conversations', agents: 'AI Agents', more: 'More'
 };
 
 function navigate(page) {
@@ -169,7 +169,8 @@ function navigate(page) {
     else if (page === 'team') loadTeam();
     else if (page === 'marketing') loadMarketing();
     else if (page === 'settings') loadSettings();
-    else if (page === 'approvals') loadApprovals();
+    else if (page === 'approvals')     loadApprovals();
+    else if (page === 'conversations') loadConversations();
   }
 }
 
@@ -1267,6 +1268,128 @@ async function flagItem(idx, e) {
   } else {
     if (desc) desc.textContent = `${allApprovals.length} waiting for review`;
   }
+}
+
+/* ─── CONVERSATIONS PAGE ────────────────────────────────────────── */
+let allConversations = [], filteredConversations = [];
+
+async function loadConversations() {
+  const el = document.getElementById('convList');
+  allConversations = await api('/api/conversations') || [];
+  filteredConversations = allConversations;
+  renderConversations();
+}
+
+function filterConversations() {
+  const q = document.getElementById('convSearch')?.value?.toLowerCase() || '';
+  filteredConversations = q
+    ? allConversations.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.project || '').toLowerCase().includes(q))
+    : allConversations;
+  renderConversations();
+}
+
+function renderConversations() {
+  const el = document.getElementById('convList');
+  if (!el) return;
+
+  if (!filteredConversations.length) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">💬</div>
+        <div class="empty-title">No conversations yet</div>
+        <div class="empty-sub">Email threads will appear here once the AI sends outreach</div>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = filteredConversations.map((c, i) => {
+    const initials = (c.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const sourceLabel = c.source === 'job' ? `Job ${c.jobId || ''}` : 'Lead';
+    const time = c.lastContact ? relTime(c.lastContact) : '';
+    const statusBadge = c.status
+      ? `<span class="badge ${statusColor(c.status, c.source)}" style="font-size:9px">${c.status}</span>`
+      : '';
+    return `
+      <div class="conv-item" onclick="openThread(${i})">
+        <div class="conv-avatar">${initials}</div>
+        <div class="conv-body">
+          <div class="conv-name">${c.name || '—'}</div>
+          <div class="conv-meta">${c.project || c.email || '—'} ${statusBadge}</div>
+        </div>
+        <div class="conv-right">
+          <div class="conv-time">${time}</div>
+          <div class="conv-source">${sourceLabel}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function openThread(idx) {
+  const conv = filteredConversations[idx];
+  if (!conv) return;
+
+  document.getElementById('threadModalName').textContent = conv.name || '—';
+  document.getElementById('threadModalSub').textContent  =
+    `${conv.project || conv.email || ''} · ${conv.source === 'job' ? conv.jobId || 'Job' : 'Lead'}`;
+  document.getElementById('threadModalBody').innerHTML =
+    '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Loading thread…</div>';
+
+  document.getElementById('threadModal').classList.add('open');
+
+  try {
+    const res  = await fetch(`/api/thread/${encodeURIComponent(conv.threadId)}`);
+    const msgs = res.ok ? await res.json() : [];
+
+    if (!msgs.length) {
+      document.getElementById('threadModalBody').innerHTML =
+        '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">No messages found</div>';
+      return;
+    }
+
+    document.getElementById('threadModalBody').innerHTML = msgs.map(m => {
+      const from = m.from || '';
+      const date = m.date ? new Date(m.date).toLocaleString('en-US',
+        { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true }) : '';
+      const body = (m.body || '').trim().slice(0, 1200);
+      return `
+        <div class="thread-message">
+          <div class="thread-msg-header">
+            <div class="thread-msg-from">${from}</div>
+            <div class="thread-msg-date">${date}</div>
+          </div>
+          <div class="thread-msg-body">${body}</div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('threadModalBody').innerHTML =
+      `<div style="padding:20px;color:var(--red);font-size:13px">Error: ${e.message}</div>`;
+  }
+}
+
+function statusColor(status, source) {
+  const s = (status || '').toLowerCase();
+  if (source === 'lead') {
+    if (s.includes('hot') || s.includes('new')) return 'badge-red';
+    if (s.includes('warm') || s.includes('contact')) return 'badge-yellow';
+    if (s.includes('convert')) return 'badge-green';
+    return 'badge-gray';
+  }
+  if (s.includes('progress') || s.includes('active')) return 'badge-blue';
+  if (s.includes('complete')) return 'badge-green';
+  return 'badge-gray';
+}
+
+function relTime(str) {
+  try {
+    const diff = (Date.now() - new Date(str)) / 1000;
+    if (diff < 3600)   return Math.round(diff/60) + 'm ago';
+    if (diff < 86400)  return Math.round(diff/3600) + 'h ago';
+    if (diff < 604800) return Math.round(diff/86400) + 'd ago';
+    return new Date(str).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  } catch { return str; }
 }
 
 /* ─── SETTINGS PAGE ─────────────────────────────────────────────── */
