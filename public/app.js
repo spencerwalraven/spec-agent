@@ -328,6 +328,21 @@ function g(row, ...keys) {
 async function loadLeads() {
   allLeads = await api('/api/leads') || [];
   renderLeads();
+  updateLeadBadge();
+}
+
+function updateLeadBadge() {
+  // Count new, uncontacted leads for the nav badge
+  const uncontacted = allLeads.filter(l => {
+    const status  = (g(l,'leadStatus','Status','Lead Status') || '').toLowerCase();
+    const contact = g(l,'lastContact','Last Contact','Last Contacted') || '';
+    return status === 'new' && !contact;
+  }).length;
+  const badge = document.getElementById('leadsNavBadge');
+  if (badge) {
+    badge.textContent = uncontacted || '';
+    badge.style.display = uncontacted > 0 ? 'flex' : 'none';
+  }
 }
 
 function setLeadFilter(btn) {
@@ -790,6 +805,36 @@ function copyStatusLink(jobId) {
 }
 
 /* ─── CHANGE ORDER MODAL ─────────────────────────────────────────── */
+// ─── KICKOFF SCHEDULER ────────────────────────────────────────────────────────
+async function sendKickoffSchedule() {
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
+  const confirmed = confirm('Send kickoff date options to the client? They\'ll get 3 date choices by email.');
+  if (!confirmed) return;
+  try {
+    const res  = await fetch(`/api/jobs/${_currentJobRow}/kickoff-schedule`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`🗓️ Kickoff scheduling email sent! Dates offered: ${(data.datesOffered||[]).join(', ')}`);
+    closeModal('jobModal');
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+  }
+}
+
+// ─── DAILY BRIEFING ───────────────────────────────────────────────────────────
+async function sendDailyBriefing() {
+  const btn = document.getElementById('briefingBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    await fetch('/api/briefing/send', { method: 'POST' });
+    toast('☀️ Briefing sent to owner email!');
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '☀️ Send Briefing'; }
+  }
+}
+
 function openChangeOrderModal() {
   closeModal('jobModal');
   document.getElementById('coDescription').value = '';
@@ -1827,17 +1872,26 @@ async function loadFieldPhases(row, jobId) {
     }
     _fieldPhases[row] = phases;
     el.innerHTML = phases.map((p, pi) => {
-      const pName  = g(p,'Phase','Phase Name','name','phaseName');
-      const pTrade = g(p,'Trade','Assigned Trade','trade');
-      const pStatus = g(p,'Status','Phase Status','phaseStatus') || '';
-      const pRow   = p.__row || p._row || (pi + 2);
-      const done   = pStatus.toLowerCase().includes('complete') || pStatus.toLowerCase().includes('done');
+      const pName    = g(p,'Phase','Phase Name','name','phaseName');
+      const pTrade   = g(p,'Trade','Assigned Trade','trade');
+      const pStatus  = g(p,'Status','Phase Status','phaseStatus') || '';
+      const pRow     = p.__row || p._row || (pi + 2);
+      const done     = pStatus.toLowerCase().includes('complete') || pStatus.toLowerCase().includes('done');
+      const estCost  = g(p,'estCost','Estimated Cost','Est Cost') || '';
+      const actCost  = g(p,'actualCost','Actual Cost','Actual') || '';
       return `
         <div class="field-phase-row" onclick="toggleFieldPhase(${row}, ${pRow}, this)">
           <div class="field-check ${done?'done':''}" id="fcheck-${pRow}">${done?'✓':''}</div>
           <div style="flex:1">
             <div class="field-phase-name">${pName||'—'}</div>
             <div class="field-phase-trade">${pTrade||''}</div>
+            <div style="display:flex;gap:12px;margin-top:5px;align-items:center" onclick="event.stopPropagation()">
+              ${estCost ? `<span style="font-size:11px;color:var(--text3)">Est: $${parseFloat(String(estCost).replace(/[^0-9.]/g,'')).toLocaleString()}</span>` : ''}
+              <input type="number" placeholder="Actual $" value="${actCost ? parseFloat(String(actCost).replace(/[^0-9.]/g,'')) : ''}"
+                style="width:90px;background:var(--bg2,#F4F5F7);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:12px;color:var(--text1)"
+                id="actual-cost-${pRow}"
+                onchange="saveActualCost(${pRow}, this.value)">
+            </div>
           </div>
         </div>
       `;
@@ -1934,6 +1988,21 @@ async function submitFieldIssue(row, e) {
   } finally {
     btn.disabled = false;
     btn.textContent = '🚨 Alert Owner Now';
+  }
+}
+
+// ─── ACTUAL COST SAVING ───────────────────────────────────────────────────────
+async function saveActualCost(phaseRow, value) {
+  if (!value && value !== 0) return;
+  try {
+    await fetch(`/api/phases/${phaseRow}/actual-cost`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ actualCost: parseFloat(value) || 0 }),
+    });
+    toast('💰 Actual cost saved');
+  } catch (err) {
+    toast(`❌ Could not save cost: ${err.message}`, 3000);
   }
 }
 

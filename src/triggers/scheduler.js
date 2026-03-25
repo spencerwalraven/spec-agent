@@ -146,6 +146,178 @@ async function runThirtyDayCheckIns() {
   }
 }
 
+// ─── DAILY OWNER BRIEFING — 6:30am ───────────────────────────────────────────
+async function runDailyBriefing() {
+  logger.info('Scheduler', 'Running daily briefing…');
+  try {
+    const [leads, jobs, phases, settings] = await Promise.all([
+      readTab('Leads'), readTab('Jobs'), readTab('Job Phases'), readTab('Settings'),
+    ]);
+
+    const settingsMap = {};
+    (settings || []).forEach(r => {
+      if (r['Label'] && r['Value']) settingsMap[r['Label'].trim()] = r['Value'];
+      // Also try A/B column pattern
+      const keys = Object.keys(r).filter(k => !k.startsWith('_') && !k.startsWith('__'));
+      if (keys.length >= 2) settingsMap[r[keys[0]]?.trim?.()] = r[keys[1]];
+    });
+    const ownerEmail = settingsMap['Company Email'] || settingsMap['Gmail Send-From Address'] || '';
+    const ownerName  = settingsMap['Owner / Salesperson Name'] || 'there';
+    const companyName= settingsMap['Company Name'] || 'SPEC Systems';
+    if (!ownerEmail) { logger.warn('Scheduler', 'No owner email for daily briefing'); return; }
+
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    // ── LEADS ──
+    const hotNewLeads = leads.filter(l => {
+      const score  = parseInt(g(l, 'Lead Score', 'AI Score') || '0');
+      const status = (g(l, 'Lead Status', 'Status') || '').toLowerCase();
+      const contact= g(l, 'Last Contact', 'Last Contacted');
+      return score >= 70 && status === 'new' && !contact;
+    });
+
+    const staleLeads = leads.filter(l => {
+      const status = (g(l, 'Lead Status', 'Status') || '').toLowerCase();
+      if (['converted','dead','lost'].includes(status)) return false;
+      const days = daysBetween(g(l, 'Last Contact', 'Last Contacted'));
+      return days !== null && days >= 3;
+    });
+
+    const newLeadsToday = leads.filter(l => {
+      const ts = g(l, 'Timestamp', 'Date Added');
+      if (!ts) return false;
+      const d = new Date(ts);
+      const n = new Date();
+      return d.toDateString() === n.toDateString();
+    });
+
+    // ── JOBS ──
+    const activeJobs = jobs.filter(j => {
+      const s = (g(j,'Job Status','Status')||'').toLowerCase();
+      return s.includes('progress') || s.includes('active');
+    });
+
+    const proposalsOut = jobs.filter(j =>
+      /awaiting approval|sent/i.test(g(j,'Proposal Status','Proposal Sent') || '')
+    );
+
+    const unpaidDeposits = jobs.filter(j =>
+      /yes/i.test(g(j,'Deposit Invoice Sent','') || '') &&
+      !/yes|paid/i.test(g(j,'Deposit Paid','Deposit Invoice Paid') || '')
+    );
+
+    const unpaidFinals = jobs.filter(j =>
+      /yes/i.test(g(j,'Final Invoice Sent','') || '') &&
+      !/yes|paid/i.test(g(j,'Final Invoice Paid','Final Paid') || '')
+    );
+
+    // Phases due/overdue today
+    const phasesOverdue = phases.filter(p => {
+      const end  = g(p,'End Date','Due Date','Phase End');
+      const stat = (g(p,'Status','Phase Status')||'').toLowerCase();
+      if (!end || stat.includes('complete')) return false;
+      return daysBetween(end) !== null && daysBetween(end) > 0;
+    });
+
+    // ── BUILD SECTIONS ──
+    const urgentItems = [];
+    if (hotNewLeads.length)    urgentItems.push(`🔥 <strong>${hotNewLeads.length} hot lead${hotNewLeads.length>1?'s':''}</strong> with no first contact yet`);
+    if (unpaidDeposits.length) urgentItems.push(`💰 <strong>${unpaidDeposits.length} deposit${unpaidDeposits.length>1?'s':''} overdue</strong> — contracts signed but not paid`);
+    if (unpaidFinals.length)   urgentItems.push(`💰 <strong>${unpaidFinals.length} final invoice${unpaidFinals.length>1?'s':''} unpaid</strong>`);
+    if (phasesOverdue.length)  urgentItems.push(`⚠️ <strong>${phasesOverdue.length} phase${phasesOverdue.length>1?'s':''} overdue</strong> — past scheduled end date`);
+
+    const watchItems = [];
+    if (staleLeads.length)   watchItems.push(`⏰ ${staleLeads.length} lead${staleLeads.length>1?'s':''} with no contact in 3+ days`);
+    if (proposalsOut.length) watchItems.push(`📋 ${proposalsOut.length} proposal${proposalsOut.length>1?'s':''} out awaiting client approval`);
+
+    // Lead names for hot leads section
+    const hotLeadNames = hotNewLeads.slice(0,5).map(l =>
+      `${g(l,'First Name','')} ${g(l,'Last Name','')}`.trim() +
+      (g(l,'Lead Score','AI Score') ? ` (${g(l,'Lead Score','AI Score')}/100)` : '')
+    );
+
+    const activeJobNames = activeJobs.slice(0,5).map(j =>
+      `${g(j,'First Name','')} ${g(j,'Last Name','')}`.trim() +
+      ` — ${g(j,'Service Type','Project Type') || 'Project'}`
+    );
+
+    // ── HTML EMAIL ──
+    const html = `
+<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;background:#F4F5F7;padding:20px">
+
+  <div style="background:#0A2240;border-radius:14px 14px 0 0;padding:24px 28px">
+    <div style="color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Daily Briefing</div>
+    <div style="color:#ffffff;font-size:20px;font-weight:800">${today}</div>
+    <div style="color:rgba(255,255,255,.6);font-size:13px;margin-top:4px">Good morning, ${ownerName} — here's what needs your attention today.</div>
+  </div>
+
+  <!-- SNAPSHOT -->
+  <div style="background:#fff;border:1px solid #E5E7EB;border-top:none;padding:20px 28px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+      ${[
+        { n: newLeadsToday.length, label: 'New leads today', color: newLeadsToday.length>0?'#0A2240':'#6B7280' },
+        { n: hotNewLeads.length,   label: 'Hot, uncontacted', color: hotNewLeads.length>0?'#DC2626':'#6B7280' },
+        { n: activeJobs.length,    label: 'Active jobs', color: '#0A2240' },
+        { n: proposalsOut.length,  label: 'Awaiting approval', color: proposalsOut.length>0?'#F59E0B':'#6B7280' },
+      ].map(s => `
+        <div style="text-align:center;background:#F9FAFB;border-radius:10px;padding:14px 8px">
+          <div style="font-size:28px;font-weight:900;color:${s.color}">${s.n}</div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px;line-height:1.3">${s.label}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${urgentItems.length ? `
+    <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;color:#DC2626;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🚨 Needs Attention</div>
+      ${urgentItems.map(i=>`<div style="font-size:14px;color:#374151;margin-bottom:6px">${i}</div>`).join('')}
+    </div>` : `
+    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px 20px;margin-bottom:16px">
+      <div style="font-size:14px;color:#15803D;font-weight:600">✅ No urgent items — you're in good shape today!</div>
+    </div>`}
+
+    ${watchItems.length ? `
+    <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:800;color:#92400E;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">👀 Keep an Eye On</div>
+      ${watchItems.map(i=>`<div style="font-size:14px;color:#374151;margin-bottom:6px">${i}</div>`).join('')}
+    </div>` : ''}
+
+    ${hotLeadNames.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">🔥 Hot Leads Needing First Contact</div>
+      ${hotLeadNames.map(n=>`<div style="font-size:14px;color:#0A2240;font-weight:600;padding:6px 0;border-bottom:1px solid #F3F4F6">${n}</div>`).join('')}
+    </div>` : ''}
+
+    ${activeJobNames.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">🏗️ Active Jobs</div>
+      ${activeJobNames.map(n=>`<div style="font-size:14px;color:#374151;padding:6px 0;border-bottom:1px solid #F3F4F6">${n}</div>`).join('')}
+    </div>` : ''}
+
+    <div style="text-align:center;margin-top:20px">
+      <a href="${process.env.RAILWAY_PUBLIC_DOMAIN ? 'https://'+process.env.RAILWAY_PUBLIC_DOMAIN : (process.env.APP_URL || '#')}" style="display:inline-block;background:#0A2240;color:#fff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:10px;font-size:15px">Open Dashboard →</a>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:#9CA3AF;padding:16px">
+    Automated morning briefing from ${companyName} · SPEC Systems
+  </div>
+</div>`.trim();
+
+    const { sendEmail } = require('../tools/gmail');
+    await sendEmail({
+      to:      ownerEmail,
+      subject: `☀️ Morning Briefing — ${today}`,
+      body:    `Good morning ${ownerName}! Here's your daily summary: ${urgentItems.length} urgent items, ${activeJobs.length} active jobs, ${hotNewLeads.length} hot leads uncontacted.`,
+      html,
+    });
+
+    logger.success('Scheduler', `Daily briefing sent to ${ownerEmail}`);
+  } catch (err) {
+    logger.error('Scheduler', `Daily briefing failed: ${err.message}`);
+  }
+}
+
 // ─── WEATHER ALERTS — daily 7:00am ───────────────────────────────────────────
 async function runWeatherAlerts() {
   if (!weatherTool || !process.env.OPENWEATHER_API_KEY) return;
@@ -212,6 +384,9 @@ function startScheduler() {
   // 30-day check-ins — daily at 11:30am
   cron.schedule('30 11 * * *', runThirtyDayCheckIns, { timezone: 'America/Chicago' });
 
+  // Daily owner briefing — 6:30am (first thing in the morning)
+  cron.schedule('30 6 * * *', runDailyBriefing, { timezone: 'America/Chicago' });
+
   // Weather alerts — daily at 7:00am (before scan so owner has heads up)
   cron.schedule('0 7 * * *', runWeatherAlerts, { timezone: 'America/Chicago' });
 
@@ -247,7 +422,7 @@ function startScheduler() {
 module.exports = {
   startScheduler,
   // Export runners for manual testing
-  runNurtureSequence, runProposalFollowUps, runWeeklyUpdates,
+  runDailyBriefing, runNurtureSequence, runProposalFollowUps, runWeeklyUpdates,
   runInvoiceFollowUps, runReviewFollowUps, runThirtyDayCheckIns,
   runMonthlyReport, runWeatherAlerts,
 };

@@ -483,6 +483,17 @@ app.get('/api/phases', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Update phase actual cost (job costing)
+app.post('/api/phases/:row/actual-cost', async (req, res) => {
+  try {
+    const rowNum = parseInt(req.params.row);
+    const { actualCost } = req.body;
+    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
+    const ok = await updateCell('Job Phases', rowNum, ['Actual Cost', 'Actual'], String(actualCost || '0'));
+    res.json({ success: ok });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Update phase status
 app.post('/api/phases/:row/status', async (req, res) => {
   try {
@@ -1517,6 +1528,185 @@ app.post('/api/weather/check', async (req, res) => {
     runWeatherAlerts().catch(console.error);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ─── DAILY BRIEFING (manual trigger) ─────────────────────────────────────────
+app.post('/api/briefing/send', async (req, res) => {
+  try {
+    const { runDailyBriefing } = require('./src/triggers/scheduler');
+    res.json({ ok: true, message: 'Briefing sending…' });
+    runDailyBriefing().catch(console.error);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── KICKOFF SCHEDULER ────────────────────────────────────────────────────────
+
+// Send kickoff date options to client
+app.post('/api/jobs/:row/kickoff-schedule', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+
+    const { readRow } = require('./src/tools/sheets');
+    const job = await readRow('Jobs', row);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const clientEmail = g(job, 'Email') || '';
+    const clientFirst = g(job, 'First Name') || 'there';
+    const projectType = g(job, 'Service Type', 'Project Type') || 'Project';
+    const jobId       = g(job, 'Job ID') || `ROW${row}`;
+
+    if (!clientEmail) return res.status(400).json({ error: 'No client email on job' });
+
+    const settings   = await readSettings();
+    const baseUrl    = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || 'https://your-app.railway.app');
+
+    // Generate 3 date options: ~1 week, ~2 weeks, ~3 weeks out
+    // Skip weekends
+    function nextWeekday(baseDate, minDays) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + minDays);
+      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+      return d;
+    }
+    const now = new Date();
+    const dates = [
+      nextWeekday(now, 7),
+      nextWeekday(now, 14),
+      nextWeekday(now, 21),
+    ];
+    const fmtDate = d => d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const isoDate = d => d.toISOString().split('T')[0];
+
+    const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#0A2240;padding:24px 28px;border-radius:12px 12px 0 0">
+    <div style="color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Project Kickoff</div>
+    <div style="color:#ffffff;font-size:20px;font-weight:800">Let's Pick Your Start Date 🗓️</div>
+  </div>
+  <div style="background:#ffffff;padding:28px;border:1px solid #E5E7EB;border-top:none">
+    <p style="font-size:15px;color:#374151;margin:0 0 20px">Hey ${clientFirst}! We're fired up to get started on your ${projectType}. Pick the start date that works best for you:</p>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+      ${dates.map(d => `
+      <a href="${baseUrl}/api/kickoff/select/${jobId}/${isoDate(d)}" style="display:block;background:#F9FAFB;border:2px solid #E5E7EB;border-radius:12px;padding:18px 20px;text-decoration:none;color:#0A2240;font-size:16px;font-weight:700">
+        📅 ${fmtDate(d)}
+      </a>`).join('')}
+    </div>
+
+    <p style="font-size:13px;color:#6B7280;margin:0">None of these work? Just reply to this email with what does — we'll make it happen.</p>
+  </div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+</div>`.trim();
+
+    const { sendEmail } = require('./src/tools/gmail');
+    const threadId = g(job, 'Client Email Thread', 'Email Thread ID') || null;
+    await sendEmail({
+      to:      clientEmail,
+      subject: `Let's pick your ${projectType} start date 🗓️`,
+      body:    `Hey ${clientFirst}! Ready to get started on your ${projectType}. Pick a start date that works for you.`,
+      html,
+      threadId,
+    });
+
+    await updateCell('Jobs', row, ['Kickoff Schedule Sent', 'Kickoff Sent'], 'Yes');
+    await updateCell('Jobs', row, ['Last Contact', 'Last Client Contact'], new Date().toLocaleDateString('en-US'));
+
+    const { notifyOwner } = require('./src/tools/notify');
+    await notifyOwner({
+      subject: `Kickoff scheduling email sent — ${clientFirst}`,
+      message: `Sent ${clientFirst} three kickoff date options for their ${projectType}. Dates offered: ${dates.map(fmtDate).join(', ')}.`,
+    });
+
+    res.json({ ok: true, datesOffered: dates.map(fmtDate) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Client selects a kickoff date from email link
+app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
+  try {
+    const { jobId, date } = req.params;
+    const jobs = await readTab('Jobs');
+    const job  = jobs.find(j => g(j, 'Job ID') === jobId);
+    if (!job) return res.status(404).send(kickoffResponsePage('not-found', null, date));
+
+    const jobRow      = jobs.indexOf(job) + 2;
+    const clientFirst = g(job, 'First Name') || 'there';
+    const projectType = g(job, 'Service Type', 'Project Type') || 'Project';
+    const settings    = await readSettings();
+
+    // Parse and format the date
+    const d       = new Date(date + 'T12:00:00');
+    const fmtDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    // Save to job record
+    await updateCell('Jobs', jobRow, ['Site Visit Date', 'Kickoff Date', 'Start Date'], fmtDate);
+    await updateCell('Jobs', jobRow, ['Job Status', 'Status'], 'Kickoff Scheduled');
+
+    // Notify owner urgently
+    const { notifyOwner } = require('./src/tools/notify');
+    await notifyOwner({
+      subject: `🗓️ Kickoff Date Confirmed — ${clientFirst}!`,
+      message: `${clientFirst} selected ${fmtDate} as their ${projectType} kickoff date.\n\nJob record has been updated. Make sure your crew is ready!`,
+      urgent: true,
+    });
+
+    // Send confirmation to client
+    const html = `
+<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto">
+  <div style="background:#0A2240;padding:24px 28px;border-radius:12px 12px 0 0">
+    <div style="color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">You're Confirmed!</div>
+    <div style="color:#ffffff;font-size:20px;font-weight:800">🗓️ Kickoff: ${fmtDate}</div>
+  </div>
+  <div style="background:#ffffff;padding:28px;border:1px solid #E5E7EB;border-top:none;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🎉</div>
+    <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:8px">You're all set, ${clientFirst}!</div>
+    <div style="font-size:15px;color:#6B7280;line-height:1.6;margin-bottom:20px">We'll see you on <strong>${fmtDate}</strong> to kick off your ${projectType}. We'll follow up a day or two before to confirm everything.</div>
+    <div style="background:#F0FDF4;border-radius:10px;padding:14px;font-size:13px;color:#15803D;font-weight:600">✅ Your project start date is confirmed</div>
+  </div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+</div>`.trim();
+
+    const { sendEmail } = require('./src/tools/gmail');
+    const clientEmail = g(job, 'Email') || '';
+    const threadId    = g(job, 'Client Email Thread', 'Email Thread ID') || null;
+    if (clientEmail) {
+      await sendEmail({ to: clientEmail, subject: `Confirmed: Your kickoff is ${fmtDate} 🗓️`, body: `You're confirmed! We'll see you on ${fmtDate} for your ${projectType} kickoff.`, html, threadId });
+    }
+
+    res.send(kickoffResponsePage('confirmed', job, fmtDate));
+  } catch (e) {
+    res.status(500).send(kickoffResponsePage('error', null, ''));
+  }
+});
+
+function kickoffResponsePage(type, job, dateStr) {
+  const msgs = {
+    'confirmed':  { icon: '🎉', title: 'Kickoff Confirmed!', sub: `Your start date is locked in — ${dateStr}. We'll be in touch a day before to confirm everything is ready.`, color: '#22C55E' },
+    'not-found':  { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us to schedule your start date.', color: '#6B7280' },
+    'error':      { icon: '⚠️', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll get your start date confirmed right away.', color: '#F59E0B' },
+  };
+  const m = msgs[type] || msgs['error'];
+  const projectType = job ? g(job, 'Service Type', 'Project Type') : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${m.title}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F4F5F7;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .header{background:#0A2240;margin:-40px -32px 28px;padding:24px 32px;border-radius:16px 16px 0 0}
+  .header-label{color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+  .header-title{color:#fff;font-size:15px;font-weight:700}.icon{font-size:52px;margin-bottom:14px}
+  .title{font-size:22px;font-weight:800;color:#111827;margin-bottom:10px}.sub{font-size:15px;color:#6B7280;line-height:1.6}
+  .powered{font-size:12px;color:#9CA3AF;margin-top:24px}</style></head>
+  <body><div class="card">
+    <div class="header"><div class="header-label">SPEC Systems</div><div class="header-title">${projectType || 'Your Project'}</div></div>
+    <div class="icon">${m.icon}</div>
+    <div class="title">${m.title}</div>
+    <div class="sub">${m.sub}</div>
+    <div class="powered">Powered by SPEC Systems</div>
+  </div></body></html>`;
+}
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

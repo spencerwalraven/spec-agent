@@ -1037,6 +1037,9 @@
         <button class="trigger-btn" onclick="triggerAgent('daily_scan')" style="grid-column:span 2;background:rgba(191,148,56,.08);border-color:var(--gold-dim)">
           <span class="trigger-icon">🤖</span>Run Daily Scan (Smart Orchestrator)
         </button>
+        <button class="trigger-btn" id="briefingBtn" onclick="sendDailyBriefing()" style="grid-column:span 2;background:rgba(10,34,64,.06);border-color:rgba(10,34,64,.2)">
+          <span class="trigger-icon">☀️</span>Send Morning Briefing to Owner
+        </button>
       </div>
     </section>
 
@@ -1089,8 +1092,9 @@
     <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
       <span class="nav-icon">🏠</span><span>Home</span>
     </button>
-    <button class="nav-item" data-page="leads" onclick="navigate('leads')">
+    <button class="nav-item" data-page="leads" onclick="navigate('leads')" style="position:relative">
       <span class="nav-icon">👤</span><span>Leads</span>
+      <span id="leadsNavBadge" style="display:none;position:absolute;top:4px;right:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px"></span>
     </button>
     <button class="nav-item" data-page="jobs" onclick="navigate('jobs')">
       <span class="nav-icon">🔨</span><span>Jobs</span>
@@ -1142,6 +1146,7 @@
     <div class="modal-body" id="jmBody"></div>
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="closeModal('jobModal')" style="flex:1">Close</button>
+      <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1">🗓️ Schedule Kickoff</button>
       <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1">📝 Change Order</button>
     </div>
   </div>

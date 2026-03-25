@@ -200,6 +200,10 @@ TASK — in this exact order:
 
 ${repBlock}
 
+SMS FOLLOW-UP:
+- After sending the email, if the lead has a phone number AND their score is 70 or higher, also use text_client to send a short friendly text (under 160 chars). Example: "Hey [first name]! This is [rep name] from [company] — just sent you an email about your [project type]. Let me know if you have questions! 😊"
+- If score is below 70, skip the text — email only.
+
 IMPORTANT:
 - Write email in plain text, no markdown, no bullet points, no headers
 - Keep emails under 200 words — concise is better
