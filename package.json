@@ -8,10 +8,12 @@
     "setup": "node setup-gmail.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "openai": "^4.28.0",
-    "googleapis": "^140.0.0",
+    "@anthropic-ai/sdk": "^0.80.0",
+    "axios": "^1.6.7",
     "dotenv": "^16.4.1",
-    "axios": "^1.6.7"
+    "express": "^4.18.2",
+    "googleapis": "^140.0.0",
+    "node-cron": "^4.2.1",
+    "openai": "^4.28.0"
   }
 }

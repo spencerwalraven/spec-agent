@@ -6,17 +6,38 @@ const { google } = require('googleapis');
 // Catch unhandled errors so they appear in Railway logs
 process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
 process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
-let handleNewLead, handleEmailReply;
+
+// ─── AI AGENT SYSTEM ─────────────────────────────────────────────────────────
+let webhookRouter, startScheduler, addSseClient;
 try {
-  ({ handleNewLead, handleEmailReply } = require('./agent'));
+  webhookRouter  = require('./src/triggers/webhooks');
+  ({ startScheduler } = require('./src/triggers/scheduler'));
+  ({ addClient: addSseClient } = require('./src/utils/logger'));
+  console.log('✅ AI Agent system loaded');
 } catch (e) {
-  console.warn('⚠️  Agent module failed to load:', e.message);
-  handleNewLead = handleEmailReply = async () => ({ error: 'Agent not available' });
+  console.warn('⚠️  AI Agent system failed to load:', e.message);
+  webhookRouter = null; startScheduler = null; addSseClient = null;
 }
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── SSE: LIVE ACTIVITY FEED ─────────────────────────────────────────────────
+app.get('/api/activity-stream', (req, res) => {
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.write('data: {"type":"connected"}\n\n');
+  // Heartbeat every 25s to keep connection alive
+  const hb = setInterval(() => res.write(':heartbeat\n\n'), 25000);
+  res.on('close', () => clearInterval(hb));
+  if (addSseClient) addSseClient(res);
+});
+
+// ─── WEBHOOK ROUTER (agent triggers) ─────────────────────────────────────────
+if (webhookRouter) app.use('/webhook', webhookRouter);
 
 // ─── SHEETS CLIENT ─────────────────────────────────────────────────────────
 function getSheets() {
@@ -713,20 +734,22 @@ app.post('/api/settings', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── WEBHOOKS ────────────────────────────────────────────────────────────────
-app.post('/webhook/new-lead', async (req, res) => {
+// Legacy webhook aliases — kept for backward compat with existing Make.com scenarios
+app.post('/webhook/new-lead', (req, res) => {
   res.status(200).json({ received: true });
-  try { await handleNewLead(req.body, req.query.clientId || 'default'); }
-  catch (e) { console.error(e.message); }
+  const { route } = require('./src/agents/orchestrator');
+  const rowNumber = req.body.rowNumber || req.body.row;
+  if (rowNumber) route('new_lead', { rowNumber: parseInt(rowNumber) }).catch(console.error);
 });
 
-app.post('/webhook/email-reply', async (req, res) => {
+app.post('/webhook/email-reply', (req, res) => {
   res.status(200).json({ received: true });
-  try {
-    let data = req.body;
-    if (req.body.message?.data) data = JSON.parse(Buffer.from(req.body.message.data, 'base64').toString());
-    await handleEmailReply(data, req.query.clientId || 'default');
-  } catch (e) { console.error(e.message); }
+  const { route } = require('./src/agents/orchestrator');
+  let data = req.body;
+  if (req.body?.message?.data) {
+    try { data = JSON.parse(Buffer.from(req.body.message.data, 'base64').toString()); } catch (_) {}
+  }
+  route('email_reply', data).catch(console.error);
 });
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
@@ -755,5 +778,12 @@ function scoreColor(score) {
 app.get('/ping', (req, res) => res.send('pong'));
 
 const PORT = process.env.PORT || 3000;
-console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}`);
-app.listen(PORT, '0.0.0.0', () => console.log(`✅ SPEC Systems CRM running on port ${PORT}`));
+console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ SPEC Systems CRM running on port ${PORT}`);
+  // Start cron scheduler after server is up
+  if (startScheduler) {
+    try { startScheduler(); }
+    catch (e) { console.warn('Scheduler failed to start:', e.message); }
+  }
+});
