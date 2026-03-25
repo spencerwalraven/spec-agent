@@ -37,12 +37,22 @@ const TALLY_FIELD_MAP = {
   'How did you hear about us?':                      'How did you hear about us?',
 };
 
+function resolveOption(value, options) {
+  // Try to resolve a UUID to human-readable text
+  // Tally may use 'text', 'label', or 'title' as the display key
+  if (!options?.length) return value;
+  const opt = options.find(o => o.id === value);
+  if (!opt) return value;
+  return opt.text || opt.label || opt.title || opt.value || value;
+}
+
 function parseTallyPayload(body) {
   // Tally format: { data: { fields: [{ label, type, value, options }] } }
   const fields = body?.data?.fields || body?.fields || [];
 
-  // Debug: log all field labels so we can catch mapping mismatches
-  logger.info('Tally', `Fields received: ${fields.map(f => `"${f.label}"`).join(', ')}`);
+  // Log full raw payload so we can diagnose any mapping issues in Railway logs
+  logger.info('Tally', `RAW PAYLOAD: ${JSON.stringify(body).slice(0, 2000)}`);
+  logger.info('Tally', `Fields received: ${fields.map(f => `"${f.label}" (${f.type})`).join(', ')}`);
 
   const lead = {
     Timestamp: new Date().toLocaleDateString('en-US'),
@@ -64,31 +74,28 @@ function parseTallyPayload(body) {
     }
 
     // Multiple choice / dropdown — Tally sends value as array of UUID strings
-    // The options array maps UUID → human-readable text
     if (Array.isArray(field.value)) {
       const opts = field.options || [];
       const text = field.value.map(v => {
-        // v could be a UUID string or already an object with .text
-        if (typeof v === 'object') return v.text || v.label || JSON.stringify(v);
-        const opt = opts.find(o => o.id === v);
-        return opt ? opt.text : v; // fall back to raw UUID if no match
+        if (typeof v === 'object') return v.text || v.label || v.title || JSON.stringify(v);
+        return resolveOption(v, opts);
       }).join(', ');
       if (col) lead[col] = text;
       continue;
     }
 
-    // Single UUID string (some Tally single-select fields)
+    // Single UUID string (single-select dropdown)
     if (typeof field.value === 'string' && field.options?.length) {
-      const opt = field.options.find(o => o.id === field.value);
-      if (opt && col) { lead[col] = opt.text; continue; }
+      const resolved = resolveOption(field.value, field.options);
+      if (col) { lead[col] = resolved; continue; }
     }
 
     // Standard text/number/date
     const value = String(field.value ?? '');
-    if (col) lead[col] = value;
+    if (col && value) lead[col] = value;
   }
 
-  logger.info('Tally', `Parsed lead data: ${JSON.stringify(lead)}`);
+  logger.info('Tally', `Parsed lead: ${JSON.stringify(lead)}`);
   return lead;
 }
 
