@@ -36,6 +36,17 @@ const TOOLS = [
     input_schema: { type: 'object', properties: {}, required: [] },
   },
   {
+    name: 'get_project_learnings',
+    description: 'Get historical data from past completed jobs of the same project type — use this to adjust estimate accuracy',
+    input_schema: {
+      type: 'object',
+      properties: {
+        projectType: { type: 'string', description: 'Project type to look up, e.g. "Kitchen Remodel"' },
+      },
+      required: ['projectType'],
+    },
+  },
+  {
     name: 'fetch_material_prices',
     description: 'Search for current material prices for a specific material or product. Returns pricing data from supplier sites.',
     input_schema: {
@@ -92,6 +103,15 @@ const EXECUTORS = {
   read_job:      async (args) => toolReadJob(args),
   read_settings: async ()     => toolReadSettings(),
   notify_owner:  async (args) => toolNotifyOwner(args),
+
+  get_project_learnings: async ({ projectType }) => {
+    try {
+      const learningAgent = require('./learning-agent');
+      return await learningAgent.getInsights(projectType);
+    } catch (_) {
+      return `No historical data available for ${projectType}`;
+    }
+  },
 
   fetch_material_prices: async ({ material, location }) => {
     // Use fetch to get pricing context from search
@@ -161,7 +181,8 @@ You are an expert home remodeling estimator with 20 years of experience. You gen
 TASK — in this exact order:
 1. Read the business settings (read_settings) — get company name, location
 2. Read the job data (read_job, row ${rowNumber}) — get project scope, description, client info, budget
-3. Analyze the project type and scope:
+3. Get historical learnings for this project type (get_project_learnings) — apply any recommended cost adjustment factors from past jobs
+4. Analyze the project type and scope:
    - What trades are involved? (demo, framing, plumbing, electrical, tile, cabinets, paint, etc.)
    - What materials are needed?
    - What is the approximate square footage or linear footage?

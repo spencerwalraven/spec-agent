@@ -182,6 +182,12 @@ function startScheduler() {
     await safeRoute('daily_scan', {});
   }, { timezone: 'America/Chicago' });
 
+  // Monthly learning synthesis — 2nd of month at 6:00am (after report)
+  cron.schedule('0 6 2 * *', async () => {
+    logger.info('Scheduler', 'Running monthly learning synthesis…');
+    await safeRoute('synthesize_learnings', {});
+  }, { timezone: 'America/Chicago' });
+
   // Monthly performance report — 1st of month at 7:00am
   cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: 'America/Chicago' });
 

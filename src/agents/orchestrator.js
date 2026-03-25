@@ -34,6 +34,8 @@ const jobAgent           = require('./job-agent');
 const clientAgent        = require('./client-agent');
 const marketingAgent     = require('./marketing-agent');
 const pricingAgent       = require('./pricing-agent');
+const planningAgent      = require('./planning-agent');
+const learningAgent      = require('./learning-agent');
 const smartOrchestrator  = require('./smart-orchestrator');
 const { logger }         = require('../utils/logger');
 const { findRowByEmail, updateCell, readSettings } = require('../tools/sheets');
@@ -165,6 +167,17 @@ async function route(type, payload = {}) {
 
       case 'scan_jobs':
         return await smartOrchestrator.scanJobs();
+
+      // ── PROJECT PLANNING ──────────────────────────────────────────
+      case 'plan_project':
+        return await planningAgent.planProject({ rowNumber: payload.rowNumber });
+
+      // ── LEARNING ──────────────────────────────────────────────────
+      case 'learn_from_job':
+        return await learningAgent.learnFromJob({ rowNumber: payload.rowNumber });
+
+      case 'synthesize_learnings':
+        return await learningAgent.synthesizeLearnings();
 
       default:
         logger.warn('Orchestrator', `Unknown event type: ${type}`);
