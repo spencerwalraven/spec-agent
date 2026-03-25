@@ -163,7 +163,7 @@ async function loadTodayStrip() {
 
     el.innerHTML = todayEvents.slice(0, 6).map(e => {
       const d = new Date(e.start);
-      const allDay = !e.start.includes('T');
+      const allDay  = !e.start.includes('T');
       const timeStr = allDay ? 'All Day' : d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       const color   = GC_COLORS[e.color] || '#039be5';
       const title   = e.title || 'Untitled';
@@ -171,12 +171,14 @@ async function loadTodayStrip() {
                     : /kickoff|start/i.test(title)        ? 'Kickoff'
                     : /phase|install|demo/i.test(title)   ? 'Phase'
                     : '';
+      // Build onclick separately to avoid nested backtick syntax error
+      const onclick = e.link ? 'window.open(this.dataset.link,\'_blank\')' : '';
       return `
-        <div class="cal-evt" onclick="${e.link ? `window.open('${e.link.replace(/'/g,'\\'')}','_blank')` : ''}">
+        <div class="cal-evt" onclick="${onclick}" data-link="${e.link || ''}">
           <div class="cal-evt-time">${timeStr}</div>
           <div class="cal-evt-bar" style="background:${color}"></div>
           <div class="cal-evt-title">${title}</div>
-          ${tag ? `<div class="cal-evt-tag">${tag}</div>` : ''}
+          ${tag ? '<div class="cal-evt-tag">' + tag + '</div>' : ''}
         </div>`;
     }).join('');
   } catch (_) {
