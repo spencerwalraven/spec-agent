@@ -8,15 +8,16 @@ process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
 process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
 
 // ─── AI AGENT SYSTEM ─────────────────────────────────────────────────────────
-let webhookRouter, startScheduler, addSseClient;
+let webhookRouter, startScheduler, addSseClient, logger;
 try {
   webhookRouter  = require('./src/triggers/webhooks');
   ({ startScheduler } = require('./src/triggers/scheduler'));
-  ({ addClient: addSseClient } = require('./src/utils/logger'));
+  ({ logger, addClient: addSseClient } = require('./src/utils/logger'));
   console.log('✅ AI Agent system loaded');
 } catch (e) {
   console.warn('⚠️  AI Agent system failed to load:', e.message);
   webhookRouter = null; startScheduler = null; addSseClient = null;
+  logger = { info: console.log, success: console.log, warn: console.warn, error: console.error };
 }
 
 const app = express();
@@ -1139,6 +1140,116 @@ app.get('/api/status/:jobId', async (req, res) => {
 app.get('/status/:jobId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'status.html'));
 });
+
+// ─── PROPOSAL APPROVAL API ────────────────────────────────────────────────────
+
+// Client clicks "Yes, Let's Do It!" in proposal email
+app.get('/api/proposal/approve/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const rows = await readTab('Jobs');
+    const job  = rows.find(r => g(r, 'Proposal Token', 'Proposal Approval Token') === token);
+    if (!job) return res.status(404).send(proposalResponsePage('not-found', null));
+
+    const status = g(job, 'Proposal Status', 'Proposal Sent') || '';
+    if (status === 'Approved') return res.send(proposalResponsePage('already-approved', job));
+    if (/declined|not right now/i.test(status)) return res.send(proposalResponsePage('already-declined', job));
+
+    const jobRow = rows.indexOf(job) + 2;
+
+    // Update proposal status
+    await updateCell('Jobs', jobRow, ['Proposal Status', 'Proposal Sent'], 'Approved');
+    await updateCell('Jobs', jobRow, ['Proposal Accepted Date', 'Proposal Approved Date'], new Date().toLocaleDateString('en-US'));
+    await updateCell('Jobs', jobRow, ['Job Status', 'Status'], 'Contract Pending');
+
+    // Auto-trigger contract generation
+    try {
+      const { route } = require('./src/agents/orchestrator');
+      route('generate_contract', { rowNumber: jobRow }).catch(err =>
+        console.error('Contract generation failed:', err.message)
+      );
+    } catch (_) {}
+
+    // Notify owner urgently
+    const { notifyOwner } = require('./src/tools/notify');
+    const clientName  = `${g(job,'First Name')||''} ${g(job,'Last Name')||''}`.trim() || 'Client';
+    const projectType = g(job,'Service Type','Project Type') || 'Project';
+    const jobValue    = g(job,'Total Job Value','AI Estimate High','Estimate High') || '';
+    await notifyOwner({
+      subject: `🎉 Proposal Approved — ${clientName}!`,
+      message: `${clientName} just approved their ${projectType} proposal!\n\nJob Value: ${jobValue ? '$' + jobValue : 'TBD'}\n\nThe contract is being generated now and will be ready for your review shortly.`,
+      urgent: true,
+    });
+
+    res.send(proposalResponsePage('approved', job));
+  } catch (e) {
+    logger.error('API', `Proposal approve failed: ${e.message}`);
+    res.status(500).send(proposalResponsePage('error', null));
+  }
+});
+
+// Client clicks "Not Right Now" in proposal email
+app.get('/api/proposal/decline/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const rows = await readTab('Jobs');
+    const job  = rows.find(r => g(r, 'Proposal Token', 'Proposal Approval Token') === token);
+    if (!job) return res.status(404).send(proposalResponsePage('not-found', null));
+
+    const jobRow = rows.indexOf(job) + 2;
+
+    await updateCell('Jobs', jobRow, ['Proposal Status', 'Proposal Sent'], 'Declined');
+    await updateCell('Jobs', jobRow, ['Job Status', 'Status'], 'Lost');
+
+    const { notifyOwner } = require('./src/tools/notify');
+    const clientName  = `${g(job,'First Name')||''} ${g(job,'Last Name')||''}`.trim() || 'Client';
+    const projectType = g(job,'Service Type','Project Type') || 'Project';
+    await notifyOwner({
+      subject: `Proposal Declined — ${clientName}`,
+      message: `${clientName} declined their ${projectType} proposal.\n\nThis sometimes means they need more time or have questions — worth a personal follow-up call.\n\nJob status updated to Lost.`,
+      urgent: false,
+    });
+
+    res.send(proposalResponsePage('declined', job));
+  } catch (e) {
+    res.status(500).send(proposalResponsePage('error', null));
+  }
+});
+
+function proposalResponsePage(type, job) {
+  const msgs = {
+    'approved':         { icon: '🎉', title: 'You\'re In!', sub: 'Thanks for approving — we\'re excited to get started. We\'ll be in touch shortly with your contract and next steps.', color: '#22C55E' },
+    'declined':         { icon: '👋', title: 'Got It', sub: 'No worries at all. If you change your mind or want to chat through any details, just reply to our email or give us a call. We\'re here when you\'re ready.', color: '#6B7280' },
+    'already-approved': { icon: '✅', title: 'Already Approved!', sub: 'You\'re all set — your proposal has already been approved. We\'ll be in touch with next steps soon.', color: '#22C55E' },
+    'already-declined': { icon: '👋', title: 'Already Noted', sub: 'You\'ve already declined this proposal. Reach out anytime if you change your mind!', color: '#6B7280' },
+    'not-found':        { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us directly and we\'ll get you sorted.', color: '#6B7280' },
+    'error':            { icon: '⚠️', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll take care of it right away.', color: '#F59E0B' },
+  };
+  const m = msgs[type] || msgs['error'];
+  const projectType = job ? g(job, 'Service Type', 'Project Type') : '';
+  const clientFirst = job ? (g(job,'First Name') || '') : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${m.title}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F4F5F7;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .header{background:#0A2240;margin:-40px -32px 28px;padding:24px 32px;border-radius:16px 16px 0 0}
+  .header-label{color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+  .header-title{color:#fff;font-size:15px;font-weight:700}
+  .icon{font-size:52px;margin-bottom:14px}.title{font-size:22px;font-weight:800;color:#111827;margin-bottom:10px}
+  .sub{font-size:15px;color:#6B7280;line-height:1.6;margin-bottom:24px}
+  .accent{display:inline-block;background:#F0FDF4;color:#15803D;font-size:13px;font-weight:600;padding:6px 16px;border-radius:999px;margin-bottom:20px}
+  .powered{font-size:12px;color:#9CA3AF;margin-top:8px}</style></head>
+  <body><div class="card">
+    <div class="header">
+      <div class="header-label">SPEC Systems</div>
+      <div class="header-title">${projectType ? projectType + ' Proposal' : 'Project Proposal'}</div>
+    </div>
+    <div class="icon">${m.icon}</div>
+    ${clientFirst && type === 'approved' ? `<div class="accent">Welcome aboard, ${clientFirst}! 🏠</div>` : ''}
+    <div class="title">${m.title}</div>
+    <div class="sub">${m.sub}</div>
+    <div class="powered">Powered by SPEC Systems</div>
+  </div></body></html>`;
+}
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

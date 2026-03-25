@@ -16,6 +16,7 @@ const { toolSendEmail, toolReadThread } = require('../tools/gmail');
 const { toolCreateDoc }                 = require('../tools/docs');
 const { toolNotifyOwner }               = require('../tools/notify');
 const { logger }                        = require('../utils/logger');
+const crypto                            = require('crypto');
 
 // ─── TOOL DEFINITIONS ─────────────────────────────────────────────────────────
 
@@ -95,6 +96,22 @@ const TOOLS = [
     },
   },
   {
+    name: 'send_proposal_for_approval',
+    description: 'Send the proposal to the client with one-click Approve and Decline buttons. Use this instead of send_email when sending a proposal.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to:          { type: 'string', description: 'Client email address' },
+        clientName:  { type: 'string' },
+        projectType: { type: 'string' },
+        docUrl:      { type: 'string', description: 'URL to the proposal Google Doc' },
+        summary:     { type: 'string', description: 'Short 2-3 sentence summary of what the proposal covers and the investment range' },
+        threadId:    { type: 'string' },
+      },
+      required: ['to', 'clientName', 'projectType', 'docUrl', 'summary'],
+    },
+  },
+  {
     name: 'read_phases',
     description: 'Read job phases for a specific job ID',
     input_schema: {
@@ -147,6 +164,72 @@ const EXECUTORS = {
   notify_owner:      async (args)     => toolNotifyOwner(args),
   read_phases:       async (args)     => toolReadPhases(args),
   add_phase:         async (args)     => toolAppendPhase(args),
+
+  send_proposal_for_approval: async ({ to, clientName, projectType, docUrl, summary, threadId }, ctx) => {
+    try {
+      const token = crypto.randomBytes(20).toString('hex');
+      const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : (process.env.APP_URL || 'https://your-app.railway.app');
+
+      const approveUrl = `${baseUrl}/api/proposal/approve/${token}`;
+      const declineUrl = `${baseUrl}/api/proposal/decline/${token}`;
+      const firstName  = (clientName || '').split(' ')[0] || 'there';
+
+      // Save token to Jobs tab
+      if (ctx.rowNumber) {
+        await updateCell('Jobs', ctx.rowNumber, ['Proposal Token', 'Proposal Approval Token'], token);
+        await updateCell('Jobs', ctx.rowNumber, ['Proposal Status', 'Proposal Sent'], 'Sent — Awaiting Approval');
+        await updateCell('Jobs', ctx.rowNumber, ['Proposal Sent Date', 'Proposal Sent'], new Date().toLocaleDateString('en-US'));
+      }
+
+      const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#0A2240;padding:24px 28px;border-radius:12px 12px 0 0">
+    <div style="color:#BF9438;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Your Project Proposal</div>
+    <div style="color:#ffffff;font-size:20px;font-weight:800">${projectType} — Review & Approve</div>
+  </div>
+  <div style="background:#ffffff;padding:28px;border:1px solid #E5E7EB;border-top:none">
+    <p style="font-size:16px;color:#374151;margin:0 0 8px">Hey ${firstName},</p>
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">${summary}</p>
+
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+      <a href="${docUrl}" style="color:#0A2240;font-size:15px;font-weight:700;text-decoration:none">📄 View Your Full Proposal ↗</a>
+      <p style="color:#6B7280;font-size:13px;margin:6px 0 0">Review all the details, scope of work, pricing, and timeline.</p>
+    </div>
+
+    <p style="font-size:14px;color:#374151;margin:0 0 14px;font-weight:600">Ready to move forward? It only takes one tap:</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+      <tr>
+        <td style="padding-right:8px">
+          <a href="${approveUrl}" style="display:block;background:#0A2240;color:#ffffff;text-align:center;padding:16px 20px;border-radius:10px;font-size:16px;font-weight:700;text-decoration:none">✅ Yes, Let's Do It!</a>
+        </td>
+        <td style="padding-left:8px">
+          <a href="${declineUrl}" style="display:block;background:#F3F4F6;color:#374151;text-align:center;padding:16px 20px;border-radius:10px;font-size:16px;font-weight:700;text-decoration:none">Not Right Now</a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px;color:#9CA3AF;margin:0">Questions before you decide? Just reply to this email — we're happy to talk through anything.</p>
+  </div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+</div>`.trim();
+
+      const { sendEmail } = require('../tools/gmail');
+      const result = await sendEmail({ to, subject: `Your ${projectType} Proposal — Ready to Review`, body: summary, html, threadId: threadId || ctx.threadId });
+      if (result.threadId && ctx.rowNumber) {
+        ctx.threadId = result.threadId;
+        await updateCell('Jobs', ctx.rowNumber, ['Client Email Thread', 'Email Thread ID'], result.threadId).catch(() => {});
+      }
+
+      logger.success('JobAgent', `Proposal sent to ${to} with approve/decline links`);
+      return `Proposal sent to ${to}. Approve: ${approveUrl}`;
+    } catch (err) {
+      logger.error('JobAgent', `send_proposal_for_approval failed: ${err.message}`);
+      return `Failed: ${err.message}`;
+    }
+  },
 };
 
 // ─── JOB AGENT CLASS ──────────────────────────────────────────────────────────
@@ -201,10 +284,15 @@ TASK:
    - Payment terms (typically 30% deposit, 40% midpoint, 30% completion)
    - Professional closing with call to action
 3. Save the document URL to the job record ("Proposal Doc Link")
-4. Update "Proposal Sent" to "Pending Approval" — this queues the proposal for owner review
-5. Notify the owner: "New proposal ready for review — [client name], [service type]"
+4. Use the send_proposal_for_approval tool (NOT send_email) to send the proposal directly to the client with one-click Approve and Decline buttons.
+   - to: client's email address
+   - clientName: client's full name
+   - projectType: the service/project type
+   - docUrl: the Google Doc URL you just created
+   - summary: a warm 2-3 sentence summary of what's in the proposal and the investment range (e.g. "We've put together a detailed Kitchen Remodel proposal for your home at 123 Main St. The project covers a full gut renovation with custom cabinetry, quartz countertops, and new appliances. Investment ranges from $42,000–$58,000 depending on the tier you choose.")
+5. After sending, notify the owner: "Proposal sent directly to [client name] for [service type] — they can approve with one click from their email."
 
-Write the proposal in professional business language. Be specific about the scope of work.
+Write the proposal in professional language. Be specific about scope of work. The summary for the email should sound warm and conversational, not corporate.
     `.trim();
 
     return await this.run(systemPrompt, `Generate proposal for job at row ${rowNumber}.`, { rowNumber });
