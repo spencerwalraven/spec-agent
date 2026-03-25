@@ -171,6 +171,7 @@ function navigate(page) {
     else if (page === 'settings') loadSettings();
     else if (page === 'approvals')     loadApprovals();
     else if (page === 'conversations') loadConversations();
+    else if (page === 'field')         loadField();
   }
 }
 
@@ -1632,3 +1633,215 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, 1500);
 });
+
+/* ─── FIELD UPDATE PAGE ──────────────────────────────────────────── */
+let _fieldJobs = [];
+let _fieldPhases = {};
+let _expandedFieldRow = null;
+
+async function loadField() {
+  const el = document.getElementById('fieldJobList');
+  if (!el) return;
+
+  try {
+    const jobs = await api('/api/jobs') || [];
+    _fieldJobs = jobs.filter(j => {
+      const s = (j.jobStatus || '').toLowerCase();
+      return s.includes('progress') || s.includes('planning');
+    });
+
+    if (_fieldJobs.length === 0) {
+      el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:8px">🏗️</div>
+        <div style="font-size:15px;font-weight:600">No active jobs</div>
+        <div style="font-size:13px;margin-top:4px">Jobs in progress will appear here</div>
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = _fieldJobs.map(j => {
+      const name = j.clientName || `${j.firstName||''} ${j.lastName||''}`.trim() || 'Unknown';
+      const type = j.serviceType || 'Project';
+      const status = j.jobStatus || 'In Progress';
+      const row = j._row;
+      return `
+        <div class="field-job-card" id="field-card-${row}" onclick="toggleFieldCard(${row})">
+          <div class="field-job-header">
+            <div>
+              <div class="field-job-name">${name}</div>
+              <div class="field-job-type">${type} · Row ${row}</div>
+            </div>
+            <div>${statusBadge(status)}</div>
+          </div>
+          <div class="field-update-form" id="field-form-${row}">
+            <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Today's Progress</div>
+            <textarea class="field-textarea" id="field-note-${row}" placeholder="What got done today? Any issues? Materials needed?"></textarea>
+
+            <div class="field-notify-row">
+              <input type="checkbox" id="field-notify-${row}" style="width:18px;height:18px;accent-color:var(--gold)">
+              <label for="field-notify-${row}">Send client a progress update email</label>
+            </div>
+
+            <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">Phases</div>
+            <div class="field-phase-list" id="field-phases-${row}">
+              <div style="color:var(--text3);font-size:13px">Loading phases…</div>
+            </div>
+
+            <div class="field-actions">
+              <button class="btn btn-gold" style="flex:1;font-size:15px;padding:14px" onclick="submitFieldUpdate(${row}, event)">✅ Log Update</button>
+            </div>
+
+            <div class="field-issue-section">
+              <div class="field-issue-title">⚠️ Flag an Issue</div>
+              <div class="severity-chips" id="sev-chips-${row}">
+                <button class="severity-chip low" onclick="setSeverity(${row},'Low',this)">🟢 Low</button>
+                <button class="severity-chip medium" onclick="setSeverity(${row},'Medium',this)">🟡 Medium</button>
+                <button class="severity-chip high" onclick="setSeverity(${row},'High',this)">🔴 High</button>
+              </div>
+              <textarea class="field-textarea" id="field-issue-${row}" placeholder="Describe the issue — owner will be notified immediately via text and email" style="min-height:70px"></textarea>
+              <button class="btn btn-danger" style="width:100%;margin-top:10px;padding:13px;font-size:15px" onclick="submitFieldIssue(${row}, event)">🚨 Alert Owner Now</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Load phases for all active jobs
+    for (const j of _fieldJobs) {
+      loadFieldPhases(j._row, j.jobId);
+    }
+
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red);padding:20px">Failed to load jobs: ${e.message}</div>`;
+  }
+}
+
+function toggleFieldCard(row) {
+  const form = document.getElementById(`field-form-${row}`);
+  if (!form) return;
+  const isOpen = form.classList.contains('open');
+  // Close all others
+  document.querySelectorAll('.field-update-form.open').forEach(f => f.classList.remove('open'));
+  if (!isOpen) form.classList.add('open');
+}
+
+async function loadFieldPhases(row, jobId) {
+  const el = document.getElementById(`field-phases-${row}`);
+  if (!el) return;
+  try {
+    const phases = await api('/api/phases?jobId=' + encodeURIComponent(jobId || '')) || [];
+    if (!phases.length) {
+      el.innerHTML = `<div style="color:var(--text3);font-size:13px">No phases set up yet</div>`;
+      return;
+    }
+    _fieldPhases[row] = phases;
+    el.innerHTML = phases.map((p, pi) => {
+      const pName  = g(p,'Phase','Phase Name','name','phaseName');
+      const pTrade = g(p,'Trade','Assigned Trade','trade');
+      const pStatus = g(p,'Status','Phase Status','phaseStatus') || '';
+      const pRow   = p.__row || p._row || (pi + 2);
+      const done   = pStatus.toLowerCase().includes('complete') || pStatus.toLowerCase().includes('done');
+      return `
+        <div class="field-phase-row" onclick="toggleFieldPhase(${row}, ${pRow}, this)">
+          <div class="field-check ${done?'done':''}" id="fcheck-${pRow}">${done?'✓':''}</div>
+          <div style="flex:1">
+            <div class="field-phase-name">${pName||'—'}</div>
+            <div class="field-phase-trade">${pTrade||''}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px">Could not load phases</div>`;
+  }
+}
+
+async function toggleFieldPhase(jobRow, phaseRow, el) {
+  const check = document.getElementById(`fcheck-${phaseRow}`);
+  if (!check) return;
+  const isDone = check.classList.contains('done');
+  const newStatus = isDone ? 'In Progress' : 'Complete';
+  check.classList.toggle('done', !isDone);
+  check.textContent = !isDone ? '✓' : '';
+  try {
+    if (!usingDemo) {
+      await fetch(`/api/phases/${phaseRow}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    }
+    toast(!isDone ? '✓ Phase marked complete' : 'Phase reopened');
+  } catch { toast('⚠️ Could not update phase'); }
+}
+
+let _severityMap = {};
+function setSeverity(row, level, btn) {
+  _severityMap[row] = level;
+  document.querySelectorAll(`#sev-chips-${row} .severity-chip`).forEach(c => {
+    c.classList.remove('active-sev');
+  });
+  btn.classList.add('active-sev');
+}
+
+async function submitFieldUpdate(row, e) {
+  e.stopPropagation();
+  const noteEl  = document.getElementById(`field-note-${row}`);
+  const notifyEl = document.getElementById(`field-notify-${row}`);
+  const note = noteEl?.value?.trim();
+  if (!note) { toast('⚠️ Add a note before logging'); return; }
+
+  const btn = e.target;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res = await fetch(`/api/jobs/${row}/field-update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note, notifyClient: notifyEl?.checked || false }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`✅ Update logged at ${data.timestamp}`);
+    noteEl.value = '';
+    if (notifyEl) notifyEl.checked = false;
+    document.getElementById(`field-form-${row}`)?.classList.remove('open');
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Log Update';
+  }
+}
+
+async function submitFieldIssue(row, e) {
+  e.stopPropagation();
+  const issueEl = document.getElementById(`field-issue-${row}`);
+  const issue = issueEl?.value?.trim();
+  const severity = _severityMap[row] || 'Unknown';
+  if (!issue) { toast('⚠️ Describe the issue first'); return; }
+
+  const btn = e.target;
+  btn.disabled = true;
+  btn.textContent = 'Sending alert…';
+
+  try {
+    const res = await fetch(`/api/jobs/${row}/field-issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issue, severity }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`🚨 Owner alerted via text + email`);
+    issueEl.value = '';
+    _severityMap[row] = null;
+    document.querySelectorAll(`#sev-chips-${row} .severity-chip`).forEach(c => c.classList.remove('active-sev'));
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚨 Alert Owner Now';
+  }
+}

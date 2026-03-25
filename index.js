@@ -795,6 +795,73 @@ app.post('/api/jobs/:row/flag', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: FIELD UPDATE (PM logs daily progress from job site) ────────────────
+app.post('/api/jobs/:row/field-update', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const { note, notifyClient } = req.body;
+    if (!note) return res.status(400).json({ error: 'Note required' });
+
+    const now = new Date().toLocaleDateString('en-US');
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    // Append note with timestamp to Job Notes
+    const { readRow } = require('./src/tools/sheets');
+    const existing = await readRow('Jobs', row);
+    const existingNotes = (existing?.['Job Notes'] || existing?.['Notes'] || '').trim();
+    const newNotes = existingNotes
+      ? `${existingNotes}\n[${timestamp}]: ${note}`
+      : `[${timestamp}]: ${note}`;
+
+    await updateCell('Jobs', row, ['Job Notes', 'Notes'], newNotes);
+    await updateCell('Jobs', row, ['Last Client Update', 'Last Update'], now);
+
+    // Optionally trigger client weekly update agent
+    if (notifyClient) {
+      const { route } = require('./src/agents/orchestrator');
+      route('send_weekly_update', { rowNumber: row }).catch(err =>
+        logger.error('API', `Field update notify client failed: ${err.message}`)
+      );
+    }
+
+    res.json({ ok: true, timestamp });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: FIELD ISSUE FLAG (PM flags a problem, owner gets text + email) ─────
+app.post('/api/jobs/:row/field-issue', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const { issue, severity } = req.body;
+    if (!issue) return res.status(400).json({ error: 'Issue description required' });
+
+    const { readRow } = require('./src/tools/sheets');
+    const job = await readRow('Jobs', row);
+    const clientName = `${job?.['First Name'] || ''} ${job?.['Last Name'] || ''}`.trim() || 'Unknown Client';
+    const projectType = job?.['Service Type'] || job?.['Project Type'] || 'Project';
+
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    // Append issue to notes
+    const existingNotes = (job?.['Job Notes'] || job?.['Notes'] || '').trim();
+    const issueNote = `[${timestamp}] ⚠️ ISSUE FLAGGED: ${issue}`;
+    const newNotes = existingNotes ? `${existingNotes}\n${issueNote}` : issueNote;
+    await updateCell('Jobs', row, ['Job Notes', 'Notes'], newNotes);
+
+    // Notify owner via email + text
+    const { notifyOwner } = require('./src/tools/notify');
+    await notifyOwner({
+      subject: `⚠️ Issue Flagged — ${clientName} ${projectType}`,
+      message: `A field issue was flagged on the ${clientName} job (row ${row}).\n\nSeverity: ${severity || 'Unknown'}\n\nIssue: ${issue}\n\nLogged at: ${timestamp}`,
+      urgent: true,
+    });
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: SETTINGS ───────────────────────────────────────────────────────────
 app.get('/api/settings',  async (req, res) => {
   try { res.json(await readSettings()); }
