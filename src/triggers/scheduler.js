@@ -176,6 +176,12 @@ function startScheduler() {
   // 30-day check-ins — daily at 11:30am
   cron.schedule('30 11 * * *', runThirtyDayCheckIns, { timezone: 'America/Chicago' });
 
+  // Smart daily scan — every morning at 7:30am (runs BEFORE other tasks)
+  cron.schedule('30 7 * * *', async () => {
+    logger.info('Scheduler', 'Running smart daily scan…');
+    await safeRoute('daily_scan', {});
+  }, { timezone: 'America/Chicago' });
+
   // Monthly performance report — 1st of month at 7:00am
   cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: 'America/Chicago' });
 

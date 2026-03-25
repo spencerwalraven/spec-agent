@@ -29,11 +29,13 @@
  *   thirty_day        → ClientAgent.thirtyDayCheckIn
  */
 
-const leadAgent      = require('./lead-agent');
-const jobAgent       = require('./job-agent');
-const clientAgent    = require('./client-agent');
-const marketingAgent = require('./marketing-agent');
-const { logger }     = require('../utils/logger');
+const leadAgent          = require('./lead-agent');
+const jobAgent           = require('./job-agent');
+const clientAgent        = require('./client-agent');
+const marketingAgent     = require('./marketing-agent');
+const pricingAgent       = require('./pricing-agent');
+const smartOrchestrator  = require('./smart-orchestrator');
+const { logger }         = require('../utils/logger');
 const { findRowByEmail, updateCell, readSettings } = require('../tools/sheets');
 const { createJobFromLead } = require('../tools/jobs');
 
@@ -101,7 +103,8 @@ async function route(type, payload = {}) {
 
       // ── JOB LIFECYCLE ──────────────────────────────────────────────────
       case 'estimate_ready':
-        return await jobAgent.generateEstimate({ rowNumber: payload.rowNumber });
+      case 'generate_estimate':
+        return await pricingAgent.generateEstimate({ rowNumber: payload.rowNumber });
 
       case 'generate_proposal':
         return await jobAgent.generateProposal({ rowNumber: payload.rowNumber });
@@ -152,6 +155,16 @@ async function route(type, payload = {}) {
           month: payload.month || new Date().toLocaleString('default', { month: 'long' }),
           year:  payload.year  || new Date().getFullYear(),
         });
+
+      // ── SMART ORCHESTRATOR ────────────────────────────────────────
+      case 'daily_scan':
+        return await smartOrchestrator.runDailyScan();
+
+      case 'scan_leads':
+        return await smartOrchestrator.scanLeads();
+
+      case 'scan_jobs':
+        return await smartOrchestrator.scanJobs();
 
       default:
         logger.warn('Orchestrator', `Unknown event type: ${type}`);
