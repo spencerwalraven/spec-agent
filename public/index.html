@@ -684,6 +684,46 @@
   .trigger-btn .trigger-icon{font-size:16px;display:block;margin-bottom:4px}
   .trigger-btn.running{border-color:var(--gold);color:var(--gold);opacity:.7}
 
+  /* ── TODAY'S SCHEDULE STRIP ──────────────────────────────────── */
+  .today-strip{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--r);margin-bottom:16px;overflow:hidden;
+  }
+  .today-strip-hdr{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 16px;border-bottom:1px solid var(--border);
+  }
+  .today-strip-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+  .cal-evt{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 16px;border-bottom:1px solid var(--border);
+    cursor:pointer;transition:background .1s;
+  }
+  .cal-evt:last-child{border-bottom:none}
+  .cal-evt:active{background:var(--card2)}
+  .cal-evt-time{font-size:12px;font-weight:700;color:var(--gold);min-width:46px;flex-shrink:0}
+  .cal-evt-bar{width:3px;height:28px;border-radius:2px;flex-shrink:0}
+  .cal-evt-title{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-evt-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;
+    padding:3px 7px;border-radius:6px;background:var(--card2);color:var(--text3)}
+  .cal-evt-empty{padding:16px;font-size:13px;color:var(--text3);text-align:center}
+
+  /* ── DASH STATUS PILLS ────────────────────────────────────────── */
+  .dash-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .dash-pill{
+    display:flex;align-items:center;gap:6px;
+    padding:9px 13px;border-radius:10px;
+    font-size:13px;font-weight:700;border:1px solid;
+    cursor:pointer;transition:opacity .15s;flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .dash-pill:active{opacity:.7}
+  .dash-pill.red{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--red)}
+  .dash-pill.yellow{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--yellow)}
+  .dash-pill.green{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+  .dash-pill.gold{background:rgba(191,148,56,.1);border-color:rgba(191,148,56,.3);color:var(--gold)}
+  .dash-pill.blue{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:var(--blue)}
+
   /* UTILITY */
   .mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
   .mb4{margin-bottom:4px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}
@@ -733,11 +773,29 @@
 
     <!-- ── DASHBOARD ──────────────────────────────────────────────── -->
     <section class="page active" id="page-dashboard">
+
+      <!-- Greeting -->
       <div class="dash-greeting">
         <div class="greet-sub" id="greetSub">Good morning</div>
         <div class="greet-main">Welcome back, <span class="greet-company" id="companyName">—</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px" id="dashTodayLabel">—</div>
       </div>
 
+      <!-- Today's Schedule Strip -->
+      <div class="today-strip">
+        <div class="today-strip-hdr">
+          <span class="today-strip-title">📅 Today's Schedule</span>
+          <button style="font-size:12px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer;padding:0" onclick="navigate('schedule')">View all →</button>
+        </div>
+        <div id="todayEvents">
+          <div class="cal-evt-empty">Loading schedule…</div>
+        </div>
+      </div>
+
+      <!-- Status pills (alerts + approvals) -->
+      <div class="dash-pills" id="dashPills"></div>
+
+      <!-- KPI Grid -->
       <div class="kpi-grid" id="kpiGrid">
         <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
         <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
@@ -745,6 +803,7 @@
         <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
       </div>
 
+      <!-- Recent Activity -->
       <div class="section-header">
         <span class="section-title">Recent Activity</span>
       </div>
@@ -756,9 +815,10 @@
         </div>
       </div>
 
+      <!-- AI Activity Feed -->
       <div class="section-header" style="margin-top:20px">
         <span class="section-title">🤖 AI Activity</span>
-        <button onclick="navigate('agents')" class="section-action">See all</button>
+        <button onclick="navigate('agents')" class="section-action">See all →</button>
       </div>
       <div class="agent-feed-card">
         <div class="agent-feed-header">
@@ -772,38 +832,9 @@
         </div>
       </div>
 
-      <div class="section-header">
-        <span class="section-title">Quick Actions</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <button class="more-item" onclick="navigate('leads')" style="cursor:pointer">
-          <div class="more-icon">👤</div>
-          <div class="more-name">Leads</div>
-          <div class="more-desc">View pipeline</div>
-        </button>
-        <button class="more-item" onclick="navigate('jobs')" style="cursor:pointer">
-          <div class="more-icon">🔨</div>
-          <div class="more-name">Jobs</div>
-          <div class="more-desc">Active projects</div>
-        </button>
-        <button class="more-item" onclick="navigate('alerts')" style="cursor:pointer">
-          <div class="more-icon">🔔</div>
-          <div class="more-name">Alerts</div>
-          <div class="more-desc" id="dashAlertDesc">Action needed</div>
-        </button>
-        <button class="more-item" onclick="navigate('approvals')" style="cursor:pointer;position:relative">
-          <div class="more-icon">✅</div>
-          <div class="more-name">Approvals</div>
-          <div class="more-desc" id="dashApprovalDesc">Review queue</div>
-          <span id="dashApprovalBadge" style="display:none;position:absolute;top:10px;right:10px;background:var(--yellow);color:#000;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px">NEW</span>
-        </button>
-        <button class="more-item" onclick="navigate('agents')" style="cursor:pointer;position:relative">
-          <div class="more-icon">🤖</div>
-          <div class="more-name">AI Agents</div>
-          <div class="more-desc">Live activity</div>
-          <span id="dashAgentBadge" style="display:none;position:absolute;top:10px;right:10px;background:var(--green);color:#000;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px">LIVE</span>
-        </button>
-      </div>
+      <!-- Quick Actions — role-specific, rendered by JS -->
+      <div id="dashQuickActions"></div>
+
     </section>
 
     <!-- ── LEADS ──────────────────────────────────────────────────── -->
@@ -1185,22 +1216,22 @@
 
   </main>
 
-  <!-- BOTTOM NAV -->
-  <nav class="bottom-nav">
-    <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+  <!-- BOTTOM NAV — rebuilt by applyRoleNav() on init -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')" style="position:relative">
       <span class="nav-icon">🏠</span><span>Home</span>
     </button>
     <button class="nav-item" data-page="leads" onclick="navigate('leads')" style="position:relative">
       <span class="nav-icon">👤</span><span>Leads</span>
       <span id="leadsNavBadge" style="display:none;position:absolute;top:4px;right:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px"></span>
     </button>
-    <button class="nav-item" data-page="jobs" onclick="navigate('jobs')">
+    <button class="nav-item" data-page="jobs" onclick="navigate('jobs')" style="position:relative">
       <span class="nav-icon">🔨</span><span>Jobs</span>
     </button>
-    <button class="nav-item" data-page="field" onclick="navigate('field')">
-      <span class="nav-icon">📋</span><span>Field</span>
+    <button class="nav-item" data-page="schedule" onclick="navigate('schedule')" style="position:relative">
+      <span class="nav-icon">🗓️</span><span>Schedule</span>
     </button>
-    <button class="nav-item" data-page="more" onclick="navigate('more')">
+    <button class="nav-item" data-page="more" onclick="navigate('more')" style="position:relative">
       <span class="nav-icon">☰</span><span>More</span>
     </button>
   </nav>

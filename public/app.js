@@ -83,11 +83,207 @@ let allLeads = [], allJobs = [], allClients = [], allTeam = [], allMarketing = [
 let leadFilter = 'all', jobFilter = 'all', teamFilter = 'all', mktgFilter = 'all';
 let usingDemo = false;
 let _calendlyLink = '';
+let currentUser = { name: '', role: 'owner' };
 
 /* ─── GREETING ──────────────────────────────────────────────────── */
 function greet() {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/* ─── ROLE NAV ──────────────────────────────────────────────────── */
+function applyRoleNav(role) {
+  const nav = document.getElementById('bottomNav');
+  if (!nav) return;
+
+  const configs = {
+    owner: [
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
+      { page: 'more',      icon: '☰',  label: 'More' },
+    ],
+    sales: [
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'alerts',    icon: '🔔', label: 'Alerts',   dot: 'alertsNavDot' },
+      { page: 'more',      icon: '☰',  label: 'More' },
+    ],
+    field: [
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'field',     icon: '📋', label: 'Field' },
+      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
+      { page: 'more',      icon: '☰',  label: 'More' },
+    ],
+  };
+
+  const items = configs[role] || configs.owner;
+  const curPage = document.querySelector('.page.active')?.id?.replace('page-','') || 'dashboard';
+
+  nav.innerHTML = items.map(item => `
+    <button class="nav-item${item.page === curPage ? ' active' : ''}"
+            data-page="${item.page}"
+            onclick="navigate('${item.page}')"
+            style="position:relative">
+      <span class="nav-icon">${item.icon}</span>
+      <span>${item.label}</span>
+      ${item.badge ? `<span id="${item.badge}" style="display:none;position:absolute;top:4px;right:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px"></span>` : ''}
+      ${item.dot   ? `<span id="${item.dot}"   style="display:none;position:absolute;top:6px;right:12px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid var(--ink)"></span>` : ''}
+    </button>
+  `).join('');
+}
+
+/* ─── TODAY'S SCHEDULE STRIP ────────────────────────────────────── */
+async function loadTodayStrip() {
+  const el = document.getElementById('todayEvents');
+  if (!el) return;
+
+  const todayStr = new Date().toDateString();
+
+  try {
+    const events = await api('/api/calendar/events?days=2') || [];
+    const todayEvents = events
+      .filter(e => e.start && new Date(e.start).toDateString() === todayStr)
+      .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+    if (todayEvents.length === 0) {
+      el.innerHTML = `<div class="cal-evt-empty">📭 Nothing on the calendar today</div>`;
+      return;
+    }
+
+    // Google Calendar color IDs → hex
+    const GC_COLORS = {
+      '1':'#e53935','2':'#43a047','3':'#7986cb','4':'#e91e63',
+      '5':'#f4511e','6':'#f6bf26','7':'#039be5','8':'#616161',
+      '9':'#3f51b5','10':'#0b8043','11':'#d50000',
+    };
+
+    el.innerHTML = todayEvents.slice(0, 6).map(e => {
+      const d = new Date(e.start);
+      const allDay = !e.start.includes('T');
+      const timeStr = allDay ? 'All Day' : d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      const color   = GC_COLORS[e.color] || '#039be5';
+      const title   = e.title || 'Untitled';
+      const tag     = /consult|meeting|call/i.test(title) ? 'Consult'
+                    : /kickoff|start/i.test(title)        ? 'Kickoff'
+                    : /phase|install|demo/i.test(title)   ? 'Phase'
+                    : '';
+      return `
+        <div class="cal-evt" onclick="${e.link ? `window.open('${e.link.replace(/'/g,'\\'')}','_blank')` : ''}">
+          <div class="cal-evt-time">${timeStr}</div>
+          <div class="cal-evt-bar" style="background:${color}"></div>
+          <div class="cal-evt-title">${title}</div>
+          ${tag ? `<div class="cal-evt-tag">${tag}</div>` : ''}
+        </div>`;
+    }).join('');
+  } catch (_) {
+    el.innerHTML = `<div class="cal-evt-empty">Calendar not connected — sync jobs in Schedule</div>`;
+  }
+}
+
+/* ─── DASHBOARD RENDERERS ───────────────────────────────────────── */
+function renderDashKPIs(data, role) {
+  const el = document.getElementById('kpiGrid');
+  if (!el) return;
+
+  if (role === 'field') {
+    el.innerHTML = `
+      <div class="kpi-card" style="grid-column:1/-1">
+        <div class="kpi-label">Active Jobs</div>
+        <div class="kpi-value green">${data.activeJobs ?? '—'}</div>
+        <div class="kpi-sub">In progress or planning</div>
+      </div>`;
+    return;
+  }
+
+  // Owner + Sales: full grid
+  el.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">New Leads</div>
+      <div class="kpi-value">${data.newLeadsThisMonth ?? data.newLeads ?? '—'}</div>
+      <div class="kpi-sub">This month</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Jobs</div>
+      <div class="kpi-value green">${data.activeJobs ?? '—'}</div>
+      <div class="kpi-sub">In progress</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Pipeline</div>
+      <div class="kpi-value gold">${formatCurrency(data.pipelineValue)}</div>
+      <div class="kpi-sub">Open opportunities</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Conversion</div>
+      <div class="kpi-value">${data.conversionRate ?? '—'}</div>
+      <div class="kpi-sub">Lead → client</div>
+    </div>`;
+}
+
+function renderDashPills(urgentCount, approvalCount, role) {
+  const el = document.getElementById('dashPills');
+  if (!el) return;
+  const pills = [];
+  if (role === 'field') {
+    // Field: just show a quick link to their jobs
+    pills.push(`<button class="dash-pill blue" onclick="navigate('field')">📋 Log Today's Update</button>`);
+    el.innerHTML = pills.join('');
+    return;
+  }
+  if (urgentCount > 0) {
+    pills.push(`<button class="dash-pill red" onclick="navigate('alerts')">🔥 ${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
+  } else {
+    pills.push(`<div class="dash-pill green" style="cursor:default">✅ No urgent alerts</div>`);
+  }
+  if (approvalCount > 0) {
+    pills.push(`<button class="dash-pill gold" onclick="navigate('approvals')">✅ ${approvalCount} Pending Approval${approvalCount > 1 ? 's' : ''}</button>`);
+  }
+  el.innerHTML = pills.join('');
+}
+
+function renderDashQuickActions(role) {
+  const el = document.getElementById('dashQuickActions');
+  if (!el) return;
+
+  const sets = {
+    owner: [
+      { icon:'👤', name:'Leads',        desc:'View pipeline',   page:'leads' },
+      { icon:'🔨', name:'Jobs',         desc:'Active projects',  page:'jobs' },
+      { icon:'📊', name:'Analytics',    desc:'Revenue & trends', page:'analytics' },
+      { icon:'📢', name:'Marketing',    desc:'Campaigns',        page:'marketing' },
+      { icon:'🤖', name:'AI Agents',    desc:'Live activity',    page:'agents' },
+      { icon:'⚙️', name:'Settings',     desc:'Company info',     page:'settings' },
+    ],
+    sales: [
+      { icon:'👤', name:'Leads',        desc:'My pipeline',      page:'leads' },
+      { icon:'🔨', name:'Jobs',         desc:'Active projects',  page:'jobs' },
+      { icon:'✅', name:'Approvals',    desc:'Review queue',     page:'approvals' },
+      { icon:'💬', name:'Conversations',desc:'Email threads',    page:'conversations' },
+    ],
+    field: [
+      { icon:'🔨', name:'My Jobs',      desc:'Active projects',  page:'jobs' },
+      { icon:'📋', name:'Field Update', desc:'Log progress',     page:'field' },
+      { icon:'🗓️', name:'Schedule',    desc:'Upcoming work',    page:'schedule' },
+      { icon:'💬', name:'Conversations',desc:'Messages',         page:'conversations' },
+    ],
+  };
+
+  const items = sets[role] || sets.owner;
+  el.innerHTML = `
+    <div class="section-header" style="margin-top:20px">
+      <span class="section-title">Quick Access</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${items.map(i => `
+        <button class="more-item" onclick="navigate('${i.page}')">
+          <div class="more-icon">${i.icon}</div>
+          <div class="more-name">${i.name}</div>
+          <div class="more-desc">${i.desc}</div>
+        </button>`).join('')}
+    </div>`;
 }
 
 /* ─── TOAST ─────────────────────────────────────────────────────── */
@@ -196,44 +392,29 @@ async function refreshAll() {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────── */
 async function loadDashboard() {
-  document.getElementById('greetSub').textContent = greet();
-  const [data, me] = await Promise.all([api('/api/summary'), api('/api/me').catch(() => null)]);
+  // Greeting + today's date
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  const greetName  = currentUser.name && currentUser.name !== 'Owner' ? `, ${currentUser.name}` : '';
+  document.getElementById('greetSub').textContent = greet() + greetName;
+  const tlEl = document.getElementById('dashTodayLabel');
+  if (tlEl) tlEl.textContent = todayLabel;
+
+  // Today's schedule strip + summary in parallel
+  const [data] = await Promise.all([
+    api('/api/summary'),
+    loadTodayStrip(),
+  ]);
   if (!data) return;
 
   const cn = data.companyName || '—';
   document.getElementById('companyName').textContent = cn;
   if (cn !== '—') document.title = cn + ' CRM';
 
-  // Show logged-in user name in greeting if not owner or if multi-user
-  if (me && me.name && me.name !== 'Owner') {
-    const greetEl = document.getElementById('greetSub');
-    if (greetEl) greetEl.textContent = `${greet()}, ${me.name}`;
-  }
+  // Role-specific KPIs
+  renderDashKPIs(data, currentUser.role);
 
-  // KPI cards
-  const kpiGrid = document.getElementById('kpiGrid');
-  kpiGrid.innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-label">New Leads</div>
-      <div class="kpi-value">${data.newLeadsThisMonth ?? data.newLeads ?? '—'}</div>
-      <div class="kpi-sub">This month</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Active Jobs</div>
-      <div class="kpi-value green">${data.activeJobs ?? '—'}</div>
-      <div class="kpi-sub">In progress</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Pipeline</div>
-      <div class="kpi-value gold">${formatCurrency(data.pipelineValue)}</div>
-      <div class="kpi-sub">Open opportunities</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Conversion</div>
-      <div class="kpi-value">${data.conversionRate ?? '—'}</div>
-      <div class="kpi-sub">Lead to client</div>
-    </div>
-  `;
+  // Role-specific quick actions
+  renderDashQuickActions(currentUser.role);
 
   // Activity feed
   const feed = document.getElementById('activityFeed');
@@ -252,35 +433,36 @@ async function loadDashboard() {
     `).join('');
   }
 
-  // Load alerts silently for badge
-  if (!loaded['alerts-count']) {
+  // Load alerts + approvals in parallel for status pills + nav badges
+  const [alerts, pending] = await Promise.all([
+    loaded['alerts-count']   ? Promise.resolve(null) : api('/api/alerts').catch(() => []),
+    loaded['approvals-count'] || currentUser.role === 'field'
+      ? Promise.resolve(null)
+      : api('/api/approvals').catch(() => []),
+  ]);
+
+  let urgentCount = 0, approvalCount = 0;
+
+  if (alerts !== null) {
     loaded['alerts-count'] = true;
-    const alerts = await api('/api/alerts');
-    const urgentCount = (alerts || []).filter(a => a.type === 'urgent').length;
-    const badge = document.getElementById('alertBadge');
-    const dot = document.getElementById('alertsNavDot');
-    const dashDesc = document.getElementById('dashAlertDesc');
+    urgentCount = (alerts || []).filter(a => a.type === 'urgent').length;
+    const topBadge = document.getElementById('alertBadge');
+    const navDot   = document.getElementById('alertsNavDot');
     if (urgentCount > 0) {
-      badge.style.display = 'block';
-      dot.style.display = 'block';
-      if (dashDesc) dashDesc.textContent = `${urgentCount} urgent item${urgentCount > 1 ? 's' : ''}`;
+      if (topBadge) topBadge.style.display = 'block';
+      if (navDot)   navDot.style.display   = 'block';
     }
   }
 
-  // Load approvals silently for dashboard badge
-  if (!loaded['approvals-count']) {
+  if (pending !== null) {
     loaded['approvals-count'] = true;
-    const pending = await api('/api/approvals');
-    const count = (pending || []).length;
-    const dashApprovalDesc = document.getElementById('dashApprovalDesc');
-    const dashApprovalBadge = document.getElementById('dashApprovalBadge');
-    if (count > 0) {
-      if (dashApprovalDesc) dashApprovalDesc.textContent = `${count} waiting for review`;
-      if (dashApprovalBadge) dashApprovalBadge.style.display = 'flex';
-    } else {
-      if (dashApprovalDesc) dashApprovalDesc.textContent = 'All clear';
-    }
+    approvalCount = (pending || []).length;
+    const moreDesc = document.getElementById('moreApprovalDesc');
+    if (moreDesc) moreDesc.textContent = approvalCount > 0 ? `${approvalCount} waiting` : 'Review queue';
   }
+
+  // Render the status pills row
+  renderDashPills(urgentCount, approvalCount, currentUser.role);
 }
 
 /* ─── FORMAT HELPERS ────────────────────────────────────────────── */
@@ -1816,21 +1998,26 @@ async function triggerAgent(type) {
 }
 
 /* ─── INIT ──────────────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+  // Load user role before first render so nav + dashboard are role-correct
+  try {
+    const me = await fetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (me?.role) currentUser = { name: me.name || '', role: me.role };
+  } catch (_) {}
+
+  applyRoleNav(currentUser.role);
   navigate('dashboard');
   initPullToRefresh();
-  connectActivityStream();   // start SSE feed
+  connectActivityStream();
 
-  // Pre-load settings to get Calendly link
+  // Pre-load settings for Calendly link
   api('/api/settings').then(s => {
     if (s) _calendlyLink = s.calendlyLink || s.calendly_link || '';
   });
 
-  // Show demo banner if needed
+  // Demo banner
   setTimeout(() => {
-    if (usingDemo) {
-      toast('📋 Demo mode — connect to Google Sheets for live data', 3500);
-    }
+    if (usingDemo) toast('📋 Demo mode — connect to Google Sheets for live data', 3500);
   }, 1500);
 });
 
