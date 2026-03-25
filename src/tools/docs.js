@@ -50,6 +50,75 @@ async function createDoc({ title, body }) {
         }],
       },
     });
+
+    // Apply professional formatting based on paragraph content patterns (best-effort)
+    try {
+      const doc = await docs.documents.get({ documentId: docId });
+      const content = doc.data.body?.content || [];
+      const formatRequests = [];
+
+      for (const block of content) {
+        if (!block.paragraph) continue;
+
+        const paraText = (block.paragraph.elements || [])
+          .map(el => el.textRun?.content || '')
+          .join('');
+        const trimmed = paraText.trimEnd();
+
+        if (!trimmed) continue;
+
+        // HEADING_1: main document title lines (ESTIMATE, PROPOSAL, CONTRACT, etc.)
+        if (/^(ESTIMATE|PROPOSAL|CONTRACT|KICKOFF|PROJECT PLAN)\s*[—\-]/i.test(trimmed)) {
+          formatRequests.push({
+            updateParagraphStyle: {
+              range: { startIndex: block.startIndex, endIndex: block.endIndex },
+              paragraphStyle: { namedStyleType: 'HEADING_1' },
+              fields: 'namedStyleType',
+            },
+          });
+        }
+        // HEADING_2: all-caps section headers (no colon, length >= 4)
+        else if (/^[A-Z][A-Z\s&\/]+$/.test(trimmed) && trimmed.length >= 4) {
+          formatRequests.push({
+            updateParagraphStyle: {
+              range: { startIndex: block.startIndex, endIndex: block.endIndex },
+              paragraphStyle: { namedStyleType: 'HEADING_2' },
+              fields: 'namedStyleType',
+            },
+          });
+        }
+        // Bold: total/subtotal lines
+        else if (/^(TOTAL|GRAND TOTAL|SUBTOTAL|TOTAL ESTIMATE)[:\s]/i.test(trimmed)) {
+          formatRequests.push({
+            updateTextStyle: {
+              range: { startIndex: block.startIndex, endIndex: block.endIndex - 1 },
+              textStyle: { bold: true },
+              fields: 'bold',
+            },
+          });
+        }
+        // Italic: metadata lines
+        else if (/^(Prepared by|Date|Client|Company|Address):/.test(trimmed)) {
+          formatRequests.push({
+            updateTextStyle: {
+              range: { startIndex: block.startIndex, endIndex: block.endIndex - 1 },
+              textStyle: { italic: true },
+              fields: 'italic',
+            },
+          });
+        }
+      }
+
+      if (formatRequests.length > 0) {
+        logger.info('Docs', `Applying ${formatRequests.length} formatting requests`);
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: formatRequests },
+        });
+      }
+    } catch (fmtErr) {
+      logger.warn('Docs', `Formatting step failed (non-fatal): ${fmtErr.message}`);
+    }
   }
 
   // Make it readable by anyone with the link (best-effort — don't fail if this errors)

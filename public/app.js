@@ -671,6 +671,7 @@ async function showJobDetail(idx) {
   const proposalLink  = g(j,'proposalLink','Proposal Doc Link','Proposal Link');
   const contractLink  = g(j,'contractLink','Contract Doc Link','Contract Link');
   const kickoffLink   = g(j,'kickoffDocLink','Kickoff Doc Link','Kickoff Link');
+  const estimateLink  = g(j,'estimateDocLink','Estimate Doc Link','Estimate Link');
 
   document.getElementById('jmTitle').textContent = client;
   document.getElementById('jmSub').textContent   = `${project}${jobId?' · '+jobId:''}`;
@@ -738,6 +739,7 @@ async function showJobDetail(idx) {
     <div class="modal-section">
       <div class="modal-section-label">Documents</div>
       ${[
+        {name:'Estimate', icon:'💰', link: estimateLink},
         {name:'Proposal', icon:'📄', link: proposalLink},
         {name:'Contract', icon:'📝', link: contractLink},
         {name:'Kickoff Doc', icon:'🚀', link: kickoffLink},
