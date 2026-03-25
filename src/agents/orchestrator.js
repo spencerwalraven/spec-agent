@@ -37,6 +37,7 @@ const pricingAgent       = require('./pricing-agent');
 const planningAgent      = require('./planning-agent');
 const learningAgent      = require('./learning-agent');
 const smartOrchestrator  = require('./smart-orchestrator');
+const changeOrderAgent   = require('./change-order-agent');
 const { logger }         = require('../utils/logger');
 const { findRowByEmail, updateCell, readSettings } = require('../tools/sheets');
 const { createJobFromLead } = require('../tools/jobs');
@@ -175,6 +176,13 @@ async function route(type, payload = {}) {
       // ── PROJECT PLANNING ──────────────────────────────────────────
       case 'plan_project':
         return await planningAgent.planProject({ rowNumber: payload.rowNumber });
+
+      // ── CHANGE ORDERS ─────────────────────────────────────────────
+      case 'change_order':
+        return await changeOrderAgent.generateChangeOrder({
+          rowNumber:         payload.rowNumber,
+          changeDescription: payload.description || payload.changeDescription,
+        });
 
       // ── LEARNING ──────────────────────────────────────────────────
       case 'learn_from_job':

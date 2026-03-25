@@ -788,6 +788,41 @@ function copyStatusLink(jobId) {
   });
 }
 
+/* ─── CHANGE ORDER MODAL ─────────────────────────────────────────── */
+function openChangeOrderModal() {
+  closeModal('jobModal');
+  document.getElementById('coDescription').value = '';
+  const btn = document.getElementById('coSubmitBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Generate & Send'; }
+  openModal('changeOrderModal');
+}
+
+async function submitChangeOrder() {
+  const desc = document.getElementById('coDescription')?.value?.trim();
+  if (!desc) { toast('⚠️ Describe what is changing first'); return; }
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
+
+  const btn = document.getElementById('coSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    const res  = await fetch(`/api/jobs/${_currentJobRow}/change-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    closeModal('changeOrderModal');
+    toast('✅ Change order generating — client will receive email shortly');
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+    btn.disabled = false;
+    btn.textContent = 'Generate & Send';
+  }
+}
+
 /* ─── CHANGE JOB STATUS ─────────────────────────────────────────── */
 async function changeJobStatus(newStatus, btn) {
   if (!_currentJobRow) return;

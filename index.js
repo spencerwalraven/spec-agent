@@ -891,6 +891,125 @@ app.post('/webhook/email-reply', (req, res) => {
   route('email_reply', data).catch(console.error);
 });
 
+// ─── CHANGE ORDER API ────────────────────────────────────────────────────────
+
+// Manually trigger a change order from the dashboard
+app.post('/api/jobs/:row/change-order', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const { description } = req.body;
+    if (!description) return res.status(400).json({ error: 'Description required' });
+    res.json({ ok: true, message: 'Change order generation started' });
+    const { generateChangeOrder } = require('./src/agents/change-order-agent');
+    generateChangeOrder({ rowNumber: row, changeDescription: description }).catch(err =>
+      logger.error('API', `Change order failed: ${err.message}`)
+    );
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Client approves change order via email link
+app.get('/api/change-order/approve/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const rows = await readTab('Change Orders');
+    const co   = rows.find(r => g(r, 'Approval Token') === token);
+    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null));
+
+    const status = g(co, 'Status') || '';
+    if (status === 'Approved') return res.send(changeOrderResponsePage('already-approved', co));
+    if (status === 'Declined') return res.send(changeOrderResponsePage('already-declined', co));
+
+    // Update change order status
+    await updateCell('Change Orders', co._row, 'Status', 'Approved');
+    await updateCell('Change Orders', co._row, 'Approved/Declined Date', new Date().toLocaleDateString('en-US'));
+
+    // Update job value if cost impact exists
+    const costImpact = parseFloat(g(co, 'Cost Impact') || '0');
+    const jobRow     = parseInt(g(co, 'Job Row') || '0');
+    if (jobRow >= 2 && costImpact !== 0) {
+      const jobRows  = await readTab('Jobs');
+      const job      = jobRows.find((_, i) => i + 2 === jobRow);
+      if (job) {
+        const currentValue = parseFloat((g(job, 'Total Job Value', 'Contract Amount', 'Job Value') || '0').replace(/[^0-9.]/g, ''));
+        const newValue = currentValue + costImpact;
+        await updateCell('Jobs', jobRow, ['Total Job Value', 'Contract Amount', 'Job Value'], String(newValue));
+        const timelineImpact = parseInt(g(co, 'Timeline Impact') || '0');
+        if (timelineImpact > 0) {
+          const note = `[Change Order Approved ${new Date().toLocaleDateString()}]: ${g(co, 'Description')} — +$${costImpact.toLocaleString()}, +${timelineImpact} days`;
+          const existingNotes = g(job, 'Job Notes', 'Notes') || '';
+          await updateCell('Jobs', jobRow, ['Job Notes', 'Notes'], existingNotes ? `${existingNotes}\n${note}` : note);
+        }
+      }
+    }
+
+    // Notify owner
+    const { notifyOwner } = require('./src/tools/notify');
+    await notifyOwner({
+      subject: `✅ Change Order Approved — ${g(co, 'Client Name')}`,
+      message: `${g(co, 'Client Name')} approved the change order.\n\nChange: ${g(co, 'Description')}\nCost Impact: +$${costImpact.toLocaleString()}\nTimeline: +${g(co, 'Timeline Impact') || 0} days\n\nJob value has been updated automatically.`,
+      urgent: true,
+    });
+
+    res.send(changeOrderResponsePage('approved', co));
+  } catch (e) {
+    logger.error('API', `Change order approve failed: ${e.message}`);
+    res.status(500).send(changeOrderResponsePage('error', null));
+  }
+});
+
+// Client declines change order via email link
+app.get('/api/change-order/decline/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const rows = await readTab('Change Orders');
+    const co   = rows.find(r => g(r, 'Approval Token') === token);
+    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null));
+
+    await updateCell('Change Orders', co._row, 'Status', 'Declined');
+    await updateCell('Change Orders', co._row, 'Approved/Declined Date', new Date().toLocaleDateString('en-US'));
+
+    const { notifyOwner } = require('./src/tools/notify');
+    await notifyOwner({
+      subject: `❌ Change Order Declined — ${g(co, 'Client Name')}`,
+      message: `${g(co, 'Client Name')} declined the change order.\n\nChange: ${g(co, 'Description')}\nCost Impact: $${g(co, 'Cost Impact') || 0}\n\nFollow up with the client to discuss alternatives.`,
+      urgent: true,
+    });
+
+    res.send(changeOrderResponsePage('declined', co));
+  } catch (e) {
+    res.status(500).send(changeOrderResponsePage('error', null));
+  }
+});
+
+function changeOrderResponsePage(type, co) {
+  const msgs = {
+    'approved':         { icon: '✅', title: 'Change Order Approved!', sub: 'Thank you — we\'ll get started on the updated scope right away.', color: '#22C55E' },
+    'declined':         { icon: '❌', title: 'Change Order Declined', sub: 'No problem — we\'ll be in touch to discuss your options.', color: '#EF4444' },
+    'already-approved': { icon: '✅', title: 'Already Approved', sub: 'This change order was already approved. We\'re on it!', color: '#22C55E' },
+    'already-declined': { icon: '❌', title: 'Already Declined', sub: 'This change order was already declined.', color: '#EF4444' },
+    'not-found':        { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us directly.', color: '#6B7280' },
+    'error':            { icon: '⚠️', title: 'Something went wrong', sub: 'Please contact us directly.', color: '#F59E0B' },
+  };
+  const m = msgs[type] || msgs['error'];
+  const desc = co ? g(co, 'Description') : '';
+  const cost = co ? g(co, 'Cost Impact') : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${m.title}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F4F5F7;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{background:#fff;border-radius:16px;padding:40px 32px;max-width:400px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .icon{font-size:56px;margin-bottom:16px}.title{font-size:24px;font-weight:800;color:#111827;margin-bottom:8px}
+  .sub{font-size:15px;color:#6B7280;line-height:1.5;margin-bottom:20px}
+  .detail{background:#F9FAFB;border-radius:10px;padding:14px;font-size:13px;color:#374151;text-align:left}
+  .powered{font-size:12px;color:#9CA3AF;margin-top:24px}</style></head>
+  <body><div class="card">
+    <div class="icon">${m.icon}</div>
+    <div class="title">${m.title}</div>
+    <div class="sub">${m.sub}</div>
+    ${desc ? `<div class="detail"><strong>Change:</strong> ${desc}${cost ? `<br><strong>Cost Impact:</strong> $${parseFloat(cost).toLocaleString()}` : ''}</div>` : ''}
+    <div class="powered">Powered by SPEC Systems</div>
+  </div></body></html>`;
+}
+
 // ─── SUB PORTAL API ───────────────────────────────────────────────────────────
 app.get('/api/sub/:name', async (req, res) => {
   try {

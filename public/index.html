@@ -1111,8 +1111,30 @@
       <div class="modal-sub" id="jmSub">—</div>
     </div>
     <div class="modal-body" id="jmBody"></div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-secondary" onclick="closeModal('jobModal')" style="flex:1">Close</button>
+      <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1">📝 Change Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Order Modal -->
+<div class="modal-overlay" id="changeOrderModal" onclick="closeModal('changeOrderModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">New Change Order</div>
+      <div class="modal-sub">Describe what's changing — AI will price it and send it to the client</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-label">What is changing?</div>
+        <textarea id="coDescription" style="width:100%;min-height:120px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:15px;color:var(--text1);font-family:inherit;resize:vertical;line-height:1.5" placeholder="e.g. Client wants to upgrade countertops from laminate to quartz. Also add a pot filler above the range."></textarea>
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('jobModal')">Close</button>
+      <button class="btn btn-secondary" onclick="closeModal('changeOrderModal')" style="flex:1">Cancel</button>
+      <button class="btn btn-gold" onclick="submitChangeOrder()" style="flex:1" id="coSubmitBtn">Generate & Send</button>
     </div>
   </div>
 </div>
