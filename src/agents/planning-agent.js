@@ -180,14 +180,14 @@ const EXECUTORS = {
 
   create_kickoff_doc: async ({ title, content }, ctx) => {
     try {
-      const doc = await createDoc(title, content);
+      const doc = await createDoc({ title, body: content });
       if (ctx.rowNumber) {
         try {
-          await updateCell('Jobs', ctx.rowNumber, ['Kickoff Doc Link', 'Project Plan Link'], doc.url);
+          await updateCell('Jobs', ctx.rowNumber, ['Kickoff Doc Link', 'Project Plan Link'], doc.docUrl);
         } catch (_) {}
       }
-      logger.success('PlanningAgent', `Kickoff doc created: ${doc.url}`);
-      return `Kickoff document created: ${doc.url}`;
+      logger.success('PlanningAgent', `Kickoff doc created: ${doc.docUrl}`);
+      return `Kickoff document created: ${doc.docUrl}`;
     } catch (err) {
       return `Failed to create kickoff doc: ${err.message}`;
     }

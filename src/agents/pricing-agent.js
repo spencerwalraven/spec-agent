@@ -156,15 +156,15 @@ const EXECUTORS = {
 
   create_estimate_doc: async ({ title, content }, ctx) => {
     try {
-      const doc = await createDoc(title, content);
+      const doc = await createDoc({ title, body: content });
       // Save doc link to job row
       if (ctx.rowNumber) {
         try {
-          await updateCell('Jobs', ctx.rowNumber, ['Estimate Doc Link', 'Estimate Link'], doc.url);
+          await updateCell('Jobs', ctx.rowNumber, ['Estimate Doc Link', 'Estimate Link'], doc.docUrl);
         } catch (_) {}
       }
-      logger.success('PricingAgent', `Estimate doc created: ${doc.url}`);
-      return `Estimate document created: ${doc.url}`;
+      logger.success('PricingAgent', `Estimate doc created: ${doc.docUrl}`);
+      return `Estimate document created: ${doc.docUrl}`;
     } catch (err) {
       logger.error('PricingAgent', `create_estimate_doc failed: ${err.message}`);
       return `Failed to create doc: ${err.message}`;
