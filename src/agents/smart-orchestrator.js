@@ -60,7 +60,7 @@ const TOOLS = [
   },
   {
     name: 'update_record',
-    description: 'Update a field on a lead, job, or client record.',
+    description: 'Update a field on a lead, job, or client record. Use EXACT column names from the sheet. Clients tab valid fields: "Review Requested", "30-Day Check-in Sent", "Satisfaction Score", "Referrals Given". Jobs tab valid fields: "Status", "Last Client Update". Leads tab valid fields: "Status", "Lead Status".',
     input_schema: {
       type: 'object',
       properties: {

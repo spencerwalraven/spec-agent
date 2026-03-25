@@ -128,12 +128,14 @@ async function route(type, payload = {}) {
 
       // ── CLIENT / ACTIVE JOB ────────────────────────────────────────────
       case 'weekly_update':
+      case 'send_weekly_update':
         return await clientAgent.sendWeeklyUpdate({ rowNumber: payload.rowNumber });
 
       case 'client_message':
         return await clientAgent.handleClientMessage({ rowNumber: payload.rowNumber, threadId: payload.threadId });
 
       case 'satisfaction_check':
+      case 'send_satisfaction_check':
         return await clientAgent.midJobSatisfactionCheck({ rowNumber: payload.rowNumber });
 
       case 'deposit_invoice':
@@ -146,9 +148,11 @@ async function route(type, payload = {}) {
         return await clientAgent.handleJobCompletion({ rowNumber: payload.rowNumber });
 
       case 'review_followup':
+      case 'send_review_request':
         return await clientAgent.sendReviewFollowUp({ rowNumber: payload.rowNumber });
 
       case 'thirty_day':
+      case 'send_30day_checkin':
         return await clientAgent.thirtyDayCheckIn({ rowNumber: payload.rowNumber });
 
       // ── MARKETING ─────────────────────────────────────────────────────
