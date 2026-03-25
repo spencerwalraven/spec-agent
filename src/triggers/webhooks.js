@@ -22,48 +22,54 @@ function fireAndForget(type, payload) {
 }
 
 // ─── TALLY FIELD MAPPER ───────────────────────────────────────────────────────
-// Maps Tally field labels → Leads sheet column headers
+// Maps Tally field labels → Leads sheet column headers (exact labels from your form)
 const TALLY_FIELD_MAP = {
-  'First Name':                           'First Name',
-  'Last Name':                            'Last Name',
-  'Email':                                'Email',
-  'Email Address':                        'Email',
-  'Phone':                                'Phone Number',
-  'Phone Number':                         'Phone Number',
-  'Address':                              'Street Address',
-  'Street Address':                       'Street Address',
-  'City':                                 'City',
-  'State':                                'State',
-  'Zip':                                  'Zip Code',
-  'Zip Code':                             'Zip Code',
-  'Service Requested':                    'Service Requested',
-  'What service are you interested in?':  'Service Requested',
-  'Project Type':                         'Service Requested',
-  'Tell us about your project':           'Tell us about your project',
-  'Project Description':                  'Tell us about your project',
-  'Budget':                               'Budget',
-  'Timeline':                             'Timeline',
-  'How did you hear about us?':           'How did you hear about us?',
-  'Source':                               'How did you hear about us?',
+  'What is your first name?':                        'First Name',
+  'What is your last name?':                         'Last Name',
+  'What is the best phone number to reach you?':     'Phone Number',
+  'And your email address?':                         'Email',
+  'What are you looking to remodel?':                'Service Requested',
+  'Tell us about your project':                      'Tell us about your project',
+  'When are you hoping to get started?':             'Timeline',
+  'What is your approximate budget for this project?': 'Budget',
+  'What is your address?':                           'Street Address', // handled specially below
+  'How did you hear about us?':                      'How did you hear about us?',
 };
 
 function parseTallyPayload(body) {
-  // Tally format: { data: { fields: [{ label, value }] } }
+  // Tally format: { data: { fields: [{ label, type, value }] } }
   const fields = body?.data?.fields || body?.fields || [];
   const lead = {
     Timestamp: new Date().toLocaleDateString('en-US'),
     Status: 'New',
   };
+
   for (const field of fields) {
-    const label = field.label || field.key || '';
-    const value = Array.isArray(field.value)
-      ? field.value.map(v => v.text || v.label || v).join(', ')
-      : String(field.value || '');
-    const col = TALLY_FIELD_MAP[label];
+    const label = field.label || '';
+    const col   = TALLY_FIELD_MAP[label];
+
+    // Address field — Tally sends as object with line1/city/state/zip
+    if (label === 'What is your address?' || field.type === 'ADDRESS') {
+      const addr = field.value || {};
+      if (addr.line1 || addr.street) lead['Street Address'] = addr.line1 || addr.street || '';
+      if (addr.city)                 lead['City']           = addr.city;
+      if (addr.state)                lead['State']          = addr.state;
+      if (addr.zip || addr.zipCode)  lead['Zip Code']       = addr.zip || addr.zipCode || '';
+      continue;
+    }
+
+    // Multiple choice / dropdown — value is array of option objects
+    if (Array.isArray(field.value)) {
+      const text = field.value.map(v => v.text || v.label || String(v)).join(', ');
+      if (col) lead[col] = text;
+      continue;
+    }
+
+    // Standard text/number
+    const value = String(field.value ?? '');
     if (col) lead[col] = value;
-    // Also try the label directly in case it already matches
-    else if (label) lead[label] = value;
   }
+
   return lead;
 }
 
