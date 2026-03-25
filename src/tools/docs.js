@@ -5,6 +5,7 @@
 
 require('dotenv').config();
 const { google } = require('googleapis');
+const { logger } = require('../utils/logger');
 
 function getAuth() {
   const auth = new google.auth.OAuth2(
@@ -27,29 +28,42 @@ async function createDoc({ title, body }) {
   // Create the document
   const created = await docs.documents.create({ requestBody: { title } });
   const docId   = created.data.documentId;
+  logger.info('Docs', `documents.create returned docId: ${docId}`);
 
-  // Insert the content
+  if (!docId) {
+    logger.error('Docs', `documents.create response: ${JSON.stringify(created.data).slice(0, 300)}`);
+    throw new Error('Google Docs API returned no documentId');
+  }
+
+  // Insert the content (chunk if needed to stay under API limits)
   if (body) {
+    const MAX_CHUNK = 40000;
+    const text = body.slice(0, MAX_CHUNK); // truncate to safe size
     await docs.documents.batchUpdate({
       documentId: docId,
       requestBody: {
         requests: [{
           insertText: {
             location: { index: 1 },
-            text: body,
+            text,
           },
         }],
       },
     });
   }
 
-  // Make it readable by anyone with the link
-  await drive.permissions.create({
-    fileId: docId,
-    requestBody: { role: 'reader', type: 'anyone' },
-  });
+  // Make it readable by anyone with the link (best-effort — don't fail if this errors)
+  try {
+    await drive.permissions.create({
+      fileId: docId,
+      requestBody: { role: 'reader', type: 'anyone' },
+    });
+  } catch (permErr) {
+    logger.warn('Docs', `Could not set public permission: ${permErr.message}`);
+  }
 
   const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+  logger.info('Docs', `Doc created successfully: ${docUrl}`);
   return { docId, docUrl };
 }
 
