@@ -23,6 +23,66 @@ try {
 const crypto = require('crypto');
 
 const app = express();
+
+// ─── STRIPE WEBHOOK (raw body MUST come before express.json) ─────────────────
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig    = req.headers['stripe-signature'];
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!secret) return res.status(200).send('Stripe webhook secret not configured');
+
+  let event;
+  try {
+    const Stripe = require('stripe');
+    const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+    event = stripe.webhooks.constructEvent(req.body, sig, secret);
+  } catch (err) {
+    logger.error('Stripe', `Webhook signature failed: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session   = event.data.object;
+    const jobId     = session.metadata?.jobId;
+    const amountPaid = (session.amount_total || 0) / 100; // cents → dollars
+    const desc      = (session.metadata?.description || '').toLowerCase();
+
+    if (jobId) {
+      try {
+        const jobs    = await readTab('Jobs');
+        const job     = jobs.find(j => g(j, 'Job ID') === jobId);
+        if (job) {
+          const row   = jobs.indexOf(job) + 2;
+          const today = new Date().toLocaleDateString('en-US');
+          const clientName = `${g(job,'First Name','')} ${g(job,'Last Name','')}`.trim() || 'Client';
+          const isFinal = desc.includes('final') || desc.includes('balance');
+
+          if (isFinal) {
+            await updateCell('Jobs', row, ['Final Invoice Paid', 'Final Paid'], 'Yes');
+            await updateCell('Jobs', row, ['Final Paid Date', 'Final Invoice Paid Date'], today);
+          } else {
+            await updateCell('Jobs', row, ['Deposit Paid', 'Deposit Invoice Paid'], 'Yes');
+            await updateCell('Jobs', row, ['Deposit Paid Date'], today);
+          }
+
+          const { notifyOwner } = require('./src/tools/notify');
+          await notifyOwner({
+            subject: `💰 Payment Received — ${clientName}`,
+            message: `${clientName} just paid $${amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${isFinal ? '(final invoice)' : '(deposit)'} via Stripe.\n\nJob: ${g(job,'Service Type','Project Type') || 'Project'}\nJob ID: ${jobId}\n\nThe sheet has been updated automatically.`,
+            urgent: true,
+          });
+
+          logger.success('Stripe', `Payment recorded: ${clientName} paid $${amountPaid} (${isFinal ? 'final' : 'deposit'})`);
+        }
+      } catch (e) {
+        logger.error('Stripe', `Failed to process payment webhook: ${e.message}`);
+      }
+    }
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -57,6 +117,7 @@ const PUBLIC_PREFIXES = [
   '/api/proposal/approve', '/api/proposal/decline',
   '/api/change-order/approve', '/api/change-order/decline',
   '/api/kickoff/select',
+  '/api/stripe/webhook',
 ];
 
 app.use((req, res, next) => {
