@@ -167,6 +167,8 @@ async function readSettings() {
     googleReviewLink: map['Google Review Link']          || '',
     emailSignature:   map['Email Signature']             || '',
     ownerEmail:       map['Owner Email']                 || map['Company Email'] || '',
+    leadReplyDelay:   map['Lead Reply Delay']            || '3',
+    clientReplyDelay: map['Client Reply Delay']          || '1',
   };
 }
 

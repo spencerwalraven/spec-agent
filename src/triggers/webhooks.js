@@ -22,6 +22,42 @@ function fireAndForget(type, payload) {
   );
 }
 
+// Delayed fire — waits delayMs then routes
+function fireWithDelay(type, payload, delayMs) {
+  const delayMin = Math.round(delayMs / 60000);
+  logger.info('Webhook', `Queuing ${type} — responding in ~${delayMin} min`);
+  setTimeout(() => {
+    route(type, payload).catch(err =>
+      logger.error('Webhook', `Unhandled error in delayed ${type}: ${err.message}`)
+    );
+  }, delayMs);
+}
+
+// Deduplication — tracks messageIds we've already queued to avoid double-responses
+const processedMessages = new Set();
+function isDuplicate(messageId) {
+  if (!messageId) return false;
+  if (processedMessages.has(messageId)) return true;
+  processedMessages.add(messageId);
+  // Clean up after 30 min to prevent memory leak
+  setTimeout(() => processedMessages.delete(messageId), 30 * 60 * 1000);
+  return false;
+}
+
+// Read reply delay settings (minutes) from Settings tab, with defaults
+async function getReplyDelays() {
+  try {
+    const { readSettings } = require('../tools/sheets');
+    const s = await readSettings();
+    return {
+      lead:   (parseFloat(s['Lead Reply Delay'] || s.leadReplyDelay)   || 3) * 60 * 1000,
+      client: (parseFloat(s['Client Reply Delay'] || s.clientReplyDelay) || 1) * 60 * 1000,
+    };
+  } catch (_) {
+    return { lead: 3 * 60 * 1000, client: 1 * 60 * 1000 };
+  }
+}
+
 // ─── TALLY FIELD MAPPER ───────────────────────────────────────────────────────
 // Maps Tally field labels → Leads sheet column headers (exact labels from your form)
 const TALLY_FIELD_MAP = {
@@ -153,12 +189,20 @@ router.post('/gmail-push', async (req, res) => {
     const messages = await getNewMessages(historyId);
     if (!messages.length) return;
 
+    const delays = await getReplyDelays();
+
     for (const msg of messages) {
       const parsed = parseMessage(msg);
 
-      // Skip sent messages (from us), drafts, and non-replies
+      // Skip sent messages (from us) and drafts
       if (parsed.labelIds.includes('SENT'))  continue;
       if (parsed.labelIds.includes('DRAFT')) continue;
+
+      // Dedup — skip if we've already queued this message
+      if (isDuplicate(parsed.messageId)) {
+        logger.info('Webhook', `Skipping duplicate messageId: ${parsed.messageId}`);
+        continue;
+      }
 
       // Extract sender email
       const fromEmail = parsed.from?.match(/<(.+)>/)?.[1] || parsed.from;
@@ -166,15 +210,33 @@ router.post('/gmail-push', async (req, res) => {
 
       logger.info('Webhook', `New email from ${fromEmail} — reply: ${parsed.isReply}`);
 
-      // Only route replies (not brand new inbound leads — those come via Tally)
+      // Only route replies (not brand new inbound leads — those come via Tally/form)
       if (parsed.isReply) {
-        fireAndForget('email_reply', {
+        // Determine if this is a lead or active client to set the right delay
+        let delayMs = delays.lead; // default to lead delay
+        try {
+          const { findRowByEmail, readTab } = require('../tools/sheets');
+          const jobs = await readTab('Jobs');
+          const isClient = jobs.some(j =>
+            (j['Email'] || '').toLowerCase() === fromEmail.toLowerCase() &&
+            ['In Progress', 'Planning', 'Complete'].includes(j['Status'] || j['Job Status'] || '')
+          );
+          if (isClient) delayMs = delays.client;
+        } catch (_) {}
+
+        const payload = {
           from:      parsed.from,
           subject:   parsed.subject,
           threadId:  parsed.threadId,
           messageId: parsed.messageId,
           body:      parsed.body,
-        });
+        };
+
+        if (delayMs > 0) {
+          fireWithDelay('email_reply', payload, delayMs);
+        } else {
+          fireAndForget('email_reply', payload);
+        }
       }
     }
   } catch (err) {
