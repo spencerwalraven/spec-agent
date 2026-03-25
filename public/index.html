@@ -1053,7 +1053,29 @@
         <button class="more-item" onclick="navigate('conversations')"><div class="more-icon">💬</div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
         <button class="more-item" onclick="navigate('agents')"><div class="more-icon">🤖</div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
         <button class="more-item" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
+        <button class="more-item" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
         <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+      </div>
+    </section>
+
+    <!-- ── SCHEDULE ──────────────────────────────────────────────────── -->
+    <section class="page" id="page-schedule">
+      <div style="padding:4px 0 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text1)">Schedule</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">Upcoming jobs &amp; phases</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="syncAllToCalendar()">🔄 Sync All</button>
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadSchedule()">↻</button>
+        </div>
+      </div>
+      <div style="background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:var(--text2);line-height:1.5">
+        📅 Events from your <strong style="color:var(--text1)">Google Calendar</strong> — next 60 days. Hit <strong style="color:var(--text1)">Sync All</strong> to push all active jobs and phases to your calendar at once, or use <strong style="color:var(--text1)">🗓️ Schedule Kickoff</strong> on a job to add individual kickoff events.
+      </div>
+      <div id="scheduleList">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>
     </section>
 
@@ -1147,6 +1169,7 @@
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="closeModal('jobModal')" style="flex:1">Close</button>
       <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1">🗓️ Schedule Kickoff</button>
+      <button class="btn btn-secondary" onclick="syncJobToCalendar()" style="flex:1">📅 Sync Calendar</button>
       <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1">📝 Change Order</button>
     </div>
   </div>

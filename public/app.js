@@ -173,6 +173,7 @@ function navigate(page) {
     else if (page === 'conversations') loadConversations();
     else if (page === 'field')         loadField();
     else if (page === 'analytics')     loadAnalytics();
+    else if (page === 'schedule')      loadSchedule();
   }
 }
 
@@ -806,6 +807,18 @@ function copyStatusLink(jobId) {
 
 /* ─── CHANGE ORDER MODAL ─────────────────────────────────────────── */
 // ─── KICKOFF SCHEDULER ────────────────────────────────────────────────────────
+async function syncJobToCalendar() {
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
+  try {
+    const res  = await fetch(`/api/jobs/${_currentJobRow}/sync-calendar`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`📅 ${data.created} event${data.created !== 1 ? 's' : ''} synced to Google Calendar!`);
+  } catch (err) {
+    toast(`❌ ${err.message}`, 3000);
+  }
+}
+
 async function sendKickoffSchedule() {
   if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
   const confirmed = confirm('Send kickoff date options to the client? They\'ll get 3 date choices by email.');
@@ -2058,6 +2071,79 @@ async function uploadPhoto(row, e) {
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Upload';
+  }
+}
+
+// ─── SCHEDULE / CALENDAR ─────────────────────────────────────────────────────
+
+const CAL_COLORS = {
+  '9': '#3F51B5', '7': '#039BE5', '5': '#F6BF26', '11': '#D50000',
+  '8': '#616161', '1': '#7986CB', '2': '#33B679', '10': '#0B8043',
+};
+
+async function loadSchedule() {
+  const el = document.getElementById('scheduleList');
+  if (!el) return;
+  el.innerHTML = `<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>`.repeat(3);
+
+  try {
+    const events = await api('/api/calendar/events?days=60') || [];
+    if (!events.length) {
+      el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:8px">🗓️</div>
+        <div style="font-size:15px;font-weight:600">No upcoming events</div>
+        <div style="font-size:13px;margin-top:4px">Hit "Sync All" to push jobs &amp; phases to Google Calendar</div>
+      </div>`;
+      return;
+    }
+
+    // Group by date
+    const byDate = {};
+    events.forEach(e => {
+      const dateKey = e.start ? new Date(e.start).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : 'Unknown';
+      if (!byDate[dateKey]) byDate[dateKey] = [];
+      byDate[dateKey].push(e);
+    });
+
+    el.innerHTML = Object.entries(byDate).map(([date, evs]) => `
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:0 4px;margin-bottom:6px">${date}</div>
+        ${evs.map(e => {
+          const color  = CAL_COLORS[e.color] || '#039BE5';
+          const timeStr = e.start && e.start.includes('T')
+            ? new Date(e.start).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
+            : 'All day';
+          return `
+            <div style="background:var(--card);border-radius:10px;padding:12px 14px;margin-bottom:6px;display:flex;gap:12px;align-items:center;border-left:4px solid ${color}">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;color:var(--text1);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.title}</div>
+                <div style="font-size:12px;color:var(--text2);margin-top:2px">${timeStr}${e.location ? ' · ' + e.location : ''}</div>
+              </div>
+              ${e.link ? `<a href="${e.link}" target="_blank" style="color:var(--text3);font-size:11px;white-space:nowrap;text-decoration:none;padding:4px 10px;border:1px solid var(--border);border-radius:8px">Open ↗</a>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `).join('');
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--text2);padding:20px;text-align:center;font-size:14px">
+      📅 Google Calendar not connected yet — or no events in the next 60 days.<br>
+      <span style="font-size:12px;color:var(--text3)">Hit "Sync All" after setting up your calendar credentials.</span>
+    </div>`;
+  }
+}
+
+async function syncAllToCalendar() {
+  const btn = document.querySelector('[onclick="syncAllToCalendar()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    await fetch('/api/calendar/sync', { method: 'POST' });
+    toast('🗓️ Calendar sync started — events will appear in Google Calendar shortly!');
+    setTimeout(loadSchedule, 3000);
+  } catch (err) {
+    toast(`❌ Sync failed: ${err.message}`, 3000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync All'; }
   }
 }
 

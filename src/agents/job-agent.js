@@ -17,6 +17,8 @@ const { toolCreateDoc }                 = require('../tools/docs');
 const { toolNotifyOwner }               = require('../tools/notify');
 const { logger }                        = require('../utils/logger');
 const crypto                            = require('crypto');
+let calendarTool;
+try { calendarTool = require('../tools/calendar'); } catch (_) {}
 
 // ─── TOOL DEFINITIONS ─────────────────────────────────────────────────────────
 
@@ -112,6 +114,22 @@ const TOOLS = [
     },
   },
   {
+    name: 'create_calendar_event',
+    description: 'Create a Google Calendar event for a job kickoff, phase, or follow-up. Use for kickoff dates, phase start dates, and appointment reminders.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title:       { type: 'string', description: 'Event title, e.g. "Kitchen Remodel Kickoff — Sarah Chen"' },
+        description: { type: 'string' },
+        startDate:   { type: 'string', description: 'Date in YYYY-MM-DD or MM/DD/YYYY format, or ISO datetime' },
+        endDate:     { type: 'string', description: 'Optional end date. Defaults to same day.' },
+        location:    { type: 'string', description: 'Job site address' },
+        type:        { type: 'string', enum: ['kickoff', 'phase', 'followup', 'complete'], description: 'Event type (sets color)' },
+      },
+      required: ['title', 'startDate'],
+    },
+  },
+  {
     name: 'read_phases',
     description: 'Read job phases for a specific job ID',
     input_schema: {
@@ -164,6 +182,10 @@ const EXECUTORS = {
   notify_owner:      async (args)     => toolNotifyOwner(args),
   read_phases:       async (args)     => toolReadPhases(args),
   add_phase:         async (args)     => toolAppendPhase(args),
+  create_calendar_event: async (args) => {
+    if (!calendarTool) return 'Calendar not configured (GOOGLE_CALENDAR_ID not set)';
+    return calendarTool.toolCreateCalendarEvent(args);
+  },
 
   send_proposal_for_approval: async ({ to, clientName, projectType, docUrl, summary, threadId }, ctx) => {
     try {
@@ -390,9 +412,11 @@ TASK:
 2. Based on the service type, scope, and quality tier, create a complete project breakdown:
    - A Google Doc with the full project plan (phases, materials, timeline)
    - Add each phase as a row in the Job Phases tab
-3. For each phase, call add_phase with: Job ID, Phase Name, Phase Order (1, 2, 3...), Description, Materials Needed, Estimated Labor Hrs, Estimated Cost, Status (Not Started)
-4. Update the job: "Kickoff Doc Link" with the Google Doc URL, "Job Status" to "Template Ready"
-5. Notify owner with the link
+3. For each phase, call add_phase with: Job ID, Phase Name, Phase Order (1, 2, 3...), Description, Materials Needed, Estimated Labor Hrs, Estimated Cost, Status (Not Started), Start Date, End Date (estimate realistic dates based on project scope and today's date)
+4. After adding all phases, create a Google Calendar event for each phase using create_calendar_event. Use the phase name + client name as the title, the job address as the location, and the estimated start/end dates.
+5. Also create a kickoff calendar event for the overall project start date (type: "kickoff").
+6. Update the job: "Kickoff Doc Link" with the Google Doc URL, "Job Status" to "Template Ready"
+7. Notify owner with the link and confirm calendar events were created
 
 Typical phases for common projects:
 - Kitchen remodel: Demo, Rough-in (plumbing/electrical), Cabinets, Countertops, Tile, Appliances, Finish

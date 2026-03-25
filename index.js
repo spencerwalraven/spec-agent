@@ -1646,6 +1646,18 @@ app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
     await updateCell('Jobs', jobRow, ['Site Visit Date', 'Kickoff Date', 'Start Date'], fmtDate);
     await updateCell('Jobs', jobRow, ['Job Status', 'Status'], 'Kickoff Scheduled');
 
+    // Auto-create Google Calendar event for the kickoff
+    try {
+      if (calendarTool) {
+        const calResult = await calendarTool.createKickoffEvent(job, date);
+        if (calResult?.eventLink) {
+          await updateCell('Jobs', jobRow, ['Kickoff Calendar Link', 'Calendar Event Link'], calResult.eventLink);
+        }
+      }
+    } catch (calErr) {
+      console.warn('Calendar event creation failed (non-fatal):', calErr.message);
+    }
+
     // Notify owner urgently
     const { notifyOwner } = require('./src/tools/notify');
     await notifyOwner({
@@ -1707,6 +1719,86 @@ function kickoffResponsePage(type, job, dateStr) {
     <div class="powered">Powered by SPEC Systems</div>
   </div></body></html>`;
 }
+
+// ─── CALENDAR SYNC API ────────────────────────────────────────────────────────
+let calendarTool;
+try { calendarTool = require('./src/tools/calendar'); } catch (_) {}
+
+// List upcoming calendar events (next 60 days)
+app.get('/api/calendar/events', async (req, res) => {
+  try {
+    if (!calendarTool) return res.json([]);
+    const days   = parseInt(req.query.days || '60');
+    const events = await calendarTool.listUpcomingEvents(days);
+    const mapped = events.map(e => ({
+      id:       e.id,
+      title:    e.summary || '',
+      start:    e.start?.dateTime || e.start?.date || '',
+      end:      e.end?.dateTime   || e.end?.date   || '',
+      location: e.location || '',
+      link:     e.htmlLink || '',
+      color:    e.colorId  || '7',
+    }));
+    res.json(mapped);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sync all active jobs + phases to Google Calendar
+app.post('/api/calendar/sync', async (req, res) => {
+  try {
+    if (!calendarTool) return res.status(503).json({ error: 'Calendar not configured' });
+    res.json({ ok: true, message: 'Calendar sync started' });
+    calendarTool.syncAllJobs()
+      .then(r => logger.success('API', `Calendar sync done: ${r.created} events created`))
+      .catch(e => logger.error('API', `Calendar sync failed: ${e.message}`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Create a single calendar event manually
+app.post('/api/calendar/event', async (req, res) => {
+  try {
+    if (!calendarTool) return res.status(503).json({ error: 'Calendar not configured' });
+    const { title, description, startDate, endDate, location, type } = req.body;
+    if (!title || !startDate) return res.status(400).json({ error: 'title and startDate required' });
+    const result = await calendarTool.createEvent({ title, description, location, startDate, endDate, colorId: calendarTool.COLORS[type] || '7' });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sync a single job's phases to calendar
+app.post('/api/jobs/:row/sync-calendar', async (req, res) => {
+  try {
+    if (!calendarTool) return res.status(503).json({ error: 'Calendar not configured' });
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+
+    const { readRow } = require('./src/tools/sheets');
+    const job = await readRow('Jobs', row);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const phases  = await readTab('Job Phases');
+    const jobId   = g(job,'Job ID') || '';
+    const jobPhases = phases.filter(p => g(p,'Job ID') === jobId);
+
+    let created = 0;
+    const links = [];
+
+    // Kickoff event
+    const kickoffDate = g(job,'Site Visit Date','Kickoff Date','Start Date');
+    if (kickoffDate) {
+      const r = await calendarTool.createKickoffEvent(job, kickoffDate);
+      created++; links.push(r.eventLink);
+    }
+
+    // Phase events
+    for (const phase of jobPhases) {
+      const r = await calendarTool.createPhaseEvent(phase, job);
+      if (r) { created++; links.push(r.eventLink); }
+    }
+
+    res.json({ ok: true, created, links });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
