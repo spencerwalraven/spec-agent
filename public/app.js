@@ -200,7 +200,9 @@ async function loadDashboard() {
   const data = await api('/api/summary');
   if (!data) return;
 
-  document.getElementById('companyName').textContent = data.companyName || '—';
+  const cn = data.companyName || '—';
+  document.getElementById('companyName').textContent = cn;
+  if (cn !== '—') document.title = cn + ' CRM';
 
   // KPI cards
   const kpiGrid = document.getElementById('kpiGrid');

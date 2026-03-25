@@ -300,7 +300,7 @@ async function runDailyBriefing() {
   </div>
 
   <div style="text-align:center;font-size:12px;color:#9CA3AF;padding:16px">
-    Automated morning briefing from ${companyName} · SPEC Systems
+    Automated morning briefing from ${companyName}
   </div>
 </div>`.trim();
 

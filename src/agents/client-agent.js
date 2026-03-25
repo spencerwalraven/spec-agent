@@ -15,6 +15,8 @@ const { toolReadJob, toolUpdateJob, toolReadClient, toolUpdateClient, toolReadSe
 const { toolSendEmail, toolReadThread } = require('../tools/gmail');
 const { toolCreateDoc }                 = require('../tools/docs');
 const { toolNotifyOwner, toolTextClient } = require('../tools/notify');
+let stripeTool;
+try { stripeTool = require('../tools/stripe'); } catch (_) {}
 
 // ─── TOOL DEFINITIONS ─────────────────────────────────────────────────────────
 
@@ -100,6 +102,20 @@ const TOOLS = [
       required: ['phone', 'message'],
     },
   },
+  {
+    name: 'create_payment_link',
+    description: 'Create a Stripe payment link so the client can pay by card online. Returns a URL. Include it as a "Pay Now" button in invoice emails. Only call this if STRIPE_SECRET_KEY is configured.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        amountDollars: { type: 'number', description: 'Invoice amount in dollars (e.g. 1500 for $1,500.00)' },
+        description:   { type: 'string', description: 'What the client sees on the payment page (e.g. "Project Deposit — Kitchen Remodel")' },
+        jobId:         { type: 'string', description: 'Job ID for tracking' },
+        clientEmail:   { type: 'string', description: 'Client email (optional)' },
+      },
+      required: ['amountDollars', 'description', 'jobId'],
+    },
+  },
 ];
 
 const EXECUTORS = {
@@ -124,6 +140,16 @@ const EXECUTORS = {
   read_settings:     async ()          => toolReadSettings(),
   notify_owner:      async (args)      => toolNotifyOwner(args),
   text_client:       async (args)      => toolTextClient(args),
+  create_payment_link: async ({ amountDollars, description, jobId, clientEmail }) => {
+    if (!stripeTool?.isConfigured()) return 'Stripe not configured — skip payment link, instruct client to pay by check.';
+    const result = await stripeTool.createPaymentLink({
+      amountCents: Math.round(amountDollars * 100),
+      description,
+      jobId,
+      clientEmail,
+    });
+    return `Payment link created: ${result.url}`;
+  },
 };
 
 // ─── CLIENT AGENT ─────────────────────────────────────────────────────────────
@@ -205,17 +231,26 @@ You generate invoices for a home remodeling company.
 TASK:
 1. Read settings and job data
 2. Calculate deposit amount (typically 30% of Total Job Value)
-3. Create a professional invoice Google Doc:
+3. Create a Stripe payment link using create_payment_link:
+   - amountDollars = the deposit amount
+   - description = "Project Deposit — [Service Type]"
+   - jobId = the Job ID
+   - clientEmail = client's email
+   (If Stripe isn't configured, the tool will tell you — proceed without a link)
+4. Create a professional invoice Google Doc:
    - Invoice number (use Job ID + "-DEP")
    - Bill to: client name and address
    - Date, due date (7 days from now)
    - Line item: "Project Deposit — [Service Type]" with amount
-   - Payment instructions (check payable to company name or payment link if available)
+   - Include payment link if created, otherwise payment instructions (check payable to company name)
    - Footer with company contact info
-4. Save URL to "Deposit Invoice Link"
-5. Send email to client with invoice attached (include the link)
-6. Update "Deposit Invoice Sent" to "Yes"
-7. Notify owner
+5. Save URL to "Deposit Invoice Link"
+6. Send a professional invoice email to client:
+   - Attach the Google Doc link
+   - If a payment link was created, include a prominent "Pay Now →" button in the email
+   - Keep it warm and professional
+7. Update "Deposit Invoice Sent" to "Yes"
+8. Notify owner
     `.trim();
 
     return await this.run(prompt, `Generate deposit invoice for job row ${rowNumber}.`, { rowNumber });
@@ -227,17 +262,28 @@ You generate final invoices for a completed home remodeling job.
 
 TASK:
 1. Read settings and job data
-2. Calculate final balance (Total Job Value minus any deposits paid)
-3. Create a professional final invoice Google Doc:
+2. Calculate final balance (Total Job Value minus any deposits or midpoint payments already received)
+3. Create a Stripe payment link using create_payment_link:
+   - amountDollars = the final balance amount
+   - description = "Final Invoice — [Service Type] (Job [Job ID])"
+   - jobId = the Job ID
+   - clientEmail = client's email
+   (If Stripe isn't configured, the tool will tell you — proceed without a link)
+4. Create a professional final invoice Google Doc:
    - Invoice number (use Job ID + "-FINAL")
    - Summary of all work completed
    - Previous payments received
    - Final balance due
    - Due on receipt
-4. Save URL to "Final Invoice Link"
-5. Send to client with a warm "project complete" message
-6. Update "Final Invoice Sent" to "Yes"
-7. Notify owner
+   - Include payment link if created
+5. Save URL to "Final Invoice Link"
+6. Send to client with a warm, celebratory "project complete" message:
+   - Thank them genuinely
+   - Summary of what was accomplished
+   - If a payment link was created, include a prominent "Pay Final Balance →" button
+   - Let them know you're just a call away if anything comes up
+7. Update "Final Invoice Sent" to "Yes"
+8. Notify owner
     `.trim();
 
     return await this.run(prompt, `Generate final invoice for job row ${rowNumber}.`, { rowNumber });

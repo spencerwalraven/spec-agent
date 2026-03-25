@@ -194,9 +194,11 @@ const EXECUTORS = {
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : (process.env.APP_URL || 'https://your-app.railway.app');
 
-      const approveUrl = `${baseUrl}/api/proposal/approve/${token}`;
-      const declineUrl = `${baseUrl}/api/proposal/decline/${token}`;
-      const firstName  = (clientName || '').split(' ')[0] || 'there';
+      const approveUrl  = `${baseUrl}/api/proposal/approve/${token}`;
+      const declineUrl  = `${baseUrl}/api/proposal/decline/${token}`;
+      const firstName   = (clientName || '').split(' ')[0] || 'there';
+      let companyName = 'Your Contractor';
+      try { const s = JSON.parse(await toolReadSettings()); companyName = s.companyName || companyName; } catch (_) {}
 
       // Save token to Jobs tab
       if (ctx.rowNumber) {
@@ -235,7 +237,7 @@ const EXECUTORS = {
 
     <p style="font-size:13px;color:#9CA3AF;margin:0">Questions before you decide? Just reply to this email — we're happy to talk through anything.</p>
   </div>
-  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by ${companyName}</div>
 </div>`.trim();
 
       const { sendEmail } = require('../tools/gmail');

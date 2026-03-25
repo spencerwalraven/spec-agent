@@ -924,13 +924,14 @@ app.post('/api/jobs/:row/change-order', async (req, res) => {
 app.get('/api/change-order/approve/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const rows = await readTab('Change Orders');
+    const [rows, settings] = await Promise.all([readTab('Change Orders'), readSettings()]);
+    const companyName = settings.companyName || 'Your Contractor';
     const co   = rows.find(r => g(r, 'Approval Token') === token);
-    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null));
+    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null, companyName));
 
     const status = g(co, 'Status') || '';
-    if (status === 'Approved') return res.send(changeOrderResponsePage('already-approved', co));
-    if (status === 'Declined') return res.send(changeOrderResponsePage('already-declined', co));
+    if (status === 'Approved') return res.send(changeOrderResponsePage('already-approved', co, companyName));
+    if (status === 'Declined') return res.send(changeOrderResponsePage('already-declined', co, companyName));
 
     // Update change order status
     await updateCell('Change Orders', co._row, 'Status', 'Approved');
@@ -963,7 +964,7 @@ app.get('/api/change-order/approve/:token', async (req, res) => {
       urgent: true,
     });
 
-    res.send(changeOrderResponsePage('approved', co));
+    res.send(changeOrderResponsePage('approved', co, companyName));
   } catch (e) {
     logger.error('API', `Change order approve failed: ${e.message}`);
     res.status(500).send(changeOrderResponsePage('error', null));
@@ -974,9 +975,10 @@ app.get('/api/change-order/approve/:token', async (req, res) => {
 app.get('/api/change-order/decline/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const rows = await readTab('Change Orders');
+    const [rows, settings] = await Promise.all([readTab('Change Orders'), readSettings()]);
+    const companyName = settings.companyName || 'Your Contractor';
     const co   = rows.find(r => g(r, 'Approval Token') === token);
-    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null));
+    if (!co) return res.status(404).send(changeOrderResponsePage('not-found', null, companyName));
 
     await updateCell('Change Orders', co._row, 'Status', 'Declined');
     await updateCell('Change Orders', co._row, 'Approved/Declined Date', new Date().toLocaleDateString('en-US'));
@@ -988,13 +990,13 @@ app.get('/api/change-order/decline/:token', async (req, res) => {
       urgent: true,
     });
 
-    res.send(changeOrderResponsePage('declined', co));
+    res.send(changeOrderResponsePage('declined', co, companyName));
   } catch (e) {
     res.status(500).send(changeOrderResponsePage('error', null));
   }
 });
 
-function changeOrderResponsePage(type, co) {
+function changeOrderResponsePage(type, co, companyName = 'Your Contractor') {
   const msgs = {
     'approved':         { icon: '✅', title: 'Change Order Approved!', sub: 'Thank you — we\'ll get started on the updated scope right away.', color: '#22C55E' },
     'declined':         { icon: '❌', title: 'Change Order Declined', sub: 'No problem — we\'ll be in touch to discuss your options.', color: '#EF4444' },
@@ -1018,7 +1020,7 @@ function changeOrderResponsePage(type, co) {
     <div class="title">${m.title}</div>
     <div class="sub">${m.sub}</div>
     ${desc ? `<div class="detail"><strong>Change:</strong> ${desc}${cost ? `<br><strong>Cost Impact:</strong> $${parseFloat(cost).toLocaleString()}` : ''}</div>` : ''}
-    <div class="powered">Powered by SPEC Systems</div>
+    <div class="powered">Powered by ${companyName}</div>
   </div></body></html>`;
 }
 
@@ -1275,13 +1277,14 @@ app.get('/api/jobs/:jobId/photos', async (req, res) => {
 app.get('/api/proposal/approve/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const rows = await readTab('Jobs');
+    const [rows, settings] = await Promise.all([readTab('Jobs'), readSettings()]);
+    const companyName = settings.companyName || 'Your Contractor';
     const job  = rows.find(r => g(r, 'Proposal Token', 'Proposal Approval Token') === token);
-    if (!job) return res.status(404).send(proposalResponsePage('not-found', null));
+    if (!job) return res.status(404).send(proposalResponsePage('not-found', null, companyName));
 
     const status = g(job, 'Proposal Status', 'Proposal Sent') || '';
-    if (status === 'Approved') return res.send(proposalResponsePage('already-approved', job));
-    if (/declined|not right now/i.test(status)) return res.send(proposalResponsePage('already-declined', job));
+    if (status === 'Approved') return res.send(proposalResponsePage('already-approved', job, companyName));
+    if (/declined|not right now/i.test(status)) return res.send(proposalResponsePage('already-declined', job, companyName));
 
     const jobRow = rows.indexOf(job) + 2;
 
@@ -1309,7 +1312,7 @@ app.get('/api/proposal/approve/:token', async (req, res) => {
       urgent: true,
     });
 
-    res.send(proposalResponsePage('approved', job));
+    res.send(proposalResponsePage('approved', job, companyName));
   } catch (e) {
     logger.error('API', `Proposal approve failed: ${e.message}`);
     res.status(500).send(proposalResponsePage('error', null));
@@ -1320,9 +1323,10 @@ app.get('/api/proposal/approve/:token', async (req, res) => {
 app.get('/api/proposal/decline/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const rows = await readTab('Jobs');
+    const [rows, settings] = await Promise.all([readTab('Jobs'), readSettings()]);
+    const companyName = settings.companyName || 'Your Contractor';
     const job  = rows.find(r => g(r, 'Proposal Token', 'Proposal Approval Token') === token);
-    if (!job) return res.status(404).send(proposalResponsePage('not-found', null));
+    if (!job) return res.status(404).send(proposalResponsePage('not-found', null, companyName));
 
     const jobRow = rows.indexOf(job) + 2;
 
@@ -1338,13 +1342,13 @@ app.get('/api/proposal/decline/:token', async (req, res) => {
       urgent: false,
     });
 
-    res.send(proposalResponsePage('declined', job));
+    res.send(proposalResponsePage('declined', job, companyName));
   } catch (e) {
     res.status(500).send(proposalResponsePage('error', null));
   }
 });
 
-function proposalResponsePage(type, job) {
+function proposalResponsePage(type, job, companyName = 'Your Contractor') {
   const msgs = {
     'approved':         { icon: '🎉', title: 'You\'re In!', sub: 'Thanks for approving — we\'re excited to get started. We\'ll be in touch shortly with your contract and next steps.', color: '#22C55E' },
     'declined':         { icon: '👋', title: 'Got It', sub: 'No worries at all. If you change your mind or want to chat through any details, just reply to our email or give us a call. We\'re here when you\'re ready.', color: '#6B7280' },
@@ -1368,14 +1372,14 @@ function proposalResponsePage(type, job) {
   .powered{font-size:12px;color:#9CA3AF;margin-top:8px}</style></head>
   <body><div class="card">
     <div class="header">
-      <div class="header-label">SPEC Systems</div>
+      <div class="header-label">${companyName}</div>
       <div class="header-title">${projectType ? projectType + ' Proposal' : 'Project Proposal'}</div>
     </div>
     <div class="icon">${m.icon}</div>
     ${clientFirst && type === 'approved' ? `<div class="accent">Welcome aboard, ${clientFirst}! 🏠</div>` : ''}
     <div class="title">${m.title}</div>
     <div class="sub">${m.sub}</div>
-    <div class="powered">Powered by SPEC Systems</div>
+    <div class="powered">Powered by ${companyName}</div>
   </div></body></html>`;
 }
 
@@ -1597,7 +1601,7 @@ app.post('/api/jobs/:row/kickoff-schedule', async (req, res) => {
 
     <p style="font-size:13px;color:#6B7280;margin:0">None of these work? Just reply to this email with what does — we'll make it happen.</p>
   </div>
-  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by ${settings.companyName || 'Your Contractor'}</div>
 </div>`.trim();
 
     const { sendEmail } = require('./src/tools/gmail');
@@ -1629,14 +1633,14 @@ app.post('/api/jobs/:row/kickoff-schedule', async (req, res) => {
 app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
   try {
     const { jobId, date } = req.params;
-    const jobs = await readTab('Jobs');
+    const [jobs, settings] = await Promise.all([readTab('Jobs'), readSettings()]);
+    const companyName = settings.companyName || 'Your Contractor';
     const job  = jobs.find(j => g(j, 'Job ID') === jobId);
-    if (!job) return res.status(404).send(kickoffResponsePage('not-found', null, date));
+    if (!job) return res.status(404).send(kickoffResponsePage('not-found', null, date, companyName));
 
     const jobRow      = jobs.indexOf(job) + 2;
     const clientFirst = g(job, 'First Name') || 'there';
     const projectType = g(job, 'Service Type', 'Project Type') || 'Project';
-    const settings    = await readSettings();
 
     // Parse and format the date
     const d       = new Date(date + 'T12:00:00');
@@ -1679,7 +1683,7 @@ app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
     <div style="font-size:15px;color:#6B7280;line-height:1.6;margin-bottom:20px">We'll see you on <strong>${fmtDate}</strong> to kick off your ${projectType}. We'll follow up a day or two before to confirm everything.</div>
     <div style="background:#F0FDF4;border-radius:10px;padding:14px;font-size:13px;color:#15803D;font-weight:600">✅ Your project start date is confirmed</div>
   </div>
-  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by SPEC Systems</div>
+  <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by ${companyName}</div>
 </div>`.trim();
 
     const { sendEmail } = require('./src/tools/gmail');
@@ -1689,13 +1693,13 @@ app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
       await sendEmail({ to: clientEmail, subject: `Confirmed: Your kickoff is ${fmtDate} 🗓️`, body: `You're confirmed! We'll see you on ${fmtDate} for your ${projectType} kickoff.`, html, threadId });
     }
 
-    res.send(kickoffResponsePage('confirmed', job, fmtDate));
+    res.send(kickoffResponsePage('confirmed', job, fmtDate, companyName));
   } catch (e) {
     res.status(500).send(kickoffResponsePage('error', null, ''));
   }
 });
 
-function kickoffResponsePage(type, job, dateStr) {
+function kickoffResponsePage(type, job, dateStr, companyName = 'Your Contractor') {
   const msgs = {
     'confirmed':  { icon: '🎉', title: 'Kickoff Confirmed!', sub: `Your start date is locked in — ${dateStr}. We'll be in touch a day before to confirm everything is ready.`, color: '#22C55E' },
     'not-found':  { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us to schedule your start date.', color: '#6B7280' },
@@ -1712,11 +1716,11 @@ function kickoffResponsePage(type, job, dateStr) {
   .title{font-size:22px;font-weight:800;color:#111827;margin-bottom:10px}.sub{font-size:15px;color:#6B7280;line-height:1.6}
   .powered{font-size:12px;color:#9CA3AF;margin-top:24px}</style></head>
   <body><div class="card">
-    <div class="header"><div class="header-label">SPEC Systems</div><div class="header-title">${projectType || 'Your Project'}</div></div>
+    <div class="header"><div class="header-label">${companyName}</div><div class="header-title">${projectType || 'Your Project'}</div></div>
     <div class="icon">${m.icon}</div>
     <div class="title">${m.title}</div>
     <div class="sub">${m.sub}</div>
-    <div class="powered">Powered by SPEC Systems</div>
+    <div class="powered">Powered by ${companyName}</div>
   </div></body></html>`;
 }
 
