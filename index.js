@@ -20,8 +20,83 @@ try {
   logger = { info: console.log, success: console.log, warn: console.warn, error: console.error };
 }
 
+const crypto = require('crypto');
+
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+const COOKIE_NAME   = 'spec_auth';
+const SESS_SECRET   = process.env.SESSION_SECRET || 'spec-crm-secret-please-change';
+
+function signToken(pw) {
+  return crypto.createHmac('sha256', SESS_SECRET).update(pw).digest('hex');
+}
+
+function parseCookies(req) {
+  const out = {};
+  (req.headers.cookie || '').split(';').forEach(c => {
+    const [k, ...v] = c.trim().split('=');
+    if (k) out[k.trim()] = decodeURIComponent(v.join('=').trim());
+  });
+  return out;
+}
+
+function isAuthenticated(req) {
+  const pw = process.env.LOGIN_PASSWORD;
+  if (!pw) return true;  // No password set → open access (dev mode)
+  return parseCookies(req)[COOKIE_NAME] === signToken(pw);
+}
+
+// Paths that never require a login
+const PUBLIC_PREFIXES = [
+  '/login', '/ping',
+  '/status.html', '/sub.html',
+  '/api/status/', '/api/sub/',
+  '/api/proposal/approve', '/api/proposal/decline',
+  '/api/change-order/approve', '/api/change-order/decline',
+  '/api/kickoff/select',
+];
+
+app.use((req, res, next) => {
+  const pub = PUBLIC_PREFIXES.some(p => req.path.startsWith(p))
+           || req.path === '/favicon.ico'
+           || req.path.endsWith('.png') || req.path.endsWith('.ico')
+           || req.path.endsWith('.json'); // manifest.json
+  if (pub || isAuthenticated(req)) return next();
+  if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.redirect('/login');
+});
+
+// Login page
+app.get('/login', (req, res) => {
+  if (isAuthenticated(req)) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Login form submit
+app.post('/login', (req, res) => {
+  const { password } = req.body;
+  const pw = process.env.LOGIN_PASSWORD;
+  if (!pw || password === pw) {
+    const maxAge = 7 * 24 * 3600; // 7 days
+    res.setHeader('Set-Cookie',
+      `${COOKIE_NAME}=${signToken(pw || '')}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Strict`
+    );
+    return res.redirect('/');
+  }
+  res.redirect('/login?error=1');
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`);
+  res.redirect('/login');
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── SSE: LIVE ACTIVITY FEED ─────────────────────────────────────────────────

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:#0A0A0A;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+
+  .wrap{
+    width:100%;
+    max-width:400px;
+  }
+
+  /* Logo / brand */
+  .brand{
+    text-align:center;
+    margin-bottom:32px;
+  }
+  .brand-icon{
+    width:56px;height:56px;
+    background:#BF9438;
+    border-radius:16px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    margin-bottom:14px;
+  }
+  .brand-name{
+    font-size:22px;
+    font-weight:800;
+    color:#F0F0F0;
+    letter-spacing:-.3px;
+  }
+  .brand-sub{
+    font-size:13px;
+    color:#666;
+    margin-top:4px;
+  }
+
+  /* Card */
+  .card{
+    background:#141414;
+    border:1px solid #2A2A2A;
+    border-radius:18px;
+    padding:32px;
+  }
+
+  .card-title{
+    font-size:18px;
+    font-weight:700;
+    color:#F0F0F0;
+    margin-bottom:6px;
+  }
+  .card-sub{
+    font-size:14px;
+    color:#666;
+    margin-bottom:28px;
+  }
+
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:#9A9A9A;
+    margin-bottom:8px;
+    letter-spacing:.3px;
+    text-transform:uppercase;
+  }
+
+  input[type=password]{
+    width:100%;
+    background:#0A0A0A;
+    border:1.5px solid #2A2A2A;
+    border-radius:10px;
+    color:#F0F0F0;
+    font-size:16px;
+    padding:14px 16px;
+    outline:none;
+    transition:border-color .15s;
+    -webkit-appearance:none;
+  }
+  input[type=password]:focus{
+    border-color:#BF9438;
+  }
+  input[type=password]::placeholder{
+    color:#444;
+  }
+
+  .error-msg{
+    display:none;
+    background:#1F0A0A;
+    border:1px solid #7F1D1D;
+    border-radius:8px;
+    color:#FCA5A5;
+    font-size:13px;
+    padding:10px 14px;
+    margin-top:14px;
+  }
+  .error-msg.show{
+    display:block;
+  }
+
+  .btn{
+    display:block;
+    width:100%;
+    background:#BF9438;
+    color:#0A0A0A;
+    font-size:15px;
+    font-weight:800;
+    padding:15px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    margin-top:20px;
+    letter-spacing:.2px;
+    transition:opacity .15s,transform .1s;
+  }
+  .btn:hover{opacity:.9}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  .footer{
+    text-align:center;
+    margin-top:24px;
+    font-size:12px;
+    color:#444;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-icon">⚡</div>
+    <div class="brand-name">CRM Dashboard</div>
+    <div class="brand-sub">Sign in to continue</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Welcome back</div>
+    <div class="card-sub">Enter your password to access the dashboard.</div>
+
+    <form method="POST" action="/login" id="loginForm">
+      <label for="password">Password</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="••••••••••••"
+        autocomplete="current-password"
+        autofocus
+        required
+      >
+      <div class="error-msg" id="errorMsg">
+        ❌ Incorrect password — try again.
+      </div>
+      <button type="submit" class="btn" id="submitBtn">Sign In →</button>
+    </form>
+  </div>
+
+  <div class="footer">Secure access · Session expires in 7 days</div>
+</div>
+
+<script>
+  // Show error if redirected back with ?error=1
+  if (location.search.includes('error=1')) {
+    document.getElementById('errorMsg').classList.add('show');
+    document.getElementById('password').focus();
+  }
+
+  // Disable button on submit to prevent double-click
+  document.getElementById('loginForm').addEventListener('submit', function() {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+  });
+</script>
+</body>
+</html>
