@@ -73,14 +73,31 @@ async function route(type, payload = {}) {
         return await leadAgent.handleNewLead({ rowNumber: payload.rowNumber || payload.row });
 
       case 'email_reply': {
-        // Determine if this is a lead or active client
+        // Determine sender email
         const fromStr = typeof payload.from === 'string' ? payload.from : (payload.email || '');
         const email = fromStr.match(/<(.+)>/)?.[1] || fromStr || payload.email;
         if (!email) { logger.warn('Orchestrator', 'No sender email in email_reply event'); return; }
 
-        // Check Leads first
+        const { readTab: _rt, g: _g } = require('../tools/sheets');
+
+        // Check active Jobs FIRST — active clients take priority over leads
+        const jobs = await _rt('Jobs');
+        const activeStatuses = new Set(['in progress', 'planning', 'active', 'invoiced']);
+        const job = jobs.find(j => {
+          const jobEmail  = (_g(j, 'Email', 'Client Email') || '').toLowerCase();
+          const jobStatus = (_g(j, 'Status', 'Job Status') || '').toLowerCase();
+          return jobEmail === email.toLowerCase() && activeStatuses.has(jobStatus);
+        });
+        if (job?._row) {
+          logger.info('Orchestrator', `Email reply from active client ${email} → ClientAgent row ${job._row}`);
+          const threadId = job['Client Email Thread'] || job['Email Thread ID'] || payload.threadId;
+          return await clientAgent.handleClientMessage({ rowNumber: job._row, threadId });
+        }
+
+        // Then check Leads
         const lead = await findRowByEmail('Leads', email);
         if (lead?._row) {
+          logger.info('Orchestrator', `Email reply from lead ${email} → LeadAgent row ${lead._row}`);
           const threadId = lead['Email Thread ID'] || lead['emailThread'] || payload.threadId;
           return await leadAgent.handleEmailReply({
             rowNumber:   lead._row,
@@ -90,16 +107,7 @@ async function route(type, payload = {}) {
           });
         }
 
-        // Then check Jobs (active client)
-        const { readTab, g } = require('../tools/sheets');
-        const jobs = await readTab('Jobs');
-        const job = jobs.find(j => (j['Email'] || '').toLowerCase() === email.toLowerCase());
-        if (job?._row) {
-          const threadId = job['Client Email Thread'] || job['Email Thread ID'] || payload.threadId;
-          return await clientAgent.handleClientMessage({ rowNumber: job._row, threadId });
-        }
-
-        logger.warn('Orchestrator', `No lead or job found for email: ${email}`);
+        logger.warn('Orchestrator', `No lead or active job found for email: ${email}`);
         return;
       }
 

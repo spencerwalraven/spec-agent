@@ -313,11 +313,48 @@ function renderDashQuickActions(role) {
 }
 
 /* ─── TOAST ─────────────────────────────────────────────────────── */
-function toast(msg, dur = 2200) {
+function toast(msg, dur = 2200, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), dur);
+  t.className = 'toast show' + (type ? ' toast-' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), dur);
+}
+function toastSuccess(msg) { toast('✅ ' + msg, 2500, 'success'); }
+function toastError(msg)   { toast('⚠️ ' + msg, 3500, 'error'); }
+function toastInfo(msg)    { toast(msg, 2200); }
+
+/* ─── SKELETON LOADER ───────────────────────────────────────────── */
+function skeletonList(count = 5, avatarStyle = '') {
+  return Array.from({length: count}, () => `
+    <div class="skeleton-item">
+      <div class="skeleton-avatar ${avatarStyle}"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-line" style="width:55%"></div>
+        <div class="skeleton-line" style="width:35%;margin-top:6px"></div>
+      </div>
+      <div class="skeleton-right">
+        <div class="skeleton-line" style="width:36px;height:20px;border-radius:10px"></div>
+      </div>
+    </div>`).join('');
+}
+
+/* ─── BUTTON STATE HELPERS ──────────────────────────────────────── */
+function btnLoading(btn, label = '…') {
+  if (!btn) return;
+  btn._origText = btn.textContent;
+  btn.textContent = label;
+  btn.disabled = true;
+}
+function btnReset(btn) {
+  if (!btn) return;
+  btn.textContent = btn._origText || btn.textContent;
+  btn.disabled = false;
+}
+function btnDone(btn, label, ms = 2000) {
+  if (!btn) return;
+  btn.textContent = label;
+  setTimeout(() => btnReset(btn), ms);
 }
 
 /* ─── API FETCH W/ DEMO FALLBACK ────────────────────────────────── */
@@ -432,6 +469,14 @@ async function loadDashboard() {
 
   // Quick actions render immediately (no async needed — role is known)
   renderDashQuickActions(currentUser.role);
+
+  // Show skeleton in activity feed while loading
+  const feedEl = document.getElementById('activityFeed');
+  if (feedEl) feedEl.innerHTML = Array.from({length:4}, () =>
+    `<div class="skeleton-item" style="padding:10px 0;border:none">
+       <div style="width:8px;height:8px;border-radius:50%;background:var(--card2);flex-shrink:0;margin-top:3px"></div>
+       <div class="skeleton-body"><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:30%;margin-top:5px"></div></div>
+     </div>`).join('');
 
   // Today's schedule strip + summary in parallel
   const [data] = await Promise.all([
@@ -548,6 +593,7 @@ function g(row, ...keys) {
 
 /* ─── LEADS PAGE ────────────────────────────────────────────────── */
 async function loadLeads() {
+  document.getElementById('leadsList').innerHTML = skeletonList(6);
   allLeads = await api('/api/leads') || [];
   renderLeads();
   updateLeadBadge();
@@ -596,7 +642,12 @@ function renderLeads() {
 
   const el = document.getElementById('leadsList');
   if (leads.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">👤</div><div class="empty-title">No leads found</div><div class="empty-sub">Try a different filter</div></div>`;
+    const isFiltered = leadFilter !== 'all' || search;
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">👤</div>
+      <div class="empty-title">${isFiltered ? 'No leads match' : 'No leads yet'}</div>
+      <div class="empty-sub">${isFiltered ? 'Clear the filter or try searching a different name' : 'New leads from your Tally form will appear here automatically'}</div>
+    </div>`;
     return;
   }
 
@@ -826,6 +877,7 @@ async function saveLeadNote() {
 
 /* ─── JOBS PAGE ─────────────────────────────────────────────────── */
 async function loadJobs() {
+  document.getElementById('jobsList').innerHTML = skeletonList(5);
   allJobs = await api('/api/jobs') || [];
   renderJobs();
 }
@@ -856,7 +908,12 @@ function renderJobs() {
 
   const el = document.getElementById('jobsList');
   if (jobs.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🔨</div><div class="empty-title">No jobs found</div><div class="empty-sub">Try a different filter</div></div>`;
+    const isFiltered = jobFilter !== 'all' || search;
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔨</div>
+      <div class="empty-title">${isFiltered ? 'No jobs match' : 'No active jobs'}</div>
+      <div class="empty-sub">${isFiltered ? 'Try a different filter or search' : 'Jobs are created when a lead is converted. Convert a hot lead to get started.'}</div>
+    </div>`;
     return;
   }
 
@@ -1137,31 +1194,33 @@ async function changeJobStatus(newStatus, btn) {
 
 /* ─── GENERATE DOCUMENT ─────────────────────────────────────────── */
 async function triggerDocGen(eventType, rowNumber) {
-  if (usingDemo) { toast('⚠️ Connect to Google Sheets to generate documents'); return; }
+  if (usingDemo) { toastInfo('Connect to Google Sheets to generate documents'); return; }
   const btn = event?.target;
-  if (btn) { btn.textContent = '⏳ Generating…'; btn.disabled = true; }
+  const savedRow = rowNumber || _currentJobRow;
+  btnLoading(btn, '⏳ Starting…');
   try {
     const res = await fetch('/webhook/trigger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: eventType, rowNumber }),
+      body: JSON.stringify({ type: eventType, rowNumber: savedRow }),
     });
     if (res.ok) {
-      toast('✓ Agent started — doc will appear in a minute');
-      if (btn) { btn.textContent = '⏳ Working…'; }
-      // Refresh the job after 90s so the new link appears
-      setTimeout(() => {
+      toastSuccess('Agent started — doc will appear in about a minute');
+      if (btn) btn.textContent = '⏳ Working…';
+      // Refresh jobs + reopen modal after 90s so the new doc link appears
+      setTimeout(async () => {
         delete loaded['jobs'];
         allJobs = [];
-        if (document.querySelector('.page.active')?.id === 'page-jobs') loadJobs();
+        allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
+        if (savedRow) showJobDetail(allJobs.findIndex(j => (j.__row||j._row) === savedRow));
       }, 90000);
     } else {
-      toast('⚠️ Could not start agent');
-      if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+      toastError('Could not start agent — try again');
+      btnReset(btn);
     }
   } catch {
-    toast('⚠️ Network error');
-    if (btn) { btn.textContent = 'Generate'; btn.disabled = false; }
+    toastError('Network error — check your connection');
+    btnReset(btn);
   }
 }
 
@@ -1191,6 +1250,7 @@ async function togglePhase(row, checkEl) {
 
 /* ─── CLIENTS PAGE ──────────────────────────────────────────────── */
 async function loadClients() {
+  document.getElementById('clientsList').innerHTML = skeletonList(4);
   allClients = await api('/api/clients') || [];
   renderClients();
 }

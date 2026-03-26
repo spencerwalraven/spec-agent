@@ -39,18 +39,28 @@ async function safeRoute(type, payload) {
 }
 
 // ─── NURTURE SEQUENCE — daily 9:00am ─────────────────────────────────────────
+// Statuses that mean the lead is actively engaged — skip nurture for these
+const NURTURE_SKIP_STATUSES = new Set([
+  'booked', 'consultation booked', 'appointment scheduled', 'appointment booked',
+  'proposal sent', 'proposal viewed', 'converted', 'won', 'closed',
+  'not interested', 'lost', 'dead', 'cold',
+]);
+
 async function runNurtureSequence() {
   logger.info('Scheduler', 'Running nurture sequence…');
   const leads = await readTab('Leads');
   for (const lead of leads) {
-    const status = (g(lead, 'Status', 'Lead Status') || '').toLowerCase();
+    const status = (g(lead, 'Status', 'Lead Status') || '').toLowerCase().trim();
+    // Only nurture leads that are still in early outreach stages
     if (!['contacted', 'new'].includes(status)) continue;
+    // Skip if status indicates they've already engaged further
+    if (NURTURE_SKIP_STATUSES.has(status)) continue;
     const lastContact = g(lead, 'Last Contact', 'Last Contacted');
     const days        = daysBetween(lastContact);
     const nurtureStep = parseInt(g(lead, 'Nurture Step', 'Nurture Day') || '0') || 0;
     // Criteria: no reply after 3 days, not yet at max steps
     if (days !== null && days >= 3 && nurtureStep < 4) {
-      logger.info('Scheduler', `Nurture step for row ${lead._row} (step ${nurtureStep})`);
+      logger.info('Scheduler', `Nurture step for row ${lead._row} (step ${nurtureStep}, last contact: ${days} days ago)`);
       await safeRoute('nurture_step', { rowNumber: lead._row });
     }
   }
@@ -391,49 +401,51 @@ async function runMonthlyReport() {
 // ─── START ALL JOBS ───────────────────────────────────────────────────────────
 
 function startScheduler() {
-  logger.info('Scheduler', 'Starting all cron jobs…');
+  // Use timezone from env, defaulting to Chicago (Central) if not set
+  const tz = process.env.TZ_NAME || 'America/Chicago';
+  logger.info('Scheduler', `Starting all cron jobs (timezone: ${tz})…`);
 
   // Nurture sequence — daily at 9:00am
-  cron.schedule('0 9 * * *', runNurtureSequence, { timezone: 'America/Chicago' });
+  cron.schedule('0 9 * * *', runNurtureSequence, { timezone: tz });
 
   // Proposal follow-ups — daily at 9:30am
-  cron.schedule('30 9 * * *', runProposalFollowUps, { timezone: 'America/Chicago' });
+  cron.schedule('30 9 * * *', runProposalFollowUps, { timezone: tz });
 
   // Weekly progress updates — every Monday at 8:00am
-  cron.schedule('0 8 * * 1', runWeeklyUpdates, { timezone: 'America/Chicago' });
+  cron.schedule('0 8 * * 1', runWeeklyUpdates, { timezone: tz });
 
   // Invoice follow-ups — daily at 10:00am
-  cron.schedule('0 10 * * *', runInvoiceFollowUps, { timezone: 'America/Chicago' });
+  cron.schedule('0 10 * * *', runInvoiceFollowUps, { timezone: tz });
 
   // Review follow-ups — daily at 11:00am
-  cron.schedule('0 11 * * *', runReviewFollowUps, { timezone: 'America/Chicago' });
+  cron.schedule('0 11 * * *', runReviewFollowUps, { timezone: tz });
 
   // 30-day check-ins — daily at 11:30am
-  cron.schedule('30 11 * * *', runThirtyDayCheckIns, { timezone: 'America/Chicago' });
+  cron.schedule('30 11 * * *', runThirtyDayCheckIns, { timezone: tz });
 
   // Daily owner briefing — 6:30am (first thing in the morning)
-  cron.schedule('30 6 * * *', runDailyBriefing, { timezone: 'America/Chicago' });
+  cron.schedule('30 6 * * *', runDailyBriefing, { timezone: tz });
 
   // Weather alerts — daily at 7:00am (before scan so owner has heads up)
-  cron.schedule('0 7 * * *', runWeatherAlerts, { timezone: 'America/Chicago' });
+  cron.schedule('0 7 * * *', runWeatherAlerts, { timezone: tz });
 
   // Smart daily scan — every morning at 7:30am (runs BEFORE other tasks)
   cron.schedule('30 7 * * *', async () => {
     logger.info('Scheduler', 'Running smart daily scan…');
     await safeRoute('daily_scan', {});
-  }, { timezone: 'America/Chicago' });
+  }, { timezone: tz });
 
   // Monthly learning synthesis — 2nd of month at 6:00am (after report)
   cron.schedule('0 6 2 * *', async () => {
     logger.info('Scheduler', 'Running monthly learning synthesis…');
     await safeRoute('synthesize_learnings', {});
-  }, { timezone: 'America/Chicago' });
+  }, { timezone: tz });
 
   // Monthly performance report — 1st of month at 7:00am
-  cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: 'America/Chicago' });
+  cron.schedule('0 7 1 * *', runMonthlyReport, { timezone: tz });
 
   // Sub confirmation follow-ups — daily at 8:30am
-  cron.schedule('30 8 * * *', runSubConfirmations, { timezone: 'America/Chicago' });
+  cron.schedule('30 8 * * *', runSubConfirmations, { timezone: tz });
 
   // Gmail watch renewal — every day at 6:00am (watch expires after 7 days)
   cron.schedule('0 6 * * *', async () => {
@@ -444,9 +456,9 @@ function startScheduler() {
     } catch (err) {
       logger.error('Scheduler', `Gmail watch renewal failed: ${err.message}`);
     }
-  }, { timezone: 'America/Chicago' });
+  }, { timezone: tz });
 
-  logger.success('Scheduler', '✅ All cron jobs scheduled');
+  logger.success('Scheduler', `✅ All cron jobs scheduled (${tz})`);
 }
 
 module.exports = {

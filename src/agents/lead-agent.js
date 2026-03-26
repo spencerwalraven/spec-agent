@@ -143,7 +143,19 @@ const EXECUTORS = {
   read_email_thread: async (args) => toolReadThread(args),
   read_settings:     async ()     => toolReadSettings(),
   notify_owner:      async (args) => toolNotifyOwner(args),
-  text_client:       async (args) => toolTextClient(args),
+
+  text_client: async (args) => {
+    // Sanitize phone number — strip everything except digits, require 10 digits
+    let phone = (args.phone || '').replace(/\D/g, '');
+    if (phone.length === 11 && phone.startsWith('1')) phone = phone.slice(1); // strip leading 1
+    if (phone.length !== 10) {
+      logger.warn('LeadAgent', `Skipping SMS — invalid phone number: "${args.phone}"`);
+      return `Skipped SMS — phone number "${args.phone}" is not a valid 10-digit US number`;
+    }
+    // Enforce 160-char SMS limit
+    const message = (args.message || '').slice(0, 160);
+    return toolTextClient({ ...args, phone: `+1${phone}`, message });
+  },
 };
 
 // ─── LEAD AGENT CLASS ─────────────────────────────────────────────────────────
@@ -204,10 +216,19 @@ SMS FOLLOW-UP:
 - After sending the email, if the lead has a phone number AND their score is 70 or higher, also use text_client to send a short friendly text (under 160 chars). Example: "Hey [first name]! This is [rep name] from [company] — just sent you an email about your [project type]. Let me know if you have questions! 😊"
 - If score is below 70, skip the text — email only.
 
+EMAIL OPENING VARIETY — never start two emails the same way. Rotate through styles like:
+- Lead with a project-specific observation: "A ${project type} in [city] — that's one of our favorite projects to work on."
+- Reference their timeline or urgency: "Sounds like you're ready to move on this soon..."
+- Jump straight to value: "Quick question about your ${project type} — do you already have a design in mind, or are you starting from scratch?"
+- Compliment their project scope: "That's a solid budget for a ${project type} — you'll have real options."
+- Reference their referral/source: "Glad [source] sent you our way — [source] has great taste."
+
 IMPORTANT:
 - Write email in plain text, no markdown, no bullet points, no headers
 - Keep emails under 200 words — concise is better
 - Use the ASSIGNED REP's Calendly link and name, not the owner's, unless no rep is assigned
+- If the lead has no phone number, skip the SMS step entirely — do not send a text
+- If the Calendly link is missing from both the rep and settings, ask the lead to call or text directly
     `.trim();
 
     const userMessage = `New lead arrived at row ${rowNumber}. Score them, send personalized outreach, and update the sheet.`;
@@ -267,22 +288,22 @@ You are a real person following up with a potential remodeling client who hasn't
 
 TASK:
 1. Read the business settings
-2. Read the lead data (row ${rowNumber}) — note their project type, budget, and any notes
-3. Check their current nurture step
-4. Send the right follow-up for this step:
+2. Read the lead data (row ${rowNumber}) — note their project type, budget, status, and notes
+3. STOP immediately if their status is anything other than "New" or "Contacted" — if they've booked, replied, converted, or gone dead, just update the nurture step and return without sending any email
+4. Check their current nurture step
+5. Send the right follow-up for this step:
    - Step 1: Casual check-in — "just making sure my last email didn't get buried"
    - Step 2: Add genuine value — share a quick tip specific to THEIR project type (kitchen, bath, basement, etc.)
    - Step 3: Soft close — "totally understand if the timing isn't right, just wanted to check in one last time"
-   - Step 4+: Mark as Cold, stop outreach, note it in their record
-5. Increment nurture step, update last contact date
+   - Step 4+: Mark as Cold, stop outreach, note it in their record — do NOT send any more emails
+6. Increment nurture step, update last contact date
 
 WRITING STYLE:
 - 3-5 sentences max. Seriously, keep it short
 - Sound like a text from a contractor friend, not a sales email
 - Reference their specific project — never send a generic message
-- No subject line fluff, no "I hope you're doing well"
+- No subject line fluff, no "I hope you're doing well" or "I hope this finds you well"
 - One ask per email — usually just "would you like to grab 15 minutes?"
-- If they've already responded or booked, skip sending and just update the record
     `.trim();
 
     const userMessage = `Send the next nurture follow-up to the lead at row ${rowNumber}.`;
