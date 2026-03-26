@@ -74,6 +74,20 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           });
 
           logger.success('Stripe', `Payment recorded: ${clientName} paid $${amountPaid} (${isFinal ? 'final' : 'deposit'})`);
+
+          // Sync payment to QuickBooks if connected
+          try {
+            const qbMod = require('./src/tools/quickbooks');
+            const qbInvoiceId = isFinal
+              ? g(job, 'QB Final Invoice ID')
+              : g(job, 'QB Deposit Invoice ID');
+            if (qbInvoiceId) {
+              const qbCustomerId = g(job, 'QB Customer ID');
+              qbMod.markInvoicePaid(qbInvoiceId, qbCustomerId, amountPaid, today)
+                .then(() => logger.success('QB', `Stripe payment synced to QB for ${clientName}`))
+                .catch(e  => logger.warn('QB', `Could not sync Stripe payment to QB: ${e.message}`));
+            }
+          } catch (_) {}
         }
       } catch (e) {
         logger.error('Stripe', `Failed to process payment webhook: ${e.message}`);
@@ -82,6 +96,41 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 
   res.json({ received: true });
+});
+
+// ─── QUICKBOOKS WEBHOOK (raw body MUST come before express.json) ──────────────
+app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+  // Respond 200 immediately — QB retries if it doesn't get a fast response
+  res.status(200).send('OK');
+
+  try {
+    let qb;
+    try { qb = require('./src/tools/quickbooks'); } catch (_) { return; }
+
+    const sig  = req.headers['intuit-signature'];
+    const body = req.body;
+    if (!qb.verifyWebhookSignature(body, sig)) {
+      logger.warn('QB', 'Webhook signature verification failed');
+      return;
+    }
+
+    const payload = JSON.parse(body.toString());
+    const notifications = payload.eventNotifications || [];
+
+    for (const notification of notifications) {
+      const entities = notification.dataChangeEvent?.entities || [];
+      for (const entity of entities) {
+        if (entity.name === 'Payment' && entity.operation === 'Create') {
+          // A payment was created in QB — find which invoice it covers
+          handleQBPayment(notification.realmId, entity.id).catch(e =>
+            logger.error('QB', `Payment handler failed: ${e.message}`)
+          );
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('QB', `Webhook processing failed: ${err.message}`);
+  }
 });
 
 app.use(express.json());
@@ -179,6 +228,8 @@ const PUBLIC_PREFIXES = [
   '/api/change-order/approve', '/api/change-order/decline',
   '/api/kickoff/select',
   '/api/stripe/webhook',
+  '/api/quickbooks/webhook',
+  '/api/quickbooks/callback',
   '/webhook/sms',
 ];
 
@@ -2316,6 +2367,210 @@ app.post('/api/jobs/:row/sync-calendar', async (req, res) => {
     res.json({ ok: true, created, links });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ─── QUICKBOOKS INTEGRATION ───────────────────────────────────────────────────
+let qb;
+try { qb = require('./src/tools/quickbooks'); } catch (_) {}
+
+// Check connection status
+app.get('/api/quickbooks/status', async (req, res) => {
+  try {
+    if (!qb) return res.json({ connected: false, error: 'QuickBooks module not loaded' });
+    const status = await qb.getConnectionStatus();
+    res.json(status);
+  } catch (e) { res.json({ connected: false, error: e.message }); }
+});
+
+// Start OAuth flow — redirect to QuickBooks authorization page
+app.get('/api/quickbooks/connect', (req, res) => {
+  try {
+    if (!qb) return res.status(503).send('QuickBooks not configured');
+    const baseUrl    = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`);
+    const redirectUri = `${baseUrl}/api/quickbooks/callback`;
+    const authUrl = qb.buildAuthUrl(redirectUri, 'spec-crm-' + Date.now());
+    res.redirect(authUrl);
+  } catch (e) { res.status(500).send('OAuth error: ' + e.message); }
+});
+
+// OAuth callback — exchange code for tokens and save
+app.get('/api/quickbooks/callback', async (req, res) => {
+  try {
+    const { code, realmId, error } = req.query;
+    if (error) return res.send(`<script>window.opener?.postMessage({qbError:'${error}'},'*');window.close()</script>`);
+    if (!code || !realmId) return res.status(400).send('Missing code or realmId');
+
+    const baseUrl     = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`);
+    const redirectUri = `${baseUrl}/api/quickbooks/callback`;
+
+    const tokens = await qb.exchangeCodeForTokens(code, realmId, redirectUri);
+    logger.success('QB', `Connected to QuickBooks: ${tokens.companyName} (${realmId})`);
+
+    // Close popup and notify parent
+    res.send(`<!DOCTYPE html><html><body><script>
+      if(window.opener){window.opener.postMessage({qbConnected:true,company:'${(tokens.companyName||'').replace(/'/g,"\\'")}'},'*');window.close();}
+      else{document.body.innerHTML='<p style="font-family:sans-serif;padding:40px">QuickBooks connected! You can close this window.</p>';}
+    </script></body></html>`);
+  } catch (e) {
+    logger.error('QB', `OAuth callback failed: ${e.message}`);
+    res.send(`<script>window.opener?.postMessage({qbError:'${e.message.replace(/'/g,"\\'")}'},'*');window.close()</script>`);
+  }
+});
+
+// Disconnect QuickBooks
+app.post('/api/quickbooks/disconnect', async (req, res) => {
+  try {
+    const { writeSettings } = require('./src/tools/sheets');
+    await writeSettings({ 'QB Access Token': '', 'QB Refresh Token': '', 'QB Realm ID': '', 'QB Token Expiry': '', 'QB Company Name': '' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Manually sync a job's invoices to QB
+app.post('/api/jobs/:row/sync-quickbooks', async (req, res) => {
+  try {
+    if (!qb) return res.status(503).json({ error: 'QuickBooks not configured' });
+    const row = parseInt(req.params.row);
+    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+
+    const { readRow } = require('./src/tools/sheets');
+    const job = await readRow('Jobs', row);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    res.json({ ok: true, message: 'QB sync started' });
+    syncJobToQB(job, row).catch(e => logger.error('QB', `Manual sync failed: ${e.message}`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sync a job's invoices to QuickBooks (called by agents and manual sync)
+async function syncJobToQB(job, row) {
+  if (!qb) return;
+  try {
+    const firstName   = g(job, 'First Name') || '';
+    const lastName    = g(job, 'Last Name')  || '';
+    const email       = g(job, 'Email')      || '';
+    const phone       = g(job, 'Phone Number', 'Phone') || '';
+    const address     = g(job, 'Street Address', 'Address') || '';
+    const city        = g(job, 'City')  || '';
+    const state       = g(job, 'State') || '';
+    const zip         = g(job, 'Zip Code', 'Zip') || '';
+    const jobId       = g(job, 'Job ID') || `ROW${row}`;
+    const projectType = g(job, 'Service Type', 'Project Type') || 'Remodeling';
+    const clientName  = `${firstName} ${lastName}`.trim();
+
+    // Find or create QB customer
+    const customerId = await qb.findOrCreateCustomer({ firstName, lastName, email, phone, address, city, state, zip });
+
+    // Save QB Customer ID to job row for future reference
+    await updateCell('Jobs', row, ['QB Customer ID'], String(customerId)).catch(() => {});
+
+    const results = [];
+
+    // Sync deposit invoice if it exists and no QB invoice ID yet
+    const depositAmount = g(job, 'Deposit Amount');
+    const depositQbId   = g(job, 'QB Deposit Invoice ID', 'QB Invoice ID');
+    if (depositAmount && !depositQbId) {
+      const inv = await qb.createInvoice({
+        customerId,
+        amount:      depositAmount,
+        description: `${projectType} — Deposit (${jobId})`,
+        jobId,
+        invoiceType: 'Deposit',
+      });
+      await updateCell('Jobs', row, ['QB Deposit Invoice ID'], String(inv.qbInvoiceId)).catch(() => {});
+      results.push('Deposit invoice created in QB: #' + inv.invoiceNumber);
+      logger.success('QB', `Deposit invoice synced for ${clientName} — QB #${inv.invoiceNumber}`);
+    }
+
+    // Sync final invoice if it exists and no QB invoice ID yet
+    const totalValue  = g(job, 'Total Job Value', 'Contract Amount', 'Job Value');
+    const finalQbId   = g(job, 'QB Final Invoice ID');
+    if (totalValue && !finalQbId) {
+      const depositNum = parseFloat(String(depositAmount || '0').replace(/[$,]/g, '')) || 0;
+      const totalNum   = parseFloat(String(totalValue).replace(/[$,]/g, '')) || 0;
+      const finalAmount = depositNum > 0 ? totalNum - depositNum : totalNum;
+      if (finalAmount > 0) {
+        const inv = await qb.createInvoice({
+          customerId,
+          amount:      String(finalAmount),
+          description: `${projectType} — Final Invoice (${jobId})`,
+          jobId,
+          invoiceType: 'Final',
+        });
+        await updateCell('Jobs', row, ['QB Final Invoice ID'], String(inv.qbInvoiceId)).catch(() => {});
+        results.push('Final invoice created in QB: #' + inv.invoiceNumber);
+        logger.success('QB', `Final invoice synced for ${clientName} — QB #${inv.invoiceNumber}`);
+      }
+    }
+
+    return results;
+  } catch (err) {
+    logger.error('QB', `syncJobToQB failed for row ${row}: ${err.message}`);
+    throw err;
+  }
+}
+
+// Handle incoming QB payment notification — find the job and update CRM
+async function handleQBPayment(realmId, paymentId) {
+  try {
+    // Fetch payment details from QB
+    const paymentRes = await qb.qbRequest('GET', `/payment/${paymentId}`);
+    const payment    = paymentRes.Payment;
+    if (!payment) return;
+
+    const amount  = payment.TotalAmt || 0;
+    const txnDate = payment.TxnDate  || new Date().toLocaleDateString('en-US');
+
+    // Find which invoice(s) this payment covers
+    const linkedInvoiceIds = [];
+    (payment.Line || []).forEach(line => {
+      (line.LinkedTxn || []).forEach(txn => {
+        if (txn.TxnType === 'Invoice') linkedInvoiceIds.push(txn.TxnId);
+      });
+    });
+
+    if (!linkedInvoiceIds.length) return;
+
+    // Find job rows with matching QB Invoice IDs
+    const jobs = await readTab('Jobs');
+    for (const qbInvoiceId of linkedInvoiceIds) {
+      const jobRow = jobs.find(j =>
+        g(j, 'QB Deposit Invoice ID') === qbInvoiceId ||
+        g(j, 'QB Final Invoice ID')   === qbInvoiceId
+      );
+      if (!jobRow) continue;
+
+      const rowNum     = jobs.indexOf(jobRow) + 2;
+      const isDeposit  = g(jobRow, 'QB Deposit Invoice ID') === qbInvoiceId;
+      const clientName = `${g(jobRow,'First Name','')} ${g(jobRow,'Last Name','')}`.trim();
+      const today      = new Date().toLocaleDateString('en-US');
+
+      if (isDeposit) {
+        await updateCell('Jobs', rowNum, ['Deposit Paid', 'Deposit Invoice Paid'], 'Yes');
+        await updateCell('Jobs', rowNum, ['Deposit Paid Date'], today);
+        logger.success('QB', `Deposit marked paid for ${clientName} via QB webhook`);
+      } else {
+        await updateCell('Jobs', rowNum, ['Final Invoice Paid', 'Final Paid'], 'Yes');
+        await updateCell('Jobs', rowNum, ['Final Paid Date', 'Final Invoice Paid Date'], today);
+        logger.success('QB', `Final invoice marked paid for ${clientName} via QB webhook`);
+      }
+
+      // Notify owner
+      const { notifyOwner } = require('./src/tools/notify');
+      await notifyOwner({
+        subject: '💰 QB Payment Received — ' + clientName,
+        message: `QuickBooks just recorded a payment of $${Number(amount).toLocaleString()} from ${clientName}.\n\nType: ${isDeposit ? 'Deposit' : 'Final Invoice'}\nDate: ${txnDate}\n\nCRM has been updated automatically.`,
+        urgent: true,
+        eventType: 'paymentReceived',
+      }).catch(() => {});
+    }
+  } catch (err) {
+    logger.error('QB', `handleQBPayment failed: ${err.message}`);
+  }
+}
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));

@@ -17,6 +17,8 @@ const { toolCreateDoc }                 = require('../tools/docs');
 const { toolNotifyOwner, toolTextClient } = require('../tools/notify');
 let stripeTool;
 try { stripeTool = require('../tools/stripe'); } catch (_) {}
+let qbTool;
+try { qbTool = require('../tools/quickbooks'); } catch (_) {}
 
 // ─── TOOL DEFINITIONS ─────────────────────────────────────────────────────────
 
@@ -224,6 +226,22 @@ TASK:
     return await this.run(prompt, `Mid-job satisfaction check for row ${rowNumber}.`, { rowNumber });
   }
 
+  async _syncCustomerToQB(rowNumber) {
+    if (!qbTool) return;
+    try {
+      const jobData = await readRow('Jobs', rowNumber);
+      if (!jobData) return;
+      const firstName = jobData['First Name'] || '';
+      const lastName  = jobData['Last Name']  || '';
+      const email     = jobData['Email']      || '';
+      const customerId = await qbTool.findOrCreateCustomer({ firstName, lastName, email });
+      await updateCell('Jobs', rowNumber, ['QB Customer ID'], String(customerId)).catch(() => {});
+    } catch (e) {
+      const { logger: l } = require('../utils/logger');
+      l.warn('QB', 'Customer sync failed: ' + e.message);
+    }
+  }
+
   async generateDepositInvoice({ rowNumber }) {
     const prompt = `
 You generate invoices for a home remodeling company.
@@ -253,7 +271,10 @@ TASK:
 8. Notify owner
     `.trim();
 
-    return await this.run(prompt, `Generate deposit invoice for job row ${rowNumber}.`, { rowNumber });
+    const result = await this.run(prompt, `Generate deposit invoice for job row ${rowNumber}.`, { rowNumber });
+    // Sync customer to QB after invoice is created (fire and forget)
+    this._syncCustomerToQB(rowNumber).catch(() => {});
+    return result;
   }
 
   async generateFinalInvoice({ rowNumber }) {
@@ -286,7 +307,10 @@ TASK:
 8. Notify owner
     `.trim();
 
-    return await this.run(prompt, `Generate final invoice for job row ${rowNumber}.`, { rowNumber });
+    const result = await this.run(prompt, `Generate final invoice for job row ${rowNumber}.`, { rowNumber });
+    // Sync customer to QB after invoice is created (fire and forget)
+    this._syncCustomerToQB(rowNumber).catch(() => {});
+    return result;
   }
 
   async handleJobCompletion({ rowNumber }) {

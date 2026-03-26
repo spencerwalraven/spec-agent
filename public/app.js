@@ -1845,6 +1845,42 @@ async function loadSettings() {
     document.querySelectorAll('#page-settings input, #page-settings select, #page-settings textarea').forEach(el => el.disabled = true);
     document.querySelectorAll('#page-settings button').forEach(el => el.style.display = 'none');
   }
+
+  // QB section - rendered separately after the form
+  const qbSection = document.getElementById('qbSection');
+  if (qbSection) {
+    fetch('/api/quickbooks/status')
+      .then(r => r.ok ? r.json() : { connected: false })
+      .catch(() => ({ connected: false }))
+      .then(status => {
+        if (status.connected) {
+          qbSection.innerHTML = `
+            <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);padding:16px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <div style="font-size:22px">✅</div>
+                <div>
+                  <div style="font-size:14px;font-weight:800;color:var(--green)">QuickBooks Connected</div>
+                  <div style="font-size:12px;color:var(--text3)">${status.companyName || 'Company'} · ${status.environment || 'production'}</div>
+                </div>
+              </div>
+              <button onclick="disconnectQB()" style="font-size:12px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer">Disconnect</button>
+            </div>`;
+        } else {
+          qbSection.innerHTML = `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                <div style="font-size:22px">🔗</div>
+                <div>
+                  <div style="font-size:14px;font-weight:800">QuickBooks</div>
+                  <div style="font-size:12px;color:var(--text3)">Two-way invoice &amp; payment sync</div>
+                </div>
+              </div>
+              <button onclick="connectQB()" class="btn btn-primary" style="width:100%;padding:12px">Connect QuickBooks</button>
+              ${status.error ? '<div style="font-size:11px;color:var(--red);margin-top:8px">' + status.error + '</div>' : ''}
+            </div>`;
+        }
+      });
+  }
 }
 
 async function saveSettings() {
@@ -2925,4 +2961,31 @@ async function loadAnalytics() {
   } else if (teamEl) {
     teamEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No team data yet.</div>`;
   }
+}
+
+/* ─── QUICKBOOKS ─────────────────────────────────────────────────── */
+function connectQB() {
+  const popup = window.open('/api/quickbooks/connect', 'qb-connect', 'width=600,height=700,scrollbars=yes');
+  const handler = (e) => {
+    if (e.data?.qbConnected) {
+      toast('✅ QuickBooks connected — ' + (e.data.company || ''));
+      window.removeEventListener('message', handler);
+      loaded['settings'] = false;
+      navigate('settings');
+    } else if (e.data?.qbError) {
+      toast('⚠️ QB connection failed: ' + e.data.qbError);
+      window.removeEventListener('message', handler);
+    }
+  };
+  window.addEventListener('message', handler);
+}
+
+async function disconnectQB() {
+  if (!confirm('Disconnect QuickBooks? Invoice sync will stop until reconnected.')) return;
+  try {
+    await fetch('/api/quickbooks/disconnect', { method: 'POST' });
+    toast('QuickBooks disconnected');
+    loaded['settings'] = false;
+    navigate('settings');
+  } catch { toast('⚠️ Could not disconnect'); }
 }
