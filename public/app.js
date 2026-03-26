@@ -980,7 +980,7 @@ async function showJobDetail(idx) {
           ${d.link
             ? `<a class="doc-btn" href="${d.link}" target="_blank">Open ↗</a>`
             : `<button class="doc-btn" style="color:var(--gold);cursor:pointer"
-                 onclick="triggerDocGen('${d.event}',${row})">Generate</button>`}
+                 onclick="triggerDocGen('${d.event}',${_currentJobRow})">Generate</button>`}
         </div>
       `).join('')}
     </div>
@@ -2581,15 +2581,21 @@ async function loadInventory() {
 
   el.innerHTML = '<div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div><div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>';
 
-  const data = await api('/api/inventory');
-  if (!data || (!data.items?.length && !data.byJob?.length)) {
-    el.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:var(--text3)">
-        <div style="font-size:40px;margin-bottom:12px">📦</div>
-        <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">No Materials Yet</div>
-        <div style="font-size:13px">Run the Pricing Agent on a job to automatically populate materials, prices, and best suppliers.</div>
-      </div>`;
-    return;
+  let data = await api('/api/inventory');
+
+  // If live but empty (Job Materials tab not populated yet), show demo data
+  if (!data?.items?.length) {
+    if (usingDemo) {
+      data = DEMO.inventory;
+    } else {
+      el.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:var(--text3)">
+          <div style="font-size:40px;margin-bottom:12px">📦</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">No Materials Yet</div>
+          <div style="font-size:13px;line-height:1.6">Materials will appear here after the <strong style="color:var(--text)">Pricing Agent</strong> runs on a job.<br><br>Go to a Job → tap the Estimate <strong style="color:var(--gold)">Generate</strong> button to populate this page.</div>
+        </div>`;
+      return;
+    }
   }
 
   // Store globally and render
