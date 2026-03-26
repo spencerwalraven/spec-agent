@@ -74,7 +74,23 @@ const DEMO = {
   approvals: [
     { _row: 3, jobId: 'JOB-002', clientName: 'The Hendersons', serviceType: 'Kitchen Remodel', jobValue: '$62,000', type: 'proposal', label: 'Proposal', docLink: 'https://docs.google.com' },
     { _row: 4, jobId: 'JOB-003', clientName: 'Raj Patel',      serviceType: 'Basement Finish',  jobValue: '$48,000', type: 'contract', label: 'Contract', docLink: 'https://docs.google.com' },
-  ]
+  ],
+  inventory: {
+    items: [
+      { jobId:'JOB-001', clientName:'Sarah Chen',      category:'Tile',              item:'12x24 Porcelain Floor Tile',      quantity:'180 sq ft',   unitCost:'$4.20/sq ft',  totalCost:'$756',    bestSource:'Floor & Decor' },
+      { jobId:'JOB-001', clientName:'Sarah Chen',      category:'Tile',              item:'4x12 Subway Wall Tile',           quantity:'120 sq ft',   unitCost:'$2.80/sq ft',  totalCost:'$336',    bestSource:'Home Depot' },
+      { jobId:'JOB-001', clientName:'Sarah Chen',      category:'Plumbing',          item:'Delta Faucet Set',                quantity:'1 set',        unitCost:'$285/set',     totalCost:'$285',    bestSource:'Ferguson Supply' },
+      { jobId:'JOB-001', clientName:'Sarah Chen',      category:'Plumbing',          item:'Rain Shower Head',               quantity:'1 ea',         unitCost:'$195/ea',      totalCost:'$195',    bestSource:'Amazon / Ferguson' },
+      { jobId:'JOB-002', clientName:'The Hendersons',  category:'Cabinets',          item:'Semi-Custom Shaker Cabinets',    quantity:'22 linear ft', unitCost:'$485/lin ft',  totalCost:'$10,670', bestSource:'Lowes / local cabinet shop' },
+      { jobId:'JOB-002', clientName:'The Hendersons',  category:'Countertops',       item:'Quartz Countertop (3cm)',        quantity:'55 sq ft',     unitCost:'$68/sq ft',    totalCost:'$3,740',  bestSource:'Local stone yard' },
+      { jobId:'JOB-002', clientName:'The Hendersons',  category:'Appliances',        item:'Stainless Steel Dishwasher',     quantity:'1 ea',         unitCost:'$749/ea',      totalCost:'$749',    bestSource:'Best Buy / Home Depot' },
+      { jobId:'JOB-002', clientName:'The Hendersons',  category:'Hardware',          item:'Cabinet Pulls (brushed nickel)', quantity:'32 ea',        unitCost:'$8.50/ea',     totalCost:'$272',    bestSource:'Amazon / Lowes' },
+    ],
+    byJob: [
+      { jobId:'JOB-001', clientName:'Sarah Chen',     updatedAt:'3/20/2026', items: [] },
+      { jobId:'JOB-002', clientName:'The Hendersons', updatedAt:'3/22/2026', items: [] },
+    ],
+  },
 };
 
 /* ─── STATE ────────────────────────────────────────────────────── */
@@ -141,37 +157,37 @@ async function loadTodayStrip() {
   const el = document.getElementById('todayEvents');
   if (!el) return;
 
-  const todayStr = new Date().toDateString();
+  // Google Calendar color IDs → hex
+  const GC_COLORS = {
+    '1':'#e53935','2':'#43a047','3':'#7986cb','4':'#e91e63',
+    '5':'#f4511e','6':'#f6bf26','7':'#039be5','8':'#616161',
+    '9':'#3f51b5','10':'#0b8043','11':'#d50000',
+  };
+  const SOURCE_COLORS = { lead: '#0b8043', job: '#e53935', calendar: '#039be5' };
 
   try {
-    const events = await api('/api/calendar/events?days=2') || [];
-    const todayEvents = events
-      .filter(e => e.start && new Date(e.start).toDateString() === todayStr)
-      .sort((a, b) => new Date(a.start) - new Date(b.start));
+    // Primary: combined schedule endpoint (Calendar + Leads + Jobs)
+    const events = await fetch('/api/schedule/today')
+      .then(r => r.ok ? r.json() : [])
+      .catch(() => []);
 
-    if (todayEvents.length === 0) {
-      el.innerHTML = `<div class="cal-evt-empty">📭 Nothing on the calendar today</div>`;
+    if (!events.length) {
+      el.innerHTML = '<div class="cal-evt-empty">📭 Nothing scheduled today</div>';
       return;
     }
 
-    // Google Calendar color IDs → hex
-    const GC_COLORS = {
-      '1':'#e53935','2':'#43a047','3':'#7986cb','4':'#e91e63',
-      '5':'#f4511e','6':'#f6bf26','7':'#039be5','8':'#616161',
-      '9':'#3f51b5','10':'#0b8043','11':'#d50000',
-    };
-
-    el.innerHTML = todayEvents.slice(0, 6).map(e => {
+    el.innerHTML = events.slice(0, 6).map(e => {
       const d = new Date(e.start);
       const allDay  = !e.start.includes('T');
       const timeStr = allDay ? 'All Day' : d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      const color   = GC_COLORS[e.color] || '#039be5';
+      const color   = SOURCE_COLORS[e.source] || GC_COLORS[e.color] || '#039be5';
       const title   = e.title || 'Untitled';
-      const tag     = /consult|meeting|call/i.test(title) ? 'Consult'
+      const tag     = e.source === 'lead' ? 'Consult'
+                    : e.source === 'job'  ? 'Job Start'
+                    : /consult|meeting|call/i.test(title) ? 'Consult'
                     : /kickoff|start/i.test(title)        ? 'Kickoff'
                     : /phase|install|demo/i.test(title)   ? 'Phase'
                     : '';
-      // Build onclick separately to avoid nested backtick syntax error
       const onclick = e.link ? 'window.open(this.dataset.link,\'_blank\')' : '';
       return `
         <div class="cal-evt" onclick="${onclick}" data-link="${e.link || ''}">
@@ -182,7 +198,7 @@ async function loadTodayStrip() {
         </div>`;
     }).join('');
   } catch (_) {
-    el.innerHTML = `<div class="cal-evt-empty">Calendar not connected — sync jobs in Schedule</div>`;
+    el.innerHTML = '<div class="cal-evt-empty">📭 No schedule data available</div>';
   }
 }
 
@@ -252,12 +268,12 @@ function renderDashQuickActions(role) {
 
   const sets = {
     owner: [
-      { icon:'👤', name:'Leads',        desc:'View pipeline',   page:'leads' },
-      { icon:'🔨', name:'Jobs',         desc:'Active projects',  page:'jobs' },
-      { icon:'📊', name:'Analytics',    desc:'Revenue & trends', page:'analytics' },
-      { icon:'📢', name:'Marketing',    desc:'Campaigns',        page:'marketing' },
-      { icon:'🤖', name:'AI Agents',    desc:'Live activity',    page:'agents' },
-      { icon:'⚙️', name:'Settings',     desc:'Company info',     page:'settings' },
+      { icon:'👤', name:'Leads',        desc:'View pipeline',        page:'leads' },
+      { icon:'🔨', name:'Jobs',         desc:'Active projects',       page:'jobs' },
+      { icon:'📦', name:'Inventory',    desc:'Materials & suppliers', page:'inventory' },
+      { icon:'📢', name:'Marketing',    desc:'Campaigns',             page:'marketing' },
+      { icon:'🤖', name:'AI Agents',    desc:'Live activity',         page:'agents' },
+      { icon:'📊', name:'Analytics',    desc:'Revenue & trends',      page:'analytics' },
     ],
     sales: [
       { icon:'👤', name:'Leads',        desc:'My pipeline',      page:'leads' },
@@ -317,6 +333,7 @@ async function api(path) {
     if (key === 'marketing') return DEMO.marketing;
     if (key === 'settings')   return DEMO.settings;
     if (key === 'approvals')  return DEMO.approvals;
+    if (key === 'inventory')  return DEMO.inventory;
     if (key.startsWith('phases')) {
       const jobId = new URLSearchParams('?' + path.split('?')[1]).get('jobId') || '';
       return DEMO.phases[jobId] || [];
@@ -339,7 +356,9 @@ const PAGE_TITLES = {
   dashboard: 'Dashboard', leads: 'Leads', jobs: 'Jobs',
   clients: 'Clients', alerts: 'Alerts', team: 'Team',
   marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals',
-  conversations: 'Conversations', agents: 'AI Agents', more: 'More'
+  conversations: 'Conversations', agents: 'AI Agents', more: 'More',
+  inventory: 'Inventory & Materials', schedule: 'Schedule', analytics: 'Analytics',
+  field: 'Field Updates',
 };
 
 function navigate(page) {
@@ -372,6 +391,7 @@ function navigate(page) {
     else if (page === 'field')         loadField();
     else if (page === 'analytics')     loadAnalytics();
     else if (page === 'schedule')      loadSchedule();
+    else if (page === 'inventory')     loadInventory();
   }
 }
 
@@ -401,6 +421,9 @@ async function loadDashboard() {
   const tlEl = document.getElementById('dashTodayLabel');
   if (tlEl) tlEl.textContent = todayLabel;
 
+  // Quick actions render immediately (no async needed — role is known)
+  renderDashQuickActions(currentUser.role);
+
   // Today's schedule strip + summary in parallel
   const [data] = await Promise.all([
     api('/api/summary'),
@@ -414,9 +437,6 @@ async function loadDashboard() {
 
   // Role-specific KPIs
   renderDashKPIs(data, currentUser.role);
-
-  // Role-specific quick actions
-  renderDashQuickActions(currentUser.role);
 
   // Activity feed
   const feed = document.getElementById('activityFeed');
@@ -2455,6 +2475,139 @@ async function syncAllToCalendar() {
 function fmt$(n) {
   if (!n && n !== 0) return '—';
   return '$' + Math.round(n).toLocaleString();
+}
+
+/* ─── INVENTORY / MATERIALS ─────────────────────────────────────── */
+let _invData = null;
+let _invFilter = 'all';
+
+function invFilter(btn, jobId) {
+  document.querySelectorAll('.inv-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  _invFilter = jobId;
+  renderInventoryContent();
+}
+
+function renderInventoryContent() {
+  const el = document.getElementById('inventoryContent');
+  if (!el || !_invData) return;
+
+  const { items: allItems, byJob: allByJob } = _invData;
+
+  // Filter items
+  const items = _invFilter === 'all'
+    ? allItems
+    : allItems.filter(it => it.jobId === _invFilter);
+
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-notes">No materials for this selection.</div>';
+    return;
+  }
+
+  // Group by category overall for summary
+  const grandTotal = items.reduce((s, it) => s + (parseFloat((it.totalCost || '').replace(/[$,]/g, '')) || 0), 0);
+  const categoryTotals = {};
+  items.forEach(it => {
+    const cat = it.category || 'Other';
+    if (!categoryTotals[cat]) categoryTotals[cat] = { count: 0, total: 0 };
+    categoryTotals[cat].count++;
+    categoryTotals[cat].total += parseFloat((it.totalCost || '').replace(/[$,]/g, '')) || 0;
+  });
+
+  let html = `
+    <div class="inv-summary-bar">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text3)">TOTAL MATERIALS</div>
+        <div style="font-size:22px;font-weight:900;color:var(--gold)">${formatCurrency(grandTotal)}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${Object.entries(categoryTotals).map(([cat, s]) =>
+          `<span style="background:var(--card2);border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:11px;color:var(--text2)">${cat} <strong style="color:var(--text)">${s.count}</strong></span>`
+        ).join('')}
+      </div>
+    </div>`;
+
+  // Group by job
+  const byJobMap = {};
+  items.forEach(it => {
+    const k = it.jobId || '—';
+    if (!byJobMap[k]) byJobMap[k] = { jobId: it.jobId, clientName: it.clientName, updatedAt: it.updatedAt, items: [] };
+    byJobMap[k].items.push(it);
+  });
+
+  Object.values(byJobMap).forEach(jg => {
+    const jobTotal = jg.items.reduce((s, it) => s + (parseFloat((it.totalCost || '').replace(/[$,]/g, '')) || 0), 0);
+    const cats = {};
+    jg.items.forEach(it => {
+      const c = it.category || 'Other';
+      if (!cats[c]) cats[c] = [];
+      cats[c].push(it);
+    });
+
+    html += `<div class="inv-job-card">
+      <div class="inv-job-header">
+        <div>
+          <div class="inv-job-name">${jg.clientName || jg.jobId}</div>
+          <div class="inv-job-sub">Job ${jg.jobId}${jg.updatedAt ? ' · Updated ' + jg.updatedAt : ''}</div>
+        </div>
+        <div class="inv-job-total">${formatCurrency(jobTotal)}</div>
+      </div>`;
+
+    Object.entries(cats).forEach(([cat, catItems]) => {
+      const catTotal = catItems.reduce((s, it) => s + (parseFloat((it.totalCost || '').replace(/[$,]/g, '')) || 0), 0);
+      html += `<div class="inv-cat-header"><span>${cat}</span><span>${formatCurrency(catTotal)}</span></div>`;
+      catItems.forEach(it => {
+        html += `
+          <div class="inv-item">
+            <div>
+              <div class="inv-item-name">${it.item}</div>
+              <div class="inv-item-meta">${it.quantity} · ${it.unitCost}</div>
+              <div class="inv-item-source">🛒 ${it.bestSource || '—'}</div>
+            </div>
+            <div class="inv-item-cost">${it.totalCost || '—'}</div>
+          </div>`;
+      });
+    });
+
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+async function loadInventory() {
+  const el = document.getElementById('inventoryContent');
+  if (!el) return;
+
+  el.innerHTML = '<div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div><div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>';
+
+  const data = await api('/api/inventory');
+  if (!data || (!data.items?.length && !data.byJob?.length)) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:12px">📦</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">No Materials Yet</div>
+        <div style="font-size:13px">Run the Pricing Agent on a job to automatically populate materials, prices, and best suppliers.</div>
+      </div>`;
+    return;
+  }
+
+  // Store globally and render
+  _invData = data;
+  _invFilter = 'all';
+
+  // Build filter chips by job
+  const filterRow = document.querySelector('.inv-filter-row');
+  if (filterRow) {
+    const uniqueJobs = [...new Map(data.items.map(it => [it.jobId, it])).values()];
+    const chips = uniqueJobs.map(it =>
+      `<button class="inv-chip" onclick="invFilter(this,'${it.jobId}')">${it.clientName || it.jobId}</button>`
+    ).join('');
+    // Replace placeholder button with real chips, keep "All Jobs"
+    filterRow.innerHTML = `<button class="inv-chip active" onclick="invFilter(this,'all')">All Jobs</button>${chips}`;
+  }
+
+  renderInventoryContent();
 }
 
 async function loadAnalytics() {

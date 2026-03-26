@@ -345,6 +345,25 @@
   .sfield-body input{font-size:15px;color:var(--text);width:100%}
   .sfield-body input::placeholder{color:var(--text3)}
 
+  /* ── INVENTORY PAGE ───────────────────────────────────────────── */
+  .inv-filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-ms-overflow-style:none;scrollbar-width:none}
+  .inv-filter-row::-webkit-scrollbar{display:none}
+  .inv-chip{padding:6px 14px;border-radius:99px;font-size:12px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--text2);white-space:nowrap;cursor:pointer;transition:all .15s}
+  .inv-chip.active{background:var(--gold);border-color:var(--gold);color:#000}
+  .inv-job-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+  .inv-job-header{background:var(--card2);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  .inv-job-name{font-size:15px;font-weight:800}
+  .inv-job-sub{font-size:12px;color:var(--text3)}
+  .inv-job-total{font-size:18px;font-weight:800;color:var(--gold)}
+  .inv-cat-header{padding:10px 16px 6px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+  .inv-item{padding:10px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
+  .inv-item:last-child{border-bottom:none}
+  .inv-item-name{font-size:13px;font-weight:600;margin-bottom:2px}
+  .inv-item-meta{font-size:11px;color:var(--text3)}
+  .inv-item-source{font-size:11px;color:var(--blue);margin-top:2px}
+  .inv-item-cost{font-size:14px;font-weight:700;white-space:nowrap}
+  .inv-summary-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
+
   /* ── MORE PAGE ────────────────────────────────────────────────── */
   .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .more-item{
@@ -1158,11 +1177,29 @@
         <button class="more-item" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
         <button class="more-item" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
         <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+        <button class="more-item" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; suppliers</div></button>
       </div>
 
       <a href="/logout" onclick="return confirm('Sign out of the dashboard?')" style="display:block;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:600;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1F0A0A'" onmouseout="this.style.background='var(--card)'">
         🔒 Sign Out
       </a>
+    </section>
+
+    <!-- ── INVENTORY / MATERIALS ─────────────────────────────────────── -->
+    <section class="page" id="page-inventory">
+
+      <!-- Summary bar + filter chips — populated by JS -->
+      <div class="inv-filter-row">
+        <button class="inv-chip active" onclick="invFilter(this,'all')">All Jobs</button>
+      </div>
+
+      <!-- Dynamic content -->
+      <div id="inventoryContent">
+        <div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>
+        <div class="skeleton" style="height:120px;border-radius:12px"></div>
+      </div>
+
     </section>
 
     <!-- ── SCHEDULE ──────────────────────────────────────────────────── -->

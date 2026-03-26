@@ -71,6 +71,35 @@ const TOOLS = [
     },
   },
   {
+    name: 'write_materials',
+    description: 'Save structured material line items to the Job Materials sheet tab so they appear in the Inventory page of the dashboard',
+    input_schema: {
+      type: 'object',
+      properties: {
+        jobId:      { type: 'string',  description: 'Job ID from the job record, e.g. "JOB-001"' },
+        jobRow:     { type: 'number',  description: 'Row number of the job in the Jobs tab' },
+        clientName: { type: 'string',  description: 'Client full name' },
+        items: {
+          type: 'array',
+          description: 'All material line items for this job',
+          items: {
+            type: 'object',
+            properties: {
+              category:   { type: 'string', description: 'Material category, e.g. "Tile", "Cabinets", "Plumbing Fixtures"' },
+              item:       { type: 'string', description: 'Specific product or material name' },
+              quantity:   { type: 'string', description: 'Amount needed, e.g. "200 sq ft", "12 linear ft", "1 set"' },
+              unitCost:   { type: 'string', description: 'Unit price, e.g. "$4.50/sq ft", "$120/ea"' },
+              totalCost:  { type: 'string', description: 'Total cost for this line item, e.g. "$900"' },
+              bestSource: { type: 'string', description: 'Best supplier, e.g. "Home Depot", "Floor & Decor", "Ferguson", "local supplier"' },
+            },
+            required: ['category', 'item', 'quantity', 'unitCost', 'totalCost', 'bestSource'],
+          },
+        },
+      },
+      required: ['items'],
+    },
+  },
+  {
     name: 'update_job',
     description: 'Update a field in the Jobs tab',
     input_schema: {
@@ -154,6 +183,63 @@ const EXECUTORS = {
     }
   },
 
+  write_materials: async ({ jobId, jobRow, clientName, items }, ctx) => {
+    if (!items?.length) return 'No items to write';
+    try {
+      const { appendRow } = require('../tools/sheets');
+      const { google } = require('googleapis');
+      const SHEET_ID = process.env.SHEET_ID;
+
+      // Ensure tab exists with correct headers (write header row first on create)
+      const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+      auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+      const sheets = google.sheets({ version: 'v4', auth });
+
+      // Try to read existing header row; if tab missing, create it
+      try {
+        await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Job Materials!A1:J1' });
+      } catch (_) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SHEET_ID,
+          range: 'Job Materials!A1:J1',
+          valueInputOption: 'RAW',
+          requestBody: { values: [['Job ID','Job Row','Client Name','Category','Item','Quantity','Unit Cost','Total Cost','Best Source','Last Updated']] },
+        }).catch(() => {});
+      }
+
+      // Delete existing rows for this job (read all, filter, then overwrite — simpler: just append fresh)
+      const today = new Date().toLocaleDateString('en-US');
+      const effectiveJobId = jobId || (ctx?.rowNumber ? `ROW${ctx.rowNumber}` : '');
+      const effectiveRow   = jobRow || ctx?.rowNumber || '';
+      const effectiveName  = clientName || '';
+
+      let written = 0;
+      for (const it of items) {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SHEET_ID,
+          range: 'Job Materials!A:J',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: {
+            values: [[
+              effectiveJobId, effectiveRow, effectiveName,
+              it.category || '', it.item || '',
+              it.quantity || '', it.unitCost || '', it.totalCost || '',
+              it.bestSource || '', today,
+            ]],
+          },
+        });
+        written++;
+      }
+
+      logger.success('PricingAgent', `Wrote ${written} material items to Job Materials tab`);
+      return `Saved ${written} material line items to Job Materials tab`;
+    } catch (err) {
+      logger.warn('PricingAgent', `write_materials failed: ${err.message}`);
+      return `Could not write materials: ${err.message}`;
+    }
+  },
+
   create_estimate_doc: async ({ title, content }, ctx) => {
     try {
       const doc = await createDoc({ title, body: content });
@@ -204,10 +290,14 @@ TASK — in this exact order:
    - Contingency buffer (typically 10%)
    - TOTAL
 6. Create a Google Doc with the full estimate (create_estimate_doc)
-7. Update the job record:
+7. Write material line items to the Job Materials tab (write_materials):
+   - Include ALL materials from your estimate (not labor or overhead — materials only)
+   - For each item include: category, item name, quantity, unit cost, total cost, best source to purchase
+   - This powers the Inventory page in the dashboard — be thorough
+8. Update the job record:
    - Set "Estimate Amount" or "Job Value" to the total
    - Set "Estimate Status" to "Ready for Review"
-8. Notify the owner with a summary:
+9. Notify the owner with a summary:
    - Total estimate
    - Whether it aligns with client's budget
    - Any concerns or budget gaps

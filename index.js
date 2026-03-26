@@ -1988,6 +1988,130 @@ function kickoffResponsePage(type, job, dateStr, companyName = 'Your Contractor'
   </div></body></html>`;
 }
 
+// ─── API: TODAY'S SCHEDULE ────────────────────────────────────────────────────
+// Combines Google Calendar (if configured) with Leads appointments + Job start dates.
+// Used by the dashboard schedule strip so it always has data even without Calendar auth.
+app.get('/api/schedule/today', async (req, res) => {
+  try {
+    const todayStr = new Date().toDateString();
+    const events   = [];
+
+    // 1. Try Google Calendar first
+    try {
+      if (calendarTool) {
+        const calEvents = await calendarTool.listUpcomingEvents(2);
+        calEvents.forEach(e => {
+          const start = e.start?.dateTime || e.start?.date || '';
+          if (!start) return;
+          if (new Date(start).toDateString() !== todayStr) return;
+          events.push({
+            id:       e.id,
+            title:    e.summary || 'Meeting',
+            start,
+            end:      e.end?.dateTime || e.end?.date || '',
+            location: e.location || '',
+            link:     e.htmlLink || '',
+            color:    e.colorId || '7',
+            source:   'calendar',
+          });
+        });
+      }
+    } catch (_) {}
+
+    // 2. Leads with appointments today
+    try {
+      const leads = await readTab('Leads');
+      leads.forEach((l, i) => {
+        const appt = g(l, 'Appointment Date', 'Call Scheduled Date', 'Consultation Date', 'Site Visit Date');
+        if (!appt) return;
+        try {
+          const d = new Date(appt);
+          if (isNaN(d) || d.toDateString() !== todayStr) return;
+          const name = `${g(l,'First Name')} ${g(l,'Last Name')}`.trim() || 'Lead';
+          const proj = g(l,'Service Requested','Service Type','Project Type') || '';
+          const timeStr = appt.includes('T') ? appt : new Date(appt + 'T10:00:00').toISOString();
+          events.push({
+            id:     `lead-${i+2}`,
+            title:  `${name}${proj ? ' — ' + proj : ''} (Consultation)`,
+            start:  timeStr,
+            end:    '',
+            location: [g(l,'Street Address','Address'),g(l,'City')].filter(Boolean).join(', '),
+            link:   '',
+            color:  '10', // green
+            source: 'lead',
+          });
+        } catch (_) {}
+      });
+    } catch (_) {}
+
+    // 3. Jobs starting today or with kickoff today
+    try {
+      const jobs = await readTab('Jobs');
+      jobs.forEach((j, i) => {
+        const startDate = g(j,'Site Visit Date','Kickoff Date','Start Date');
+        if (!startDate) return;
+        try {
+          const d = new Date(startDate);
+          if (isNaN(d) || d.toDateString() !== todayStr) return;
+          const name  = `${g(j,'First Name')} ${g(j,'Last Name')}`.trim() || 'Client';
+          const proj  = g(j,'Service Type','Project Type') || 'Job';
+          const jobId = g(j,'Job ID') || '';
+          const timeStr = startDate.includes('T') ? startDate : new Date(startDate + 'T08:00:00').toISOString();
+          events.push({
+            id:     `job-${i+2}`,
+            title:  `${name} — ${proj}${jobId ? ' ('+jobId+')' : ''}`,
+            start:  timeStr,
+            end:    '',
+            location: [g(j,'Street Address','Address'),g(j,'City')].filter(Boolean).join(', '),
+            link:   '',
+            color:  '1', // red/tomato for job starts
+            source: 'job',
+          });
+        } catch (_) {}
+      });
+    } catch (_) {}
+
+    // Sort by time
+    events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    res.json(events);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: INVENTORY / JOB MATERIALS ──────────────────────────────────────────
+// Reads the Job Materials tab. Pass ?jobId=JOB-001 to filter to a single job.
+app.get('/api/inventory', async (req, res) => {
+  try {
+    const { jobId } = req.query;
+    const rows = await readTab('Job Materials');
+
+    const items = rows
+      .filter(r => !jobId || (g(r,'Job ID') || '').toUpperCase() === jobId.toUpperCase())
+      .map((r, i) => ({
+        _row:       r._row || i + 2,
+        jobId:      g(r, 'Job ID'),
+        jobRow:     g(r, 'Job Row'),
+        clientName: g(r, 'Client Name'),
+        category:   g(r, 'Category'),
+        item:       g(r, 'Item'),
+        quantity:   g(r, 'Quantity'),
+        unitCost:   g(r, 'Unit Cost'),
+        totalCost:  g(r, 'Total Cost'),
+        bestSource: g(r, 'Best Source'),
+        updatedAt:  g(r, 'Last Updated'),
+      }));
+
+    // Group by job for convenience
+    const byJob = {};
+    items.forEach(it => {
+      const key = it.jobId || 'Unknown';
+      if (!byJob[key]) byJob[key] = { jobId: it.jobId, jobRow: it.jobRow, clientName: it.clientName, items: [], updatedAt: it.updatedAt };
+      byJob[key].items.push(it);
+    });
+
+    res.json({ items, byJob: Object.values(byJob) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── CALENDAR SYNC API ────────────────────────────────────────────────────────
 let calendarTool;
 try { calendarTool = require('./src/tools/calendar'); } catch (_) {}
