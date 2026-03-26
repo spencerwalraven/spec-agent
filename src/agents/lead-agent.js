@@ -99,6 +99,23 @@ const TOOLS = [
 
 // ─── TOOL EXECUTORS ───────────────────────────────────────────────────────────
 
+// Track recent email sends to prevent duplicates: "email|date" → timestamp
+const recentEmailSends = new Map();
+const EMAIL_DEDUP_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+function isDuplicateEmail(to, subject) {
+  const key = `${(to || '').toLowerCase()}|${new Date().toLocaleDateString('en-US')}`;
+  const lastSent = recentEmailSends.get(key);
+  if (lastSent && Date.now() - lastSent < EMAIL_DEDUP_MS) return true;
+  recentEmailSends.set(key, Date.now());
+  // Clean up old entries to prevent memory leak
+  if (recentEmailSends.size > 500) {
+    const cutoff = Date.now() - EMAIL_DEDUP_MS;
+    for (const [k, v] of recentEmailSends) if (v < cutoff) recentEmailSends.delete(k);
+  }
+  return false;
+}
+
 const EXECUTORS = {
   read_lead:         async (args, ctx) => {
     const result = await toolReadLead(args);
@@ -122,6 +139,11 @@ const EXECUTORS = {
   },
 
   send_email:        async (args, ctx) => {
+    // Deduplicate — skip if we already sent to this address in the last 4 hours
+    if (isDuplicateEmail(args.to, args.subject)) {
+      logger.warn('LeadAgent', `Skipping duplicate email to ${args.to} — already sent within 4 hours`);
+      return `Skipped — email already sent to ${args.to} recently`;
+    }
     const { sendEmail: send } = require('../tools/gmail');
     const result = await send({
       to:       args.to,

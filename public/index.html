@@ -475,6 +475,43 @@
   .empty-title{font-size:17px;font-weight:700}
   .empty-sub{font-size:14px;color:var(--text3);line-height:1.5}
 
+  /* ── SETUP WIZARD ─────────────────────────────────────────────── */
+  .setup-wizard-card{
+    background:linear-gradient(135deg,rgba(191,148,56,.08),rgba(191,148,56,.04));
+    border:1px solid rgba(191,148,56,.3);
+    border-radius:var(--r);padding:16px;margin-bottom:16px;
+  }
+  .setup-wizard-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+  .setup-wizard-title{font-size:15px;font-weight:800;color:var(--gold)}
+  .setup-wizard-sub{font-size:12px;color:var(--text3);margin-top:3px}
+  .setup-dismiss{font-size:16px;color:var(--text3);padding:2px 6px;border-radius:6px;cursor:pointer}
+  .setup-dismiss:active{background:var(--card2)}
+  .setup-steps{display:flex;flex-direction:column;gap:10px}
+  .setup-step{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:var(--r-sm);
+    background:var(--card);border:1px solid var(--border);
+    cursor:pointer;transition:border-color .15s;
+  }
+  .setup-step.done{opacity:.55}
+  .setup-step:not(.done):active{border-color:var(--gold)}
+  .setup-step-icon{
+    width:28px;height:28px;border-radius:50%;border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;flex-shrink:0;transition:all .2s;
+  }
+  .setup-step.done .setup-step-icon{background:var(--green);border-color:var(--green);color:#000}
+  .setup-step-body{flex:1;min-width:0}
+  .setup-step-name{font-size:13px;font-weight:700}
+  .setup-step.done .setup-step-name{text-decoration:line-through;color:var(--text3)}
+  .setup-step-desc{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4}
+  .setup-step-action{font-size:11px;font-weight:700;color:var(--gold);flex-shrink:0}
+  .setup-step.done .setup-step-action{display:none}
+  .setup-all-done{
+    text-align:center;padding:14px 0 4px;
+    font-size:13px;font-weight:700;color:var(--green);
+  }
+
   /* ── TOAST ────────────────────────────────────────────────────── */
   #toast{
     position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 12px);
@@ -822,6 +859,20 @@
 
     <!-- ── DASHBOARD ──────────────────────────────────────────────── -->
     <section class="page active" id="page-dashboard">
+
+      <!-- Setup Wizard (hidden once complete or dismissed) -->
+      <div id="setupWizard" style="display:none">
+        <div class="setup-wizard-card">
+          <div class="setup-wizard-hdr">
+            <div>
+              <div class="setup-wizard-title">🚀 Finish Setting Up Your CRM</div>
+              <div class="setup-wizard-sub" id="setupProgress">0 of 5 steps complete</div>
+            </div>
+            <button class="setup-dismiss" onclick="dismissWizard()" title="Dismiss">✕</button>
+          </div>
+          <div class="setup-steps" id="setupSteps"></div>
+        </div>
+      </div>
 
       <!-- Greeting -->
       <div class="dash-greeting">
@@ -1507,7 +1558,7 @@
 <!-- Toast -->
 <div id="toast"></div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 <script>
   // Register service worker for PWA install + offline support
   if ('serviceWorker' in navigator) {

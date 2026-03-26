@@ -15,6 +15,18 @@ const { logger } = require('../utils/logger');
 const { appendRow, getLastRow, findRowByEmail } = require('../tools/sheets');
 const { getNewMessages, parseMessage } = require('../tools/gmail-watch');
 
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+
+// Middleware specifically for manual trigger endpoints
+function requireWebhookAuth(req, res, next) {
+  if (!WEBHOOK_SECRET) return next(); // not configured — dev mode
+  const providedSecret = req.headers['x-webhook-secret'];
+  const isInternal = req.headers['x-internal'] === '1';
+  if (isInternal || providedSecret === WEBHOOK_SECRET) return next();
+  logger.warn('Webhook', `Unauthorized trigger attempt from ${req.ip}`);
+  return res.status(403).json({ error: 'Unauthorized' });
+}
+
 // Fire-and-forget helper
 function fireAndForget(type, payload) {
   route(type, payload).catch(err =>
@@ -337,7 +349,7 @@ router.post('/sms', async (req, res) => {
 
 // ─── MANUAL AGENT TRIGGER (dashboard buttons) ─────────────────────────────────
 // POST /webhook/trigger { type: 'generate_proposal', rowNumber: 5 }
-router.post('/trigger', (req, res) => {
+router.post('/trigger', requireWebhookAuth, (req, res) => {
   res.status(200).json({ received: true });
   const { type, ...payload } = req.body;
   if (!type) { return res.status(400).json({ error: 'Missing event type' }); }
@@ -347,7 +359,7 @@ router.post('/trigger', (req, res) => {
 
 // ─── APPROVAL CONFIRMED (from dashboard) ──────────────────────────────────────
 // POST /webhook/approved { type: 'proposal'|'contract', rowNumber: 5 }
-router.post('/approved', (req, res) => {
+router.post('/approved', requireWebhookAuth, (req, res) => {
   res.status(200).json({ received: true });
   const { type, rowNumber } = req.body;
   if (!type || !rowNumber) { logger.warn('Webhook', 'approved: missing type or rowNumber'); return; }

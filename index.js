@@ -2616,10 +2616,56 @@ app.get('/api/icon/:size', async (req, res) => {
 // Health check — always responds even if sheets API is down
 app.get('/ping', (req, res) => res.send('pong'));
 
+// ─── STARTUP SHEET VALIDATION ─────────────────────────────────────────────────
+async function validateSheetSchema() {
+  if (!process.env.SHEET_ID) {
+    logger.warn('Startup', '⚠️  SHEET_ID not set — skipping schema validation');
+    return;
+  }
+  try {
+    const { readTab } = require('./src/tools/sheets');
+
+    const REQUIRED = {
+      Leads: ['First Name', 'Last Name', 'Email', 'Phone Number', 'Status', 'Lead Score', 'Last Contact', 'Nurture Step'],
+      Jobs:  ['Job ID', 'Client Name', 'Project Type', 'Status', 'Job Value', 'Start Date', 'Deposit Status'],
+      Settings: [], // settings is key-value, not columnar — just check it's readable
+    };
+
+    let allOk = true;
+    for (const [tab, requiredCols] of Object.entries(REQUIRED)) {
+      try {
+        const rows = await readTab(tab);
+        if (rows.length === 0) {
+          logger.warn('Startup', `⚠️  "${tab}" tab is empty — add data before using agents`);
+          continue;
+        }
+        // Check headers from first row's keys
+        const headers = Object.keys(rows[0]).filter(k => !k.startsWith('_'));
+        const missing = requiredCols.filter(c => !headers.includes(c));
+        if (missing.length > 0) {
+          logger.warn('Startup', `⚠️  "${tab}" tab is missing columns: ${missing.join(', ')}`);
+          allOk = false;
+        } else if (requiredCols.length > 0) {
+          logger.success('Startup', `✅ "${tab}" tab schema OK`);
+        }
+      } catch (err) {
+        logger.warn('Startup', `⚠️  Could not read "${tab}" tab: ${err.message}`);
+        allOk = false;
+      }
+    }
+
+    if (allOk) logger.success('Startup', '✅ Sheet schema validation passed');
+  } catch (err) {
+    logger.warn('Startup', `Sheet validation skipped: ${err.message}`);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ CRM running on port ${PORT}`);
+  // Validate sheet schema in background (non-blocking)
+  setTimeout(() => validateSheetSchema(), 3000);
   // Start cron scheduler after server is up
   if (startScheduler) {
     try { startScheduler(); }

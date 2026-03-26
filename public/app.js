@@ -458,6 +458,94 @@ async function refreshAll() {
   toast(usingDemo ? '✓ Demo data refreshed' : '✓ Data refreshed');
 }
 
+/* ─── SETUP WIZARD ──────────────────────────────────────────────── */
+function dismissWizard() {
+  try { localStorage.setItem('wizardDismissed', '1'); } catch (_) {}
+  const el = document.getElementById('setupWizard');
+  if (el) el.style.display = 'none';
+}
+
+function renderSetupWizard(summaryData, settingsData) {
+  // Only show to owner role
+  if (currentUser.role !== 'owner') return;
+  // Don't show if dismissed
+  try { if (localStorage.getItem('wizardDismissed') === '1') return; } catch (_) {}
+
+  const el = document.getElementById('setupWizard');
+  if (!el) return;
+
+  const appUrl = location.origin;
+  const companyName = summaryData?.companyName || settingsData?.companyName || '';
+  const calendlySet  = !!(settingsData?.calendlyLink);
+  const hasLeads     = (summaryData?.totalLeads || summaryData?.newLeadsThisMonth || summaryData?.newLeads || 0) > 0;
+
+  const steps = [
+    {
+      id: 'sheet',
+      name: 'Connect your Google Sheet',
+      desc: 'Set SHEET_ID in Railway variables so live data flows in',
+      action: '→ Railway',
+      done: !usingDemo,
+      onclick: null,
+    },
+    {
+      id: 'settings',
+      name: 'Fill in business settings',
+      desc: 'Company name, phone, email, signature, email tone',
+      action: '→ Go to Settings',
+      done: !!(companyName && companyName !== '—' && companyName !== 'Summit Remodeling'),
+      onclick: `navigate('settings')`,
+    },
+    {
+      id: 'tally',
+      name: 'Connect your lead form webhook',
+      desc: `Tally → Integrations → Webhooks → ${appUrl}/webhook/new-lead`,
+      action: '→ Copy URL',
+      done: hasLeads && !usingDemo,
+      onclick: `navigator.clipboard?.writeText('${appUrl}/webhook/new-lead').then(()=>toastSuccess('Webhook URL copied!')).catch(()=>toastInfo('${appUrl}/webhook/new-lead'))`,
+    },
+    {
+      id: 'calendly',
+      name: 'Add your Calendly booking link',
+      desc: 'Agents include it in every outreach email automatically',
+      action: '→ Go to Settings',
+      done: calendlySet && !usingDemo,
+      onclick: `navigate('settings')`,
+    },
+    {
+      id: 'lead',
+      name: 'Receive your first real lead',
+      desc: 'Submit a test entry through your form to verify the full flow',
+      action: '→ Test now',
+      done: hasLeads && !usingDemo,
+      onclick: null,
+    },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+
+  // Hide wizard if all done (auto-dismiss)
+  if (doneCount === steps.length) {
+    dismissWizard();
+    return;
+  }
+
+  el.style.display = 'block';
+
+  document.getElementById('setupProgress').textContent = `${doneCount} of ${steps.length} steps complete`;
+
+  document.getElementById('setupSteps').innerHTML = steps.map(s => `
+    <div class="setup-step ${s.done ? 'done' : ''}" ${s.onclick ? `onclick="${s.onclick}"` : ''}>
+      <div class="setup-step-icon">${s.done ? '✓' : ''}</div>
+      <div class="setup-step-body">
+        <div class="setup-step-name">${s.name}</div>
+        <div class="setup-step-desc">${s.desc}</div>
+      </div>
+      ${!s.done && s.action ? `<div class="setup-step-action">${s.action}</div>` : ''}
+    </div>
+  `).join('');
+}
+
 /* ─── DASHBOARD ─────────────────────────────────────────────────── */
 async function loadDashboard() {
   // Greeting + today's date
@@ -509,13 +597,17 @@ async function loadDashboard() {
     `).join('');
   }
 
-  // Load alerts + approvals in parallel for status pills + nav badges
-  const [alerts, pending] = await Promise.all([
+  // Load alerts + approvals + settings (for wizard) in parallel
+  const [alerts, pending, wizSettings] = await Promise.all([
     loaded['alerts-count']   ? Promise.resolve(null) : api('/api/alerts').catch(() => []),
     loaded['approvals-count'] || currentUser.role === 'field'
       ? Promise.resolve(null)
       : api('/api/approvals').catch(() => []),
+    currentUser.role === 'owner' ? api('/api/settings').catch(() => null) : Promise.resolve(null),
   ]);
+
+  // Show setup wizard for owners who haven't finished configuration
+  if (currentUser.role === 'owner') renderSetupWizard(data, wizSettings);
 
   let urgentCount = 0, approvalCount = 0;
 
