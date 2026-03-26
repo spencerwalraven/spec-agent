@@ -44,6 +44,25 @@ const TOOLS = [
     input_schema: { type: 'object', properties: {}, required: [] },
   },
   {
+    name: 'read_equipment',
+    description: 'Read the Equipment tab to see all company equipment — vehicles, tools, ladders, scaffolding, etc. Check availability before assigning to a job.',
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'assign_equipment',
+    description: 'Assign a piece of equipment to this job. Updates the Equipment tab.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        equipmentId: { type: 'string', description: 'Equipment ID, e.g. EQ-12345' },
+        equipmentRow: { type: 'number', description: 'Row number of the equipment in the Equipment tab' },
+        jobId: { type: 'string', description: 'Job ID to assign to' },
+        assignedTo: { type: 'string', description: 'Person responsible for this equipment on the job' },
+      },
+      required: ['equipmentRow', 'jobId'],
+    },
+  },
+  {
     name: 'get_project_learnings',
     description: 'Get historical data and learnings from similar past projects to inform planning',
     input_schema: {
@@ -146,6 +165,34 @@ const EXECUTORS = {
     })));
   },
 
+  read_equipment: async () => {
+    const rows = await readTab('Equipment');
+    const items = rows
+      .filter((r, i) => (r['Status'] || '') !== 'Retired')
+      .map((r, i) => ({
+        _row:        i + 2,
+        equipmentId: g(r, 'Equipment ID'),
+        name:        g(r, 'Name'),
+        category:    g(r, 'Category'),
+        makeModel:   g(r, 'Make/Model'),
+        status:      g(r, 'Status'),
+        assignedTo:  g(r, 'Assigned To'),
+        assignedJob: g(r, 'Assigned Job'),
+      }));
+    return JSON.stringify(items);
+  },
+
+  assign_equipment: async ({ equipmentRow, jobId, assignedTo }) => {
+    try {
+      await updateCell('Equipment', equipmentRow, 'Status', 'In Use');
+      await updateCell('Equipment', equipmentRow, 'Assigned Job', jobId || '');
+      await updateCell('Equipment', equipmentRow, 'Assigned To', assignedTo || '');
+      return `Equipment (row ${equipmentRow}) assigned to ${jobId}${assignedTo ? ', responsibility: ' + assignedTo : ''}`;
+    } catch (err) {
+      return `Failed to assign equipment: ${err.message}`;
+    }
+  },
+
   get_project_learnings: async ({ projectType }) => {
     try {
       const learningAgent = require('./learning-agent');
@@ -221,6 +268,7 @@ TASK — in this exact order:
 1. Read the business settings (read_settings)
 2. Read the job data (read_job, row ${rowNumber}) — get project type, scope, start date, client info, budget
 3. Read the team roster (read_team) — know who's available and what their specialties are
+3.5. Read available equipment (read_equipment) — note what vehicles, tools, scaffolding, and ladders are available vs. already assigned. Factor this into your plan and assign needed equipment using assign_equipment.
 4. Get historical learnings for this project type (get_project_learnings) — use past data to inform timelines
 5. Plan the project phases:
    - Break the project into logical phases in the correct order
@@ -231,6 +279,7 @@ TASK — in this exact order:
 6. Create the kickoff document (create_kickoff_doc) with:
    - Project overview and client details
    - Complete phase schedule with dates and assigned trades
+   - Equipment Assigned: [list vehicles, major tools, scaffolding assigned to this job]
    - Materials list with order-by dates
    - Special instructions and client preferences
    - Contact list (client, owner, key subs)

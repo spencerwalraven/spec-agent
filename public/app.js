@@ -91,6 +91,14 @@ const DEMO = {
       { jobId:'JOB-002', clientName:'The Hendersons', updatedAt:'3/22/2026', items: [] },
     ],
   },
+  equipment: [
+    { _row:2, equipmentId:'EQ-001', name:'2022 Ford F-250',             category:'Vehicle',    makeModel:'Ford F-250 XLT',    status:'In Use',     assignedTo:'Mike T.',  assignedJob:'JOB-001', value:'$45,000', notes:'Main work truck' },
+    { _row:3, equipmentId:'EQ-002', name:'2019 Trailer',                category:'Trailer',    makeModel:'Big Tex 14OA',      status:'Available',  assignedTo:'',         assignedJob:'',        value:'$8,500',  notes:'Material hauler' },
+    { _row:4, equipmentId:'EQ-003', name:'24ft Extension Ladder',       category:'Ladder',     makeModel:'Werner D1524-2',    status:'Available',  assignedTo:'',         assignedJob:'',        value:'$280',    notes:'' },
+    { _row:5, equipmentId:'EQ-004', name:'DeWalt Tile Saw',             category:'Power Tool', makeModel:'DeWalt D24000S',    status:'Maintenance',assignedTo:'',         assignedJob:'',        value:'$650',    notes:'Blade needs replacing' },
+    { _row:6, equipmentId:'EQ-005', name:'Scaffold Set (4 sections)',   category:'Scaffold',   makeModel:'Bil-Jax 4x5',       status:'Available',  assignedTo:'',         assignedJob:'',        value:'$1,200',  notes:'Stored in bay 2' },
+    { _row:7, equipmentId:'EQ-006', name:'2021 Ford Transit Van',       category:'Vehicle',    makeModel:'Ford Transit 250',  status:'Available',  assignedTo:'',         assignedJob:'',        value:'$38,000', notes:'Cargo van — crew transport' },
+  ],
 };
 
 /* ─── STATE ────────────────────────────────────────────────────── */
@@ -334,6 +342,7 @@ async function api(path) {
     if (key === 'settings')   return DEMO.settings;
     if (key === 'approvals')  return DEMO.approvals;
     if (key === 'inventory')  return DEMO.inventory;
+    if (key === 'equipment')  return DEMO.equipment;
     if (key.startsWith('phases')) {
       const jobId = new URLSearchParams('?' + path.split('?')[1]).get('jobId') || '';
       return DEMO.phases[jobId] || [];
@@ -2575,9 +2584,205 @@ function renderInventoryContent() {
   el.innerHTML = html;
 }
 
+/* ─── INVENTORY TAB SWITCHING ───────────────────────────────────── */
+let _invActiveTab = 'materials';
+
+function switchInvTab(tab) {
+  _invActiveTab = tab;
+  document.getElementById('invTabMaterials').classList.toggle('active', tab === 'materials');
+  document.getElementById('invTabEquipment').classList.toggle('active', tab === 'equipment');
+  document.getElementById('invMaterialFilters').style.display = tab === 'materials' ? '' : 'none';
+  document.getElementById('inventoryContent').style.display  = tab === 'materials' ? '' : 'none';
+  document.getElementById('equipmentContent').style.display  = tab === 'equipment'  ? '' : 'none';
+  if (tab === 'equipment' && !_eqLoaded) loadEquipment();
+}
+
+/* ─── EQUIPMENT ─────────────────────────────────────────────────── */
+let _allEquipment = [];
+let _eqLoaded = false;
+
+const EQ_ICONS = {
+  Vehicle: '🚛', Trailer: '🚜', Ladder: '🪜', Scaffold: '🏗️',
+  'Power Tool': '⚙️', 'Hand Tool': '🔧', Safety: '🦺', Other: '📦',
+};
+
+async function loadEquipment() {
+  _eqLoaded = true;
+  const list = document.getElementById('eqList');
+  const summary = document.getElementById('eqSummaryLine');
+  if (!list) return;
+
+  let data = await api('/api/equipment');
+  if (!data?.length && usingDemo) data = DEMO.equipment;
+  _allEquipment = data || [];
+  renderEquipment();
+}
+
+function renderEquipment() {
+  const list = document.getElementById('eqList');
+  const summary = document.getElementById('eqSummaryLine');
+  if (!list) return;
+
+  const items = _allEquipment.filter(e => e.status !== 'Retired');
+
+  const available   = items.filter(e => e.status === 'Available').length;
+  const inUse       = items.filter(e => e.status === 'In Use').length;
+  const maintenance = items.filter(e => e.status === 'Maintenance').length;
+  if (summary) summary.textContent = `${items.length} items · ${available} available · ${inUse} in use${maintenance ? ' · ' + maintenance + ' maintenance' : ''}`;
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-notes">No equipment yet — tap + Add to get started.</div>';
+    return;
+  }
+
+  // Group by category
+  const cats = {};
+  items.forEach(eq => {
+    const c = eq.category || 'Other';
+    if (!cats[c]) cats[c] = [];
+    cats[c].push(eq);
+  });
+
+  list.innerHTML = Object.entries(cats).map(([cat, eqs]) => `
+    <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;padding:8px 0 6px">${cat}</div>
+    ${eqs.map(eq => {
+      const statusKey = (eq.status || 'available').toLowerCase().replace(' ', '');
+      const icon = EQ_ICONS[eq.category] || '📦';
+      const assignedInfo = eq.assignedJob ? ` · ${eq.assignedJob}${eq.assignedTo ? ' / ' + eq.assignedTo : ''}` : '';
+      const eqRow = eq._row;
+      const availBtn = eq.status === 'Available'
+        ? `<button class="eq-action-btn" data-eq-row="${eqRow}" onclick="event.stopPropagation();promptAssignEquipment(this)">Assign to Job</button>`
+        : eq.status === 'In Use'
+        ? `<button class="eq-action-btn" data-eq-row="${eqRow}" onclick="event.stopPropagation();releaseEquipment(this)">Release</button>`
+        : '';
+      const valDisplay = eq.value ? `<div style="margin-left:auto;font-size:12px;font-weight:700;color:var(--text3)">${eq.value}</div>` : '';
+      return `
+        <div class="eq-card" id="eq-card-${eqRow}" data-eq-row="${eqRow}" onclick="toggleEqCard(${eqRow})">
+          <div class="eq-row">
+            <div class="eq-icon">${icon}</div>
+            <div class="eq-body">
+              <div class="eq-name">${eq.name}</div>
+              <div class="eq-meta">${eq.makeModel || eq.category}${assignedInfo}</div>
+            </div>
+            <span class="eq-status ${statusKey}">${eq.status}</span>
+          </div>
+          <div class="eq-actions">
+            <button class="eq-action-btn primary" data-eq-row="${eqRow}" onclick="event.stopPropagation();openEditEquipment(${eqRow})">Edit</button>
+            ${availBtn}
+            ${valDisplay}
+          </div>
+        </div>`;
+    }).join('')}
+  `).join('');
+}
+
+function toggleEqCard(row) {
+  const card = document.getElementById('eq-card-' + row);
+  if (card) card.classList.toggle('expanded');
+}
+
+function openAddEquipment() {
+  document.getElementById('eqModalTitle').textContent = 'Add Equipment';
+  document.getElementById('eqName').value      = '';
+  document.getElementById('eqCategory').value  = 'Vehicle';
+  document.getElementById('eqMakeModel').value = '';
+  document.getElementById('eqStatus').value    = 'Available';
+  document.getElementById('eqValue').value     = '';
+  document.getElementById('eqNotes').value     = '';
+  document.getElementById('eqEditRow').value   = '';
+  document.getElementById('eqDeleteBtn').style.display = 'none';
+  openModal('equipmentModal');
+}
+
+function openEditEquipment(row) {
+  const eq = _allEquipment.find(e => e._row === row);
+  if (!eq) return;
+  document.getElementById('eqModalTitle').textContent = 'Edit Equipment';
+  document.getElementById('eqName').value      = eq.name || '';
+  document.getElementById('eqCategory').value  = eq.category || 'Other';
+  document.getElementById('eqMakeModel').value = eq.makeModel || '';
+  document.getElementById('eqStatus').value    = eq.status || 'Available';
+  document.getElementById('eqValue').value     = eq.value || '';
+  document.getElementById('eqNotes').value     = eq.notes || '';
+  document.getElementById('eqEditRow').value   = row;
+  document.getElementById('eqDeleteBtn').style.display = 'inline-flex';
+  openModal('equipmentModal');
+}
+
+async function saveEquipment() {
+  const name = document.getElementById('eqName').value.trim();
+  if (!name) { toast('⚠️ Name is required'); return; }
+  const editRow = document.getElementById('eqEditRow').value;
+  const body = {
+    name,
+    category:  document.getElementById('eqCategory').value,
+    makeModel: document.getElementById('eqMakeModel').value.trim(),
+    status:    document.getElementById('eqStatus').value,
+    value:     document.getElementById('eqValue').value.trim(),
+    notes:     document.getElementById('eqNotes').value.trim(),
+  };
+  try {
+    let res;
+    if (editRow) {
+      res = await fetch(`/api/equipment/${editRow}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    } else {
+      res = await fetch('/api/equipment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }
+    if (!res.ok) throw new Error('Save failed');
+    toast(editRow ? '✓ Equipment updated' : '✓ Equipment added');
+    closeModal('equipmentModal');
+    _eqLoaded = false;
+    loadEquipment();
+  } catch { toast('⚠️ Could not save — check connection'); }
+}
+
+async function deleteEquipment() {
+  const row = document.getElementById('eqEditRow').value;
+  if (!row || !confirm('Remove this equipment item?')) return;
+  try {
+    await fetch(`/api/equipment/${row}`, { method:'DELETE' });
+    toast('Removed');
+    closeModal('equipmentModal');
+    _eqLoaded = false;
+    loadEquipment();
+  } catch { toast('⚠️ Could not delete'); }
+}
+
+async function promptAssignEquipment(btn) {
+  const row = parseInt(btn.dataset.eqRow, 10);
+  const eq = _allEquipment.find(e => e._row === row);
+  if (!eq) return;
+  const jobId = prompt(`Assign "${eq.name}" to which Job ID? (e.g. JOB-001)`);
+  if (!jobId) return;
+  const assignedTo = prompt('Assigned to which person? (optional)') || '';
+  try {
+    const res = await fetch(`/api/equipment/${row}/assign`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ jobId: jobId.trim().toUpperCase(), assignedTo }),
+    });
+    if (!res.ok) throw new Error();
+    toast(`✓ Assigned to ${jobId}`);
+    _eqLoaded = false;
+    loadEquipment();
+  } catch { toast('⚠️ Could not assign'); }
+}
+
+async function releaseEquipment(btn) {
+  const row = parseInt(btn.dataset.eqRow, 10);
+  const eq = _allEquipment.find(e => e._row === row);
+  if (!eq || !confirm(`Release "${eq.name}" back to Available?`)) return;
+  try {
+    await fetch(`/api/equipment/${row}/release`, { method:'POST' });
+    toast('✓ Released — now Available');
+    _eqLoaded = false;
+    loadEquipment();
+  } catch { toast('⚠️ Could not release'); }
+}
+
 async function loadInventory() {
   const el = document.getElementById('inventoryContent');
   if (!el) return;
+  _eqLoaded = false; // reset so equipment reloads fresh
 
   el.innerHTML = '<div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div><div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>';
 

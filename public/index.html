@@ -363,6 +363,26 @@
   .inv-item-source{font-size:11px;color:var(--blue);margin-top:2px}
   .inv-item-cost{font-size:14px;font-weight:700;white-space:nowrap}
   .inv-summary-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
+  /* Equipment */
+  .inv-tab-bar{display:flex;gap:0;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:16px}
+  .inv-tab{flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;color:var(--text3);text-align:center;cursor:pointer;transition:all .15s;border:none;background:none}
+  .inv-tab.active{background:var(--card2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .eq-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+  .eq-row{padding:14px 16px;display:flex;align-items:center;gap:12px}
+  .eq-icon{font-size:24px;flex-shrink:0}
+  .eq-body{flex:1;min-width:0}
+  .eq-name{font-size:14px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .eq-meta{font-size:11px;color:var(--text3)}
+  .eq-status{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .eq-status.available{background:rgba(34,197,94,.15);color:#22C55E}
+  .eq-status.inuse{background:rgba(59,130,246,.15);color:#3B82F6}
+  .eq-status.maintenance{background:rgba(245,158,11,.15);color:#F59E0B}
+  .eq-status.retired{background:rgba(107,114,128,.15);color:#6B7280}
+  .eq-actions{display:none;padding:0 16px 14px;gap:8px;flex-wrap:wrap}
+  .eq-card.expanded .eq-actions{display:flex}
+  .eq-action-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;background:var(--card2);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+  .eq-action-btn.primary{background:var(--gold);border-color:var(--gold);color:#000}
+  .eq-action-btn.danger{color:var(--red);border-color:rgba(239,68,68,.3)}
 
   /* ── MORE PAGE ────────────────────────────────────────────────── */
   .more-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -1188,19 +1208,93 @@
     <!-- ── INVENTORY / MATERIALS ─────────────────────────────────────── -->
     <section class="page" id="page-inventory">
 
-      <!-- Summary bar + filter chips — populated by JS -->
-      <div class="inv-filter-row">
+      <!-- Main tab switcher: Materials vs Equipment -->
+      <div class="inv-tab-bar">
+        <button class="inv-tab active" id="invTabMaterials" onclick="switchInvTab('materials')">📦 Job Materials</button>
+        <button class="inv-tab" id="invTabEquipment" onclick="switchInvTab('equipment')">🔧 Equipment</button>
+      </div>
+
+      <!-- Materials sub-filters (job filter chips) -->
+      <div class="inv-filter-row" id="invMaterialFilters">
         <button class="inv-chip active" onclick="invFilter(this,'all')">All Jobs</button>
       </div>
 
-      <!-- Dynamic content -->
+      <!-- Materials content -->
       <div id="inventoryContent">
         <div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>
         <div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:12px"></div>
         <div class="skeleton" style="height:120px;border-radius:12px"></div>
       </div>
 
+      <!-- Equipment content (hidden by default) -->
+      <div id="equipmentContent" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;color:var(--text3)" id="eqSummaryLine">Loading…</div>
+          <button class="btn btn-primary" style="padding:8px 14px;font-size:13px" onclick="openAddEquipment()">+ Add</button>
+        </div>
+        <div id="eqList">
+          <div class="skeleton" style="height:70px;border-radius:12px;margin-bottom:10px"></div>
+          <div class="skeleton" style="height:70px;border-radius:12px;margin-bottom:10px"></div>
+          <div class="skeleton" style="height:70px;border-radius:12px"></div>
+        </div>
+      </div>
+
     </section>
+
+    <!-- ── EQUIPMENT MODAL ───────────────────────────────────────────── -->
+    <div class="modal-overlay" id="equipmentModal" onclick="if(event.target===this)closeModal('equipmentModal')">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+          <div class="modal-title" id="eqModalTitle">Add Equipment</div>
+          <button class="modal-close" onclick="closeModal('equipmentModal')">✕</button>
+        </div>
+        <div class="modal-body" id="eqModalBody">
+          <div class="form-group">
+            <label class="form-label">Name *</label>
+            <input class="form-input" id="eqName" placeholder="e.g. 2022 Ford F-250" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-input" id="eqCategory">
+              <option value="Vehicle">Vehicle</option>
+              <option value="Trailer">Trailer</option>
+              <option value="Ladder">Ladder</option>
+              <option value="Scaffold">Scaffold</option>
+              <option value="Power Tool">Power Tool</option>
+              <option value="Hand Tool">Hand Tool</option>
+              <option value="Safety">Safety Equipment</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Make / Model</label>
+            <input class="form-input" id="eqMakeModel" placeholder="e.g. Ford F-250 XLT" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-input" id="eqStatus">
+              <option value="Available">Available</option>
+              <option value="In Use">In Use</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Value</label>
+            <input class="form-input" id="eqValue" placeholder="e.g. $45,000" type="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input" id="eqNotes" rows="2" placeholder="Any notes…" style="resize:none"></textarea>
+          </div>
+          <input type="hidden" id="eqEditRow" value="" />
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn btn-primary" style="flex:1" onclick="saveEquipment()">Save</button>
+            <button class="btn btn-secondary" id="eqDeleteBtn" style="display:none;color:var(--red)" onclick="deleteEquipment()">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── SCHEDULE ──────────────────────────────────────────────────── -->
     <section class="page" id="page-schedule">

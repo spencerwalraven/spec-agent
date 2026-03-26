@@ -2112,6 +2112,131 @@ app.get('/api/inventory', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: EQUIPMENT ───────────────────────────────────────────────────────────
+
+const EQ_HEADERS = ['Equipment ID', 'Name', 'Category', 'Make/Model', 'Status', 'Assigned To', 'Assigned Job', 'Value', 'Notes', 'Date Added'];
+
+async function ensureEquipmentTab() {
+  try {
+    const sheets = getSheets();
+    await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Equipment!A1:A1' });
+  } catch (_) {
+    try {
+      const sheets = getSheets();
+      // Create the tab
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: 'Equipment' } } }] },
+      });
+      // Write headers
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: 'Equipment!A1',
+        valueInputOption: 'RAW',
+        requestBody: { values: [EQ_HEADERS] },
+      });
+    } catch (e2) {
+      console.error('ensureEquipmentTab:', e2.message);
+    }
+  }
+}
+
+// GET /api/equipment — list all equipment
+app.get('/api/equipment', async (req, res) => {
+  try {
+    const rows = await readTab('Equipment');
+    const items = rows.map((r, i) => ({
+      _row:        i + 2,
+      equipmentId: g(r, 'Equipment ID'),
+      name:        g(r, 'Name'),
+      category:    g(r, 'Category'),
+      makeModel:   g(r, 'Make/Model'),
+      status:      g(r, 'Status'),
+      assignedTo:  g(r, 'Assigned To'),
+      assignedJob: g(r, 'Assigned Job'),
+      value:       g(r, 'Value'),
+      notes:       g(r, 'Notes'),
+      dateAdded:   g(r, 'Date Added'),
+    }));
+    res.json(items);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/equipment — create new equipment item
+app.post('/api/equipment', async (req, res) => {
+  try {
+    await ensureEquipmentTab();
+    const { name, category, makeModel, status, assignedTo, assignedJob, value, notes } = req.body;
+    const equipmentId = 'EQ-' + String(Date.now()).slice(-5);
+    const today = new Date().toLocaleDateString('en-US');
+    const sheets = getSheets();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'Equipment!A:J',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [[
+        equipmentId,
+        name || '',
+        category || '',
+        makeModel || '',
+        status || 'Available',
+        assignedTo || '',
+        assignedJob || '',
+        value || '',
+        notes || '',
+        today,
+      ]] },
+    });
+    res.json({ ok: true, equipmentId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/equipment/:row — update equipment row
+app.put('/api/equipment/:row', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row, 10);
+    const { name, category, makeModel, status, assignedTo, assignedJob, value, notes } = req.body;
+    const fieldMap = { name: 'Name', category: 'Category', makeModel: 'Make/Model', status: 'Status', assignedTo: 'Assigned To', assignedJob: 'Assigned Job', value: 'Value', notes: 'Notes' };
+    for (const [key, col] of Object.entries(fieldMap)) {
+      if (req.body[key] !== undefined) await updateCell('Equipment', row, col, req.body[key]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/equipment/:row — soft delete (set Status to Retired)
+app.delete('/api/equipment/:row', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row, 10);
+    await updateCell('Equipment', row, 'Status', 'Retired');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/equipment/:row/assign — assign equipment to a job
+app.post('/api/equipment/:row/assign', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row, 10);
+    const { jobId, assignedTo } = req.body;
+    await updateCell('Equipment', row, 'Status', 'In Use');
+    await updateCell('Equipment', row, 'Assigned Job', jobId || '');
+    await updateCell('Equipment', row, 'Assigned To', assignedTo || '');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/equipment/:row/release — release equipment from job
+app.post('/api/equipment/:row/release', async (req, res) => {
+  try {
+    const row = parseInt(req.params.row, 10);
+    await updateCell('Equipment', row, 'Status', 'Available');
+    await updateCell('Equipment', row, 'Assigned Job', '');
+    await updateCell('Equipment', row, 'Assigned To', '');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── CALENDAR SYNC API ────────────────────────────────────────────────────────
 let calendarTool;
 try { calendarTool = require('./src/tools/calendar'); } catch (_) {}
