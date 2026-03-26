@@ -501,6 +501,83 @@ function daysBetween(dateStr) {
 // ─── API: HEALTH ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }));
 
+// ─── API: JOB SITE ESTIMATE ─────────────────────────────────────────────────
+// POST /api/estimate  — called by the Job Site Estimate form in the dashboard.
+// Writes a new job to the Jobs tab, then fires the Pricing Agent.
+app.post('/api/estimate', requireAuth, async (req, res) => {
+  try {
+    const { appendRow, getLastRow } = require('./src/tools/sheets');
+    const { route } = require('./src/agents/orchestrator');
+
+    const {
+      clientName = '', clientPhone = '', jobAddress = '',
+      projectType = '', startDate = '', duration = '', notes = '', rooms = []
+    } = req.body;
+
+    if (!clientName) return res.status(400).json({ error: 'clientName is required' });
+
+    // Build a human-readable scope description from the structured rooms array
+    const scopeLines = rooms.map(r => {
+      const items = r.scope.map(s =>
+        s.measurement ? `${s.item} (${s.measurement} ${s.unit})` : s.item
+      ).join(', ');
+      return `${r.room} [${r.grade || 'standard'} grade]: ${items}`;
+    }).join('\n');
+
+    const description = [
+      scopeLines,
+      notes ? `\nNotes: ${notes}` : '',
+      startDate ? `Start: ${startDate}` : '',
+      duration ? `Duration: ${duration}` : '',
+    ].filter(Boolean).join('\n').trim();
+
+    // Parse name (support "First Last" or just one word)
+    const nameParts = clientName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName  = nameParts.slice(1).join(' ') || '';
+
+    // Get next job number
+    const lastRow = await getLastRow('Jobs');
+    const jobNum  = String(lastRow).padStart(3, '0');
+    const jobId   = `JOB-${jobNum}`;
+    const today   = new Date().toLocaleDateString('en-US');
+
+    const materialGrade = rooms.length
+      ? (rooms[0].grade || 'standard')
+      : 'standard';
+
+    const jobData = {
+      'Job ID':              jobId,
+      'First Name':          firstName,
+      'Last Name':           lastName,
+      'Phone Number':        clientPhone,
+      'Street Address':      jobAddress,
+      'Service Type':        projectType || 'Home Improvement',
+      'Project Description': description,
+      'Material Grade':      materialGrade,
+      'Job Status':          'New Job',
+      'Lead Source':         'Job Site Form',
+      'Date Created':        today,
+      'Site Visit Date':     today,
+    };
+
+    await appendRow('Jobs', jobData);
+    const newRow = await getLastRow('Jobs');
+
+    console.log(`[Estimate API] Created ${jobId} at row ${newRow} — firing Pricing Agent`);
+
+    // Fire the Pricing Agent asynchronously (don't await — respond immediately)
+    route('estimate_ready', { rowNumber: newRow }).catch(err =>
+      console.error('[Estimate API] Agent error:', err.message)
+    );
+
+    res.json({ ok: true, jobId, rowNumber: newRow, message: 'Estimate agent is running' });
+  } catch (e) {
+    console.error('[Estimate API] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── API: SETUP — Gmail Watch ────────────────────────────────────────────────
 // POST /api/setup/gmail-watch  — call once per client to enable push notifications
 app.post('/api/setup/gmail-watch', async (req, res) => {

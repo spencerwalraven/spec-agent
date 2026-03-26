@@ -3294,7 +3294,7 @@ async function submitEstimateForm(e) {
   lbl.textContent = 'Sending to Agent…';
 
   try {
-    const res = await fetch('/estimate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/estimate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(res.status);
     showEstSuccess();
   } catch (err) {
