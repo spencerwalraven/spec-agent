@@ -186,19 +186,29 @@ const EXECUTORS = {
   write_materials: async ({ jobId, jobRow, clientName, items }, ctx) => {
     if (!items?.length) return 'No items to write';
     try {
-      const { appendRow } = require('../tools/sheets');
       const { google } = require('googleapis');
       const SHEET_ID = process.env.SHEET_ID;
 
-      // Ensure tab exists with correct headers (write header row first on create)
       const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
       auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
       const sheets = google.sheets({ version: 'v4', auth });
 
-      // Try to read existing header row; if tab missing, create it
+      // Ensure "Job Materials" tab exists — create it if missing
       try {
-        await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Job Materials!A1:J1' });
+        await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Job Materials!A1:A1' });
       } catch (_) {
+        // Tab doesn't exist — create it with addSheet, then write headers
+        try {
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SHEET_ID,
+            requestBody: {
+              requests: [{ addSheet: { properties: { title: 'Job Materials' } } }],
+            },
+          });
+        } catch (addErr) {
+          logger.warn('PricingAgent', `Could not add Job Materials tab: ${addErr.message}`);
+        }
+        // Write header row
         await sheets.spreadsheets.values.update({
           spreadsheetId: SHEET_ID,
           range: 'Job Materials!A1:J1',
