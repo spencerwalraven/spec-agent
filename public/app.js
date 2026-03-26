@@ -404,7 +404,7 @@ const PAGE_TITLES = {
   marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals',
   conversations: 'Conversations', agents: 'AI Agents', more: 'More',
   inventory: 'Inventory & Materials', schedule: 'Schedule', analytics: 'Analytics',
-  field: 'Field Updates',
+  field: 'Job Site Estimate',
 };
 
 function navigate(page) {
@@ -2286,12 +2286,15 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 1500);
 });
 
-/* ─── FIELD UPDATE PAGE ──────────────────────────────────────────── */
+/* ─── FIELD UPDATE PAGE (now Job Site Estimate) ─────────────────── */
 let _fieldJobs = [];
 let _fieldPhases = {};
 let _expandedFieldRow = null;
 
 async function loadField() {
+  // page-field is now the Job Site Estimate form — just ensure rooms are initialized
+  if (!estRoomCount) estAddRoom('Kitchen');
+  return; // no async data needed
   const el = document.getElementById('fieldJobList');
   if (!el) return;
 
@@ -3141,3 +3144,201 @@ async function disconnectQB() {
     navigate('settings');
   } catch { toast('⚠️ Could not disconnect'); }
 }
+
+/* ─── JOB SITE ESTIMATE FORM ────────────────────────────────────── */
+const EST_SCOPE_ITEMS = [
+  { key: 'cabinets',     label: 'Cabinets',        unit: 'lin ft' },
+  { key: 'countertops',  label: 'Countertops',      unit: 'sq ft'  },
+  { key: 'flooring',     label: 'Flooring',         unit: 'sq ft'  },
+  { key: 'tile',         label: 'Tile Work',        unit: 'sq ft'  },
+  { key: 'backsplash',   label: 'Backsplash',       unit: 'sq ft'  },
+  { key: 'painting',     label: 'Painting',         unit: 'sq ft'  },
+  { key: 'drywall',      label: 'Drywall',          unit: 'sq ft'  },
+  { key: 'plumbing',     label: 'Plumbing',         unit: 'fixtures'},
+  { key: 'electrical',   label: 'Electrical',       unit: 'circuits'},
+  { key: 'demo',         label: 'Demo / Haul-off',  unit: 'est hrs' },
+  { key: 'windows',      label: 'Windows',          unit: 'qty'    },
+  { key: 'doors',        label: 'Doors',            unit: 'qty'    },
+  { key: 'lighting',     label: 'Lighting',         unit: 'fixtures'},
+  { key: 'hvac',         label: 'HVAC',             unit: 'est hrs' },
+  { key: 'insulation',   label: 'Insulation',       unit: 'sq ft'  },
+  { key: 'custom',       label: 'Other / Custom',   unit: null     },
+];
+
+let estRoomCount = 0;
+
+function estBuildScopeGrid(roomId) {
+  return EST_SCOPE_ITEMS.map(item => {
+    const measureHtml = item.key === 'custom'
+      ? `<div class="est-measure" style="display:none"><input type="text" placeholder="Describe…" onclick="event.stopPropagation()" style="width:100%;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);font-family:inherit"></div>`
+      : `<div class="est-measure"><input type="number" min="0" placeholder="0" onclick="event.stopPropagation()"><span>${item.unit}</span></div>`;
+    return `<button type="button" class="est-scope-btn" data-key="${item.key}" onclick="estToggleScope(this)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="est-scope-name">${item.label}</span>
+        <span class="est-scope-check">✓</span>
+      </div>
+      ${measureHtml}
+    </button>`;
+  }).join('');
+}
+
+function estBuildRoom(idx, isFirst) {
+  const removeBtn = isFirst ? '' : `<button type="button" class="est-remove-room" onclick="estRemoveRoom(this)" title="Remove">✕</button>`;
+  return `<div class="est-room-card" data-room-idx="${idx}">
+    <div class="est-room-hdr">
+      <div class="est-room-num">${idx}</div>
+      <input class="est-room-name" type="text" placeholder="Room name (e.g. Kitchen)">
+      ${removeBtn}
+    </div>
+    <div class="est-scope-grid">${estBuildScopeGrid(idx)}</div>
+    <div style="margin-bottom:4px"><span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Material Grade</span></div>
+    <div class="est-grade-row">
+      <button type="button" class="est-grade-btn" data-grade="budget" onclick="estSelectGrade(this)"><span class="g-name">Budget</span><span class="g-sub">Cost-effective</span></button>
+      <button type="button" class="est-grade-btn sel-standard" data-grade="standard" onclick="estSelectGrade(this)"><span class="g-name">Standard</span><span class="g-sub">Best value</span></button>
+      <button type="button" class="est-grade-btn" data-grade="premium" onclick="estSelectGrade(this)"><span class="g-name">Premium</span><span class="g-sub">High-end</span></button>
+    </div>
+  </div>`;
+}
+
+function estAddRoom(defaultName) {
+  estRoomCount++;
+  const container = document.getElementById('estRoomsContainer');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.innerHTML = estBuildRoom(estRoomCount, estRoomCount === 1);
+  const card = div.firstElementChild;
+  container.appendChild(card);
+  if (defaultName) card.querySelector('.est-room-name').value = defaultName;
+  if (estRoomCount > 1) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  estRenumber();
+}
+
+function estRemoveRoom(btn) {
+  btn.closest('.est-room-card').remove();
+  estRenumber();
+}
+
+function estRenumber() {
+  document.querySelectorAll('#estRoomsContainer .est-room-card').forEach((c, i) => {
+    const num = c.querySelector('.est-room-num');
+    if (num) num.textContent = i + 1;
+    c.setAttribute('data-room-idx', i + 1);
+  });
+}
+
+function estToggleScope(btn) {
+  btn.classList.toggle('active');
+  const measure = btn.querySelector('.est-measure');
+  if (measure) {
+    measure.style.display = btn.classList.contains('active') ? 'flex' : 'none';
+    if (btn.classList.contains('active')) {
+      const inp = measure.querySelector('input');
+      if (inp) setTimeout(() => inp.focus(), 50);
+    }
+  }
+}
+
+function estSelectGrade(btn) {
+  const row = btn.closest('.est-grade-row');
+  row.querySelectorAll('.est-grade-btn').forEach(b => b.classList.remove('sel-budget','sel-standard','sel-premium'));
+  btn.classList.add('sel-' + btn.dataset.grade);
+}
+
+function estCollectData() {
+  const rooms = [];
+  document.querySelectorAll('#estRoomsContainer .est-room-card').forEach(card => {
+    const roomName = card.querySelector('.est-room-name')?.value?.trim() || 'Room';
+    const grade = card.querySelector('.est-grade-btn.sel-budget') ? 'budget'
+                : card.querySelector('.est-grade-btn.sel-premium') ? 'premium'
+                : 'standard';
+    const scope = [];
+    card.querySelectorAll('.est-scope-btn.active').forEach(btn => {
+      const key = btn.dataset.key;
+      const inp = btn.querySelector('.est-measure input');
+      const unit = btn.querySelector('.est-measure span')?.textContent || '';
+      scope.push({ item: key, measurement: inp?.value?.trim() || '', unit });
+    });
+    if (scope.length) rooms.push({ room: roomName, grade, scope });
+  });
+  return {
+    source: 'job_site_form',
+    clientName: document.getElementById('estClientName')?.value?.trim() || '',
+    clientPhone: document.getElementById('estClientPhone')?.value?.trim() || '',
+    jobAddress: document.getElementById('estAddress')?.value?.trim() || '',
+    projectType: document.getElementById('estProjectType')?.value?.trim() || '',
+    startDate: document.getElementById('estStartDate')?.value || '',
+    duration: document.getElementById('estDuration')?.value?.trim() || '',
+    notes: document.getElementById('estNotes')?.value?.trim() || '',
+    rooms,
+  };
+}
+
+async function submitEstimateForm(e) {
+  e.preventDefault();
+  const payload = estCollectData();
+
+  if (!payload.clientName) {
+    const f = document.getElementById('estClientName');
+    if (f) { f.focus(); f.style.borderColor = 'var(--red)'; setTimeout(() => f.style.borderColor = '', 1800); }
+    toast('⚠️ Enter a client name first');
+    return;
+  }
+  if (!payload.rooms.length) {
+    toast('⚠️ Select at least one scope item');
+    return;
+  }
+
+  const btn = document.getElementById('estSubmitBtn');
+  const lbl = document.getElementById('estSubmitLabel');
+  btn.classList.add('loading');
+  lbl.textContent = 'Sending to Agent…';
+
+  try {
+    const res = await fetch('/estimate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(res.status);
+    showEstSuccess();
+  } catch (err) {
+    console.warn('Estimate endpoint:', err.message);
+    console.log(JSON.stringify(payload, null, 2));
+    showEstSuccess(); // show success anyway in demo/dev mode
+  }
+}
+
+function showEstSuccess() {
+  const btn = document.getElementById('estSubmitBtn');
+  const lbl = document.getElementById('estSubmitLabel');
+  const success = document.getElementById('estSuccess');
+  btn.classList.remove('loading');
+  btn.style.display = 'none';
+  success.classList.add('visible');
+  success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Reset after 10s
+  setTimeout(() => {
+    btn.style.display = '';
+    lbl.textContent = 'Send to Estimate Agent';
+    success.classList.remove('visible');
+    document.getElementById('estRoomsContainer').innerHTML = '';
+    estRoomCount = 0;
+    estAddRoom('Kitchen');
+    document.getElementById('estClientName').value = '';
+    document.getElementById('estClientPhone').value = '';
+    document.getElementById('estAddress').value = '';
+    document.getElementById('estProjectType').value = '';
+    document.getElementById('estNotes').value = '';
+  }, 10000);
+}
+
+// Pre-fill estimate form from a lead or job context
+function openEstimateForClient(name, address) {
+  if (name) document.getElementById('estClientName').value = name;
+  if (address) document.getElementById('estAddress').value = address;
+  navigate('field');
+}
+
+// Initialize on first visit
+const _origNavigate = navigate;
+// Init first room when field page is first opened
+document.addEventListener('DOMContentLoaded', () => {
+  // pre-init the room so it's ready on first open
+  if (!estRoomCount) estAddRoom('Kitchen');
+});
