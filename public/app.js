@@ -405,6 +405,7 @@ const PAGE_TITLES = {
   conversations: 'Conversations', agents: 'AI Agents', more: 'More',
   inventory: 'Inventory & Materials', schedule: 'Schedule', analytics: 'Analytics',
   field: 'Job Site Estimate', recurring: 'Recurring Jobs',
+  tasks: 'Tasks',
 };
 
 function navigate(page) {
@@ -439,6 +440,7 @@ function navigate(page) {
     else if (page === 'schedule')      loadSchedule();
     else if (page === 'inventory')     loadInventory();
     else if (page === 'recurring')     loadRecurring();
+    else if (page === 'tasks')         loadTasks();
   }
 }
 
@@ -632,6 +634,9 @@ async function loadDashboard() {
 
   // Render the status pills row
   renderDashPills(urgentCount, approvalCount, currentUser.role);
+
+  // Load tasks for the dashboard tasks strip
+  loadTasks();
 }
 
 /* ─── FORMAT HELPERS ────────────────────────────────────────────── */
@@ -1415,7 +1420,17 @@ function showClientDetail(idx) {
   document.getElementById('cmCall').href  = phone ? 'tel:' + phone.replace(/\D/g,'') : '#';
   document.getElementById('cmEmail').href = email ? 'mailto:' + email : '#';
 
-  document.getElementById('cmBody').innerHTML = `
+  renderClientOverview({ name, email, phone, ltv, jobs, last, sat, refs, notes, addr });
+
+  _openClientName = name;
+  switchClientTab('overview');
+  openModal('clientModal');
+}
+
+function renderClientOverview({ name, email, phone, ltv, jobs, last, sat, refs, notes, addr }) {
+  const el = document.getElementById('cmOverviewContent');
+  if (!el) return;
+  el.innerHTML = `
     <div class="modal-section">
       <div class="modal-section-label">Client Profile</div>
       <div class="detail-row"><div class="detail-key">Lifetime Value</div><div class="detail-val text-gold fw800">${ltv?formatCurrency(ltv):'—'}</div></div>
@@ -1433,8 +1448,77 @@ function showClientDetail(idx) {
       <div class="notes-box">${notes}</div>
     </div>`:''}
   `;
+}
 
-  openModal('clientModal');
+// ── CLIENT 360 TIMELINE ───────────────────────────────────────────────────────
+let _openClientName = null;
+
+function switchClientTab(tab) {
+  const overviewBtn = document.getElementById('cmTabOverview');
+  const timelineBtn = document.getElementById('cmTabTimeline');
+  const overviewDiv = document.getElementById('cmOverviewContent');
+  const timelineDiv = document.getElementById('cmTimelineContent');
+  if (!overviewBtn) return;
+
+  const isOverview = tab === 'overview';
+  overviewBtn.style.borderBottomColor = isOverview ? 'var(--gold)' : 'transparent';
+  overviewBtn.style.color             = isOverview ? 'var(--gold)' : 'var(--text2)';
+  timelineBtn.style.borderBottomColor = !isOverview ? 'var(--gold)' : 'transparent';
+  timelineBtn.style.color             = !isOverview ? 'var(--gold)' : 'var(--text2)';
+  overviewDiv.style.display = isOverview ? '' : 'none';
+  timelineDiv.style.display = !isOverview ? '' : 'none';
+
+  if (tab === 'timeline' && _openClientName) loadClientTimeline(_openClientName);
+}
+
+async function loadClientTimeline(name) {
+  const el = document.getElementById('cmTimelineContent');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2);font-size:13px">Loading timeline…</div>';
+
+  try {
+    const res  = await fetch(`/api/clients/${encodeURIComponent(name)}/timeline`);
+    const data = await res.json();
+
+    if (!data.events?.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:13px">No activity recorded yet</div>';
+      return;
+    }
+
+    const colorMap = {
+      gold:  { bg: 'rgba(191,148,56,.12)',  border: 'rgba(191,148,56,.3)',  text: 'var(--gold)'  },
+      green: { bg: 'rgba(34,197,94,.1)',    border: 'rgba(34,197,94,.25)',  text: 'var(--green)' },
+      mist:  { bg: 'rgba(255,255,255,.04)', border: 'var(--border)',         text: 'var(--text2)' },
+    };
+
+    el.innerHTML = `
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">${data.events.length} event${data.events.length!==1?'s':''} · ${data.jobCount} job${data.jobCount!==1?'s':''}</div>
+      <div style="position:relative">
+        <div style="position:absolute;left:19px;top:0;bottom:0;width:2px;background:var(--border);z-index:0"></div>
+        ${data.events.map(e => {
+          const c = colorMap[e.color] || colorMap.mist;
+          let dateStr = '';
+          if (e.date) {
+            try { dateStr = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+            catch(_) { dateStr = e.date; }
+          }
+          return `
+            <div style="display:flex;gap:12px;margin-bottom:16px;position:relative;z-index:1">
+              <div style="width:38px;height:38px;border-radius:50%;background:${c.bg};border:1px solid ${c.border};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${e.icon}</div>
+              <div style="flex:1;min-width:0;padding-top:4px">
+                <div style="font-size:14px;font-weight:700;color:var(--text)">${e.label}</div>
+                ${e.detail ? `<div style="font-size:12px;color:var(--text2);margin-top:1px">${e.detail}</div>` : ''}
+                ${dateStr  ? `<div style="font-size:11px;color:var(--text3);margin-top:3px">${dateStr}</div>` : ''}
+                ${e.photoUrl ? `<img src="${e.photoUrl}" style="margin-top:6px;width:80px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="window.open('${e.photoUrl}','_blank')">` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch(err) {
+    el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text2)">Could not load timeline</div>`;
+  }
 }
 
 /* ─── ALERTS PAGE ───────────────────────────────────────────────── */
@@ -3143,6 +3227,140 @@ async function loadInventory() {
   renderInventoryContent();
 }
 
+// ── GOALS & TARGETS ───────────────────────────────────────────────────────────
+let _goals = null;
+
+async function loadGoals() {
+  try {
+    const res = await fetch('/api/goals');
+    _goals = await res.json();
+  } catch (_) {
+    _goals = { revenueGoal: 0, leadsGoal: 0, conversionGoal: 0, jobsGoal: 0 };
+  }
+}
+
+function renderGoals(actuals) {
+  const el = document.getElementById('analyticsGoals');
+  if (!el) return;
+
+  const goals = _goals || { revenueGoal: 0, leadsGoal: 0, conversionGoal: 0, jobsGoal: 0 };
+
+  const hasGoals = goals.revenueGoal || goals.leadsGoal || goals.conversionGoal || goals.jobsGoal;
+  if (!hasGoals) {
+    el.innerHTML = `
+      <div style="background:var(--card);border:1px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:4px">
+        <div style="font-size:24px;margin-bottom:8px">🎯</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px">Set your monthly goals</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Track revenue, leads, conversion rate and jobs against your targets.</div>
+        <button class="btn btn-gold" style="padding:10px 20px" onclick="openGoalsModal()">Set Goals →</button>
+      </div>
+    `;
+    return;
+  }
+
+  const metrics = [
+    {
+      label:  'Revenue',
+      icon:   '💰',
+      actual: actuals?.revenue  || 0,
+      goal:   goals.revenueGoal || 0,
+      format: v => '$' + Math.round(v).toLocaleString(),
+    },
+    {
+      label:  'New Leads',
+      icon:   '👤',
+      actual: actuals?.leads    || 0,
+      goal:   goals.leadsGoal   || 0,
+      format: v => Math.round(v).toString(),
+    },
+    {
+      label:  'Jobs Done',
+      icon:   '🔨',
+      actual: actuals?.jobs     || 0,
+      goal:   goals.jobsGoal    || 0,
+      format: v => Math.round(v).toString(),
+    },
+    {
+      label:  'Conversion',
+      icon:   '📈',
+      actual: actuals?.conversion || 0,
+      goal:   goals.conversionGoal || 0,
+      format: v => Math.round(v) + '%',
+    },
+  ].filter(m => m.goal > 0);
+
+  if (!metrics.length) return;
+
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px">🎯 This Month vs Goals</div>
+    ${metrics.map(m => {
+      const pct     = m.goal > 0 ? Math.min(100, Math.round((m.actual / m.goal) * 100)) : 0;
+      const onTrack = pct >= 70;
+      const color   = pct >= 100 ? 'var(--green)' : pct >= 70 ? 'var(--gold)' : 'var(--red)';
+      const barColor = pct >= 100 ? '#22C55E' : pct >= 70 ? '#BF9438' : '#EF4444';
+      return `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">${m.icon}</span>
+              <span style="font-size:14px;font-weight:700;color:var(--text1)">${m.label}</span>
+            </div>
+            <div style="text-align:right">
+              <span style="font-size:15px;font-weight:800;color:${color}">${m.format(m.actual)}</span>
+              <span style="font-size:12px;color:var(--text2)"> / ${m.format(m.goal)}</span>
+            </div>
+          </div>
+          <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:999px;transition:width 1s ease"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:5px">
+            <span style="font-size:11px;color:${color};font-weight:700">${pct}% of goal</span>
+            <span style="font-size:11px;color:var(--text3)">${pct >= 100 ? '🎉 Goal hit!' : onTrack ? '✅ On track' : '⚠️ Behind'}</span>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function openGoalsModal() {
+  if (_goals) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    set('goalRevenue',    _goals.revenueGoal    || '');
+    set('goalLeads',      _goals.leadsGoal      || '');
+    set('goalConversion', _goals.conversionGoal || '');
+    set('goalJobs',       _goals.jobsGoal       || '');
+  }
+  openModal('goalsModal');
+}
+
+async function saveGoals() {
+  const btn = document.querySelector('#goalsModal .btn-gold');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        revenueGoal:    parseFloat(document.getElementById('goalRevenue')?.value)    || 0,
+        leadsGoal:      parseInt(document.getElementById('goalLeads')?.value)        || 0,
+        conversionGoal: parseFloat(document.getElementById('goalConversion')?.value) || 0,
+        jobsGoal:       parseInt(document.getElementById('goalJobs')?.value)         || 0,
+        period: 'Monthly',
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    await loadGoals();
+    toast('🎯 Goals saved!');
+    closeModal('goalsModal');
+    loadAnalytics();
+  } catch (e) {
+    toast('⚠️ Save failed: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = 'Save Goals'; btn.disabled = false; }
+  }
+}
+
 async function loadAnalytics() {
   const [profitEl, sourcesEl, teamEl] = [
     document.getElementById('analyticsProfit'),
@@ -3150,12 +3368,13 @@ async function loadAnalytics() {
     document.getElementById('analyticsTeam'),
   ];
 
-  // Load all three in parallel
+  // Load goals and analytics data in parallel
   const [profitData, sourcesData, teamData] = await Promise.all([
+    loadGoals(),
     api('/api/analytics/profitability').catch(() => null),
     api('/api/analytics/lead-sources').catch(() => null),
     api('/api/analytics/team').catch(() => null),
-  ]);
+  ]).then(results => results.slice(1));
 
   // ── PROFITABILITY ──
   if (profitEl && profitData) {
@@ -3247,6 +3466,17 @@ async function loadAnalytics() {
   } else if (teamEl) {
     teamEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No team data yet.</div>`;
   }
+
+  // ── GOALS ──
+  const totalLeads     = (sourcesData || []).reduce((s, src) => s + (src.leads || 0), 0);
+  const totalConverted = (sourcesData || []).reduce((s, src) => s + (src.converted || 0), 0);
+  const conversionRate = totalLeads > 0 ? Math.round((totalConverted / totalLeads) * 100) : 0;
+  renderGoals({
+    revenue:    profitData?.summary?.total    || 0,
+    leads:      totalLeads,
+    jobs:       profitData?.summary?.jobCount || 0,
+    conversion: conversionRate,
+  });
 }
 
 /* ─── QUICKBOOKS ─────────────────────────────────────────────────── */
@@ -3719,6 +3949,168 @@ async function runRecurringJob(row, clientName) {
     if (!res.ok) throw new Error(data.error);
     showToast(`✅ Job ${data.jobId} created for ${clientName}`);
     loadRecurring();
+  } catch(e) {
+    showToast('Failed: ' + e.message, true);
+  }
+}
+
+// ── TASKS ─────────────────────────────────────────────────────
+let tasksData   = [];
+let taskFilter  = 'open';
+
+async function loadTasks() {
+  const list = document.getElementById('tasksList');
+  if (list) list.innerHTML = '<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>'.repeat(3);
+
+  try {
+    const res = await fetch('/api/tasks');
+    tasksData  = await res.json();
+    renderTasksList();
+    updateDashTasksStrip();
+    // Update summary line
+    const open = tasksData.filter(t => t.status === 'Open').length;
+    const high = tasksData.filter(t => t.status === 'Open' && t.priority === 'High').length;
+    const summaryEl = document.getElementById('tasksSummaryLine');
+    if (summaryEl) summaryEl.textContent = `${open} open${high ? ` · ${high} high priority` : ''}`;
+    // Update More badge
+    const moreDesc = document.getElementById('moreTaskDesc');
+    if (moreDesc) moreDesc.textContent = open ? `${open} open` : 'Action items';
+  } catch(e) {
+    if (list) list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text2)">Could not load tasks</div>';
+  }
+}
+
+function setTaskFilter(btn) {
+  document.querySelectorAll('[data-tfilter]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  taskFilter = btn.dataset.tfilter;
+  renderTasksList();
+}
+
+function renderTasksList() {
+  const list = document.getElementById('tasksList');
+  if (!list) return;
+
+  let items = tasksData;
+  if (taskFilter === 'open')     items = tasksData.filter(t => t.status === 'Open');
+  if (taskFilter === 'high')     items = tasksData.filter(t => t.status === 'Open' && t.priority === 'High');
+  if (taskFilter === 'complete') items = tasksData.filter(t => t.status === 'Complete');
+
+  if (!items.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="font-size:32px;margin-bottom:10px">✅</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">${taskFilter === 'complete' ? 'No completed tasks' : 'All clear!'}</div><div style="font-size:13px">No ${taskFilter === 'all' ? '' : taskFilter + ' '}tasks right now.</div></div>`;
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  list.innerHTML = items.map(t => {
+    const isComplete = t.status === 'Complete';
+    const dueDate    = t.dueDate ? new Date(t.dueDate) : null;
+    const isOverdue  = dueDate && dueDate < today && !isComplete;
+    const isDueToday = dueDate && dueDate.toDateString() === today.toDateString();
+    const dueTxt     = !dueDate ? '' : isOverdue ? `⚠️ Overdue · ${t.dueDate}` : isDueToday ? '📅 Due today' : `📅 ${t.dueDate}`;
+    const prioColor  = t.priority === 'High' ? 'var(--red)' : t.priority === 'Low' ? 'var(--text3)' : 'var(--text2)';
+    const prioDot    = t.priority === 'High' ? '🔴' : t.priority === 'Low' ? '⚪' : '🟡';
+
+    return `
+      <div style="background:var(--card);border:1px solid ${isOverdue ? 'rgba(239,68,68,.3)' : 'var(--border)'};border-radius:var(--r);padding:14px 16px;margin-bottom:8px;${isComplete ? 'opacity:.6' : ''}">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <button onclick="${isComplete ? '' : `completeTask(${t.row})`}" style="width:22px;height:22px;border-radius:6px;border:2px solid ${isComplete ? 'var(--green)' : 'var(--border)'};background:${isComplete ? 'var(--green)' : 'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:1px;font-size:12px;color:#fff">
+            ${isComplete ? '✓' : ''}
+          </button>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text1);${isComplete ? 'text-decoration:line-through' : ''}">${t.title}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center">
+              ${t.assignedTo ? `<span style="font-size:11px;color:var(--text2)">👤 ${t.assignedTo}</span>` : ''}
+              ${t.clientName ? `<span style="font-size:11px;color:var(--text2)">🤝 ${t.clientName}</span>` : ''}
+              ${t.jobId ? `<span style="font-size:11px;color:var(--text3)">${t.jobId}</span>` : ''}
+              <span style="font-size:11px;color:${prioColor}">${prioDot} ${t.priority}</span>
+            </div>
+            ${dueTxt ? `<div style="font-size:12px;margin-top:4px;color:${isOverdue ? 'var(--red)' : isDueToday ? 'var(--gold)' : 'var(--text2)'};font-weight:${isOverdue||isDueToday?'700':'400'}">${dueTxt}</div>` : ''}
+            ${t.notes ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;font-style:italic">${t.notes}</div>` : ''}
+          </div>
+          <button onclick="deleteTask(${t.row})" style="padding:4px 8px;border-radius:6px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:16px;flex-shrink:0">×</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateDashTasksStrip() {
+  const strip = document.getElementById('dashTasksStrip');
+  if (!strip) return;
+  const open = tasksData.filter(t => t.status === 'Open').slice(0, 3);
+  if (!open.length) {
+    strip.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--text2)">✅ No open tasks</div>';
+    return;
+  }
+  strip.innerHTML = open.map(t => `
+    <div style="background:var(--card);border:1px solid ${t.priority==='High'?'rgba(239,68,68,.3)':'var(--border)'};border-radius:var(--r);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px" onclick="navigate('tasks')">
+      <div style="font-size:18px">${t.priority==='High'?'🔴':'🟡'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
+        <div style="font-size:12px;color:var(--text2)">${t.assignedTo||'Unassigned'}${t.dueDate?' · Due '+t.dueDate:''}</div>
+      </div>
+    </div>
+  `).join('') + (tasksData.filter(t=>t.status==='Open').length > 3 ? `<div style="font-size:12px;color:var(--gold);font-weight:600;padding:4px 0;cursor:pointer" onclick="navigate('tasks')">+ ${tasksData.filter(t=>t.status==='Open').length - 3} more tasks →</div>` : '');
+}
+
+function openAddTaskModal() {
+  // Set default due date to tomorrow
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const el = document.getElementById('taskDueDate');
+  if (el) el.value = tomorrow.toISOString().split('T')[0];
+  openModal('addTaskModal');
+}
+
+async function saveTask() {
+  const title = document.getElementById('taskTitle')?.value?.trim();
+  if (!title) { showToast('Task title required', true); return; }
+  const btn = document.querySelector('#addTaskModal .btn-gold');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        assignedTo:  document.getElementById('taskAssignedTo')?.value?.trim() || '',
+        dueDate:     document.getElementById('taskDueDate')?.value || '',
+        priority:    document.getElementById('taskPriority')?.value || 'Normal',
+        clientName:  document.getElementById('taskClientName')?.value?.trim() || '',
+        jobId:       document.getElementById('taskJobId')?.value?.trim() || '',
+        notes:       document.getElementById('taskNotes')?.value?.trim() || '',
+      })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast('✅ Task saved');
+    closeModal('addTaskModal');
+    // Clear form
+    ['taskTitle','taskAssignedTo','taskClientName','taskJobId','taskNotes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    loadTasks();
+  } catch(e) {
+    showToast('Save failed: ' + e.message, true);
+  } finally {
+    if (btn) { btn.textContent = 'Save Task'; btn.disabled = false; }
+  }
+}
+
+async function completeTask(row) {
+  try {
+    await fetch(`/api/tasks/${row}/complete`, { method: 'POST' });
+    showToast('✅ Task complete!');
+    loadTasks();
+  } catch(e) {
+    showToast('Failed: ' + e.message, true);
+  }
+}
+
+async function deleteTask(row) {
+  if (!confirm('Delete this task?')) return;
+  try {
+    await fetch(`/api/tasks/${row}`, { method: 'DELETE' });
+    showToast('Task deleted');
+    loadTasks();
   } catch(e) {
     showToast('Failed: ' + e.message, true);
   }

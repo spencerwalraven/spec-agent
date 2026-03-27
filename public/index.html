@@ -985,6 +985,15 @@
         </div>
       </div>
 
+      <!-- Pending Tasks Strip -->
+      <div class="section-header" style="margin-top:20px">
+        <span class="section-title">✅ Pending Tasks</span>
+        <button onclick="navigate('tasks')" class="section-action">See all →</button>
+      </div>
+      <div id="dashTasksStrip">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--text2)">Loading tasks…</div>
+      </div>
+
       <!-- Quick Actions — role-specific, rendered by JS -->
       <div id="dashQuickActions"></div>
 
@@ -1444,6 +1453,7 @@
         <button class="more-item" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; suppliers</div></button>
         <button class="more-item" onclick="navigate('recurring')"><div class="more-icon">🔁</div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
         <button class="more-item" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+        <button class="more-item" onclick="navigate('tasks')" style="position:relative"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc" id="moreTaskDesc">Action items</div></button>
       </div>
 
       <a href="/logout" onclick="return confirm('Sign out of the dashboard?')" style="display:block;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:600;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1F0A0A'" onmouseout="this.style.background='var(--card)'">
@@ -1582,7 +1592,15 @@
           <div style="font-size:22px;font-weight:800;color:var(--text1)">Analytics</div>
           <div style="font-size:13px;color:var(--text2);margin-top:2px">Revenue, sources &amp; team</div>
         </div>
-        <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadAnalytics()">↻ Refresh</button>
+        <div style="display:flex;gap:8px">
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="openGoalsModal()">🎯 Goals</button>
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadAnalytics()">↻ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Goals & Targets -->
+      <div id="analyticsGoals" style="margin-bottom:20px">
+        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>
 
       <!-- Profitability Summary -->
@@ -1626,6 +1644,30 @@
     </div>
 
     <div id="recurringList">
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+    </div>
+  </section>
+
+  <!-- ── TASKS ──────────────────────────────────────────────────────────────── -->
+  <section class="page" id="page-tasks">
+    <div style="padding:4px 0 12px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--text1)">Tasks</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px" id="tasksSummaryLine">Action items &amp; follow-ups</div>
+      </div>
+      <button class="btn btn-primary" style="padding:8px 14px;font-size:13px" onclick="openAddTaskModal()">+ Task</button>
+    </div>
+
+    <div class="filter-chips" style="margin-bottom:12px">
+      <button class="chip active" data-tfilter="open"     onclick="setTaskFilter(this)">Open</button>
+      <button class="chip"        data-tfilter="high"     onclick="setTaskFilter(this)">🔴 High</button>
+      <button class="chip"        data-tfilter="complete" onclick="setTaskFilter(this)">✅ Done</button>
+      <button class="chip"        data-tfilter="all"      onclick="setTaskFilter(this)">All</button>
+    </div>
+
+    <div id="tasksList">
       <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
@@ -1729,7 +1771,15 @@
       <div class="modal-title" id="cmName">—</div>
       <div class="modal-sub" id="cmSub">—</div>
     </div>
-    <div class="modal-body" id="cmBody"></div>
+    <div class="modal-body" id="cmBody">
+      <!-- Tab bar -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin:-20px -20px 16px;padding:0 20px">
+        <button id="cmTabOverview" onclick="switchClientTab('overview')" style="padding:12px 16px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--gold);color:var(--gold)">Overview</button>
+        <button id="cmTabTimeline" onclick="switchClientTab('timeline')" style="padding:12px 16px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">Timeline</button>
+      </div>
+      <div id="cmOverviewContent"></div>
+      <div id="cmTimelineContent" style="display:none"></div>
+    </div>
     <div class="modal-actions">
       <a class="btn btn-secondary" id="cmCall" href="#">📞 Call</a>
       <a class="btn btn-primary" id="cmEmail" href="#">✉️ Email</a>
@@ -1825,6 +1875,57 @@
 </div>
 
 <!-- Add Recurring Job Modal -->
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="addTaskModal" onclick="if(event.target===this)closeModal('addTaskModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">New Task</div>
+      <button class="modal-close" onclick="closeModal('addTaskModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Task *</label>
+        <input class="form-input" id="taskTitle" placeholder="e.g. Call Marcus about permit">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned To</label>
+        <input class="form-input" id="taskAssignedTo" placeholder="Team member name">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input class="form-input" id="taskDueDate" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="taskPriority">
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Linked Client</label>
+        <input class="form-input" id="taskClientName" placeholder="Client name (optional)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Linked Job ID</label>
+        <input class="form-input" id="taskJobId" placeholder="e.g. JOB-00123 (optional)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="taskNotes" rows="2" style="resize:none" placeholder="Any details…"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addTaskModal')" style="flex:1">Cancel</button>
+      <button class="btn btn-gold" onclick="saveTask()" style="flex:1">Save Task</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="addRecurringModal" onclick="if(event.target===this)closeModal('addRecurringModal')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
@@ -1889,6 +1990,40 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('addRecurringModal')" style="flex:1">Cancel</button>
       <button class="btn btn-gold" onclick="saveRecurringJob()" style="flex:1">Save Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Set Goals Modal -->
+<div class="modal-overlay" id="goalsModal" onclick="if(event.target===this)closeModal('goalsModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">🎯 Set Monthly Goals</div>
+      <button class="modal-close" onclick="closeModal('goalsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Set your targets and SPEC will track your progress automatically.</div>
+      <div class="form-group">
+        <label class="form-label">Revenue Goal ($)</label>
+        <input class="form-input" id="goalRevenue" type="number" placeholder="e.g. 80000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Leads Goal</label>
+        <input class="form-input" id="goalLeads" type="number" placeholder="e.g. 20">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Conversion Rate Goal (%)</label>
+        <input class="form-input" id="goalConversion" type="number" placeholder="e.g. 35" min="0" max="100">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jobs Completed Goal</label>
+        <input class="form-input" id="goalJobs" type="number" placeholder="e.g. 8">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('goalsModal')" style="flex:1">Cancel</button>
+      <button class="btn btn-gold" onclick="saveGoals()" style="flex:1">Save Goals</button>
     </div>
   </div>
 </div>

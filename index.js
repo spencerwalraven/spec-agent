@@ -919,6 +919,127 @@ app.get('/api/clients', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: CLIENT 360 TIMELINE ───────────────────────────────────────────────
+// GET /api/clients/:name/timeline — full activity history for a client
+app.get('/api/clients/:name/timeline', async (req, res) => {
+  try {
+    const name   = decodeURIComponent(req.params.name);
+    const events = [];
+
+    // Helper: read a tab and return raw rows (header + data)
+    async function getSheet(tabName) {
+      try {
+        const rows = await readTab(tabName);
+        // readTab returns objects — reconstruct raw rows for header-index lookups
+        // Instead, just return the raw sheets response
+        const sheets = getSheets();
+        const r = await sheets.spreadsheets.values.get({
+          spreadsheetId: SHEET_ID,
+          range: `${tabName}!A:Z`,
+        });
+        return r.data.values || [];
+      } catch (_) { return []; }
+    }
+
+    function nameMatch(a, b) {
+      const al = (a || '').toLowerCase().trim();
+      const bl = (b || '').toLowerCase().trim();
+      return al && bl && (al.includes(bl) || bl.includes(al));
+    }
+
+    // 1. Lead data (Form Responses 1)
+    const leadRows = await getSheet('Form Responses 1');
+    const leadHeader = leadRows[0] || [];
+    const lNameIdx   = leadHeader.findIndex(h => /name/i.test(h));
+    const lDateIdx   = leadHeader.findIndex(h => /timestamp|date/i.test(h));
+    const lSourceIdx = leadHeader.findIndex(h => /source|how/i.test(h));
+    for (const row of leadRows.slice(1)) {
+      if (!nameMatch(row[lNameIdx], name)) continue;
+      events.push({
+        type:   'lead',
+        icon:   '👤',
+        label:  'Lead submitted',
+        detail: `Source: ${row[lSourceIdx] || 'Direct'}`,
+        date:   row[lDateIdx] || '',
+        color:  'gold',
+      });
+    }
+
+    // 2. Jobs data
+    const jobRows    = await getSheet('Jobs');
+    const jobHeader  = jobRows[0] || [];
+    const jClientIdx = jobHeader.findIndex(h => /client/i.test(h));
+    const jTypeIdx   = jobHeader.findIndex(h => /project|service.?type|job.?type/i.test(h));
+    const jStatusIdx = jobHeader.findIndex(h => /status/i.test(h));
+    const jStartIdx  = jobHeader.findIndex(h => /start/i.test(h));
+    const jIdIdx     = jobHeader.findIndex(h => /job.?id/i.test(h));
+    const jValueIdx  = jobHeader.findIndex(h => /value|amount|price/i.test(h));
+    const matchedJobs = [];
+    for (const row of jobRows.slice(1)) {
+      if (!nameMatch(row[jClientIdx], name)) continue;
+      matchedJobs.push(row[jIdIdx] || '');
+      events.push({
+        type:   'job',
+        icon:   '🔨',
+        label:  `Job created: ${row[jTypeIdx] || 'Project'}`,
+        detail: `${row[jStatusIdx] || 'Active'}${row[jValueIdx] ? ' · ' + row[jValueIdx] : ''}`,
+        date:   row[jStartIdx] || '',
+        color:  'green',
+        jobId:  row[jIdIdx] || '',
+      });
+    }
+
+    // 3. Invoices tab (if exists)
+    const invoiceRows = await getSheet('Invoices');
+    const invHeader   = invoiceRows[0] || [];
+    const invClientIdx = invHeader.findIndex(h => /client/i.test(h));
+    const invAmtIdx    = invHeader.findIndex(h => /amount|total/i.test(h));
+    const invTypeIdx   = invHeader.findIndex(h => /type/i.test(h));
+    const invDateIdx   = invHeader.findIndex(h => /date/i.test(h));
+    const invStatusIdx = invHeader.findIndex(h => /status|paid/i.test(h));
+    for (const row of invoiceRows.slice(1)) {
+      if (!nameMatch(row[invClientIdx], name)) continue;
+      const isPaid = (row[invStatusIdx] || '').toLowerCase().includes('paid');
+      events.push({
+        type:   'invoice',
+        icon:   '💰',
+        label:  `${row[invTypeIdx] || 'Invoice'} sent`,
+        detail: `${row[invAmtIdx] || ''}${row[invStatusIdx] ? ' · ' + row[invStatusIdx] : ''}`,
+        date:   row[invDateIdx] || '',
+        color:  isPaid ? 'green' : 'gold',
+      });
+    }
+
+    // 4. Job Photos tab (if exists)
+    const photoRows = await getSheet('Job Photos');
+    for (const row of photoRows.slice(1)) {
+      const rowName = row[2] || ''; // clientName column
+      if (!nameMatch(rowName, name)) continue;
+      events.push({
+        type:     'photo',
+        icon:     '📸',
+        label:    `Photo added: ${row[3] || 'Job photo'}`,
+        detail:   row[0] || '',
+        date:     row[5] || '',
+        color:    'mist',
+        photoUrl: row[4] || '',
+      });
+    }
+
+    // 5. Sort all events by date descending (most recent first)
+    events.sort((a, b) => {
+      const da = a.date ? new Date(a.date) : new Date(0);
+      const db = b.date ? new Date(b.date) : new Date(0);
+      return db - da;
+    });
+
+    res.json({ name, events, jobCount: matchedJobs.length });
+  } catch (e) {
+    console.error('Timeline error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── API: TEAM ──────────────────────────────────────────────────────────────
 app.get('/api/team', async (req, res) => {
   try {
@@ -1417,6 +1538,69 @@ app.get('/api/settings',  async (req, res) => {
 app.post('/api/settings', async (req, res) => {
   try { await writeSettings(req.body); res.json({ success: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── GOALS & TARGETS ──────────────────────────────────────────────────────────
+app.get('/api/goals', async (req, res) => {
+  try {
+    const sheets = getSheets();
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID, range: 'Settings!A1:B80',
+    });
+    const rawMap = {};
+    (r.data.values || []).forEach(row => {
+      if (row[0]) rawMap[row[0].trim()] = (row[1] || '').trim();
+    });
+    res.json({
+      revenueGoal:    parseFloat(rawMap['Goal Revenue']    || '0') || 0,
+      leadsGoal:      parseInt(rawMap['Goal Leads']        || '0') || 0,
+      conversionGoal: parseFloat(rawMap['Goal Conversion'] || '0') || 0,
+      jobsGoal:       parseInt(rawMap['Goal Jobs']         || '0') || 0,
+      period:         rawMap['Goal Period'] || 'Monthly',
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/goals', async (req, res) => {
+  try {
+    const { revenueGoal, leadsGoal, conversionGoal, jobsGoal, period } = req.body;
+    const sheets = getSheets();
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID, range: 'Settings!A1:A80',
+    });
+    const labels = (r.data.values || []).map(row => (row[0] || '').trim());
+    const goalMap = {
+      'Goal Revenue':    String(revenueGoal    ?? ''),
+      'Goal Leads':      String(leadsGoal      ?? ''),
+      'Goal Conversion': String(conversionGoal ?? ''),
+      'Goal Jobs':       String(jobsGoal       ?? ''),
+      'Goal Period':     period || 'Monthly',
+    };
+    const toAppend = [];
+    for (const [label, value] of Object.entries(goalMap)) {
+      const rowIdx = labels.indexOf(label);
+      if (rowIdx !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SHEET_ID,
+          range: `Settings!B${rowIdx + 1}`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[value]] },
+        });
+      } else {
+        toAppend.push([label, value]);
+      }
+    }
+    if (toAppend.length) {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SHEET_ID,
+        range: 'Settings!A:B',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: toAppend },
+      });
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Legacy webhook aliases — kept for backward compat with existing Make.com scenarios
@@ -2992,6 +3176,83 @@ app.post('/api/recurring/:row/run', requireAuth, async (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
+
+async function getTasks(sheets, ssId) {
+  try {
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Tasks!A:J' });
+    const rows = (r.data.values || []).slice(1).filter(r => r[0]);
+    return rows.map((r, i) => ({
+      row:        i + 2,
+      title:      r[0] || '',
+      assignedTo: r[1] || '',
+      dueDate:    r[2] || '',
+      priority:   r[3] || 'Normal', // High / Normal / Low
+      status:     r[4] || 'Open',   // Open / Complete
+      clientName: r[5] || '',
+      jobId:      r[6] || '',
+      notes:      r[7] || '',
+      createdAt:  r[8] || '',
+      completedAt:r[9] || '',
+    }));
+  } catch(_) { return []; }
+}
+
+app.get('/api/tasks', requireAuth, async (req, res) => {
+  try {
+    const tasks = await getTasks(req.app.locals.sheets, req.session.sheetId);
+    res.json(tasks);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/tasks', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    const { title, assignedTo, dueDate, priority, clientName, jobId, notes } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+
+    const createdAt = new Date().toISOString();
+    const row = [title, assignedTo||'', dueDate||'', priority||'Normal', 'Open', clientName||'', jobId||'', notes||'', createdAt, ''];
+
+    try {
+      await sheets.spreadsheets.values.append({ spreadsheetId: ssId, range: 'Tasks!A:J', valueInputOption: 'USER_ENTERED', requestBody: { values: [row] } });
+    } catch(_) {
+      await sheets.spreadsheets.values.update({ spreadsheetId: ssId, range: 'Tasks!A1:J1', valueInputOption: 'USER_ENTERED', requestBody: { values: [['Title','Assigned To','Due Date','Priority','Status','Client','Job ID','Notes','Created At','Completed At']] } });
+      await sheets.spreadsheets.values.append({ spreadsheetId: ssId, range: 'Tasks!A:J', valueInputOption: 'USER_ENTERED', requestBody: { values: [row] } });
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/tasks/:row/complete', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    const rowNum = parseInt(req.params.row);
+    const completedAt = new Date().toISOString();
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: ssId,
+      requestBody: { valueInputOption: 'USER_ENTERED', data: [
+        { range: `Tasks!E${rowNum}`, values: [['Complete']] },
+        { range: `Tasks!J${rowNum}`, values: [[completedAt]] },
+      ]}
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/tasks/:row', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    const rowNum = parseInt(req.params.row);
+    // Clear the row
+    await sheets.spreadsheets.values.clear({ spreadsheetId: ssId, range: `Tasks!A${rowNum}:J${rowNum}` });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 const PORT = process.env.PORT || 3000;
