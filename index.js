@@ -17,13 +17,12 @@ const dbMarketing = require('./src/services/marketing');
 process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
 process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
 
-// ─── DATABASE AUTO-MIGRATION ──────────────────────────────────────────────────
-// Runs on every deploy — safe because all statements use IF NOT EXISTS
+// ─── DATABASE AUTO-MIGRATION + AUTO-SEED ─────────────────────────────────────
 if (process.env.DATABASE_URL) {
   const { pool } = require('./src/db');
   (async () => {
     try {
-      // Quick check — if companies table exists we've already migrated
+      // Check if schema exists
       await pool.query(`SELECT 1 FROM companies LIMIT 1`);
       console.log('✅ Database schema already up to date');
     } catch {
@@ -34,6 +33,20 @@ if (process.env.DATABASE_URL) {
       } catch (e) {
         console.error('❌ Migration error:', e.message);
       }
+    }
+
+    // Auto-seed if database is empty (first deploy)
+    try {
+      const result = await pool.query(`SELECT COUNT(*) FROM leads WHERE company_id = 1`);
+      const count = parseInt(result.rows[0].count);
+      if (count === 0 && process.env.AUTO_SEED !== 'false') {
+        console.log('🌱 Database is empty — running seed...');
+        const { execSync } = require('child_process');
+        execSync('node src/seed.js', { stdio: 'inherit', cwd: __dirname });
+        console.log('✅ Demo data loaded');
+      }
+    } catch (e) {
+      console.warn('⚠️  Auto-seed skipped:', e.message);
     }
   })();
 } else {
