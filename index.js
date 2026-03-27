@@ -7,6 +7,29 @@ const { google } = require('googleapis');
 process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
 process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
 
+// ─── DATABASE AUTO-MIGRATION ──────────────────────────────────────────────────
+// Runs on every deploy — safe because all statements use IF NOT EXISTS
+if (process.env.DATABASE_URL) {
+  const { pool } = require('./src/db');
+  (async () => {
+    try {
+      // Quick check — if companies table exists we've already migrated
+      await pool.query(`SELECT 1 FROM companies LIMIT 1`);
+      console.log('✅ Database schema already up to date');
+    } catch {
+      console.log('🚀 Running database migration...');
+      try {
+        const { execSync } = require('child_process');
+        execSync('node src/migrate.js', { stdio: 'inherit', cwd: __dirname });
+      } catch (e) {
+        console.error('❌ Migration error:', e.message);
+      }
+    }
+  })();
+} else {
+  console.warn('⚠️  DATABASE_URL not set — running without PostgreSQL (Sheets fallback active)');
+}
+
 // ─── AI AGENT SYSTEM ─────────────────────────────────────────────────────────
 let webhookRouter, startScheduler, addSseClient, logger;
 try {
