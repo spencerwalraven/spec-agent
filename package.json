@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "setup": "node setup-gmail.js",
-    "migrate": "node src/migrate.js"
+    "migrate": "node src/migrate.js",
+    "seed": "node src/seed.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

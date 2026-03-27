@@ -1,352 +1,257 @@
 /**
  * db-tools.js — PostgreSQL-backed agent tool wrappers
- * Replaces the Google Sheets tool wrappers in sheets.js for all agent reads/writes.
- * rowNumber === database id in all cases.
+ * Drop-in replacements for the Sheets-based tool wrappers in sheets.js
+ * These are called by the Anthropic tool-use loop in each agent.
  */
 
-const { query, getOne, getAll, insertOne, updateOne } = require('../db');
-const dbLeads = require('../services/leads');
+const dbLeads   = require('../services/leads');
+const dbJobs    = require('../services/jobs');
 const dbClients = require('../services/clients');
-const dbJobs = require('../services/jobs');
 const dbSettings = require('../services/settings');
 
-// ---------------------------------------------------------------------------
-// g — flexible field getter: tries each key in order, returns first truthy value or ''
-// ---------------------------------------------------------------------------
-function g(obj, ...keys) {
-  for (const key of keys) {
-    if (obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
-      return obj[key];
-    }
-  }
-  return '';
+// ─── LEAD TOOLS ──────────────────────────────────────────────────────────────
+
+/**
+ * Read a lead by DB id.
+ * Agents pass { leadId } or legacy { rowNumber } — both work.
+ */
+async function toolReadLead({ leadId, rowNumber }) {
+  const id = leadId || rowNumber;
+  if (!id) return JSON.stringify({ error: 'leadId required' });
+  const lead = await dbLeads.getLead(id);
+  if (!lead) return JSON.stringify({ error: `Lead ${id} not found` });
+  return JSON.stringify(lead, null, 2);
 }
 
-// ---------------------------------------------------------------------------
-// Lead tools
-// ---------------------------------------------------------------------------
+/**
+ * Update a single field on a lead.
+ * field uses camelCase matching the formatLead output, OR snake_case DB column.
+ */
+async function toolUpdateLead({ leadId, rowNumber, field, value }) {
+  const id = leadId || rowNumber;
+  if (!id || !field) return 'Error: leadId and field required';
 
-async function toolReadLead(id) {
-  try {
-    const lead = await dbLeads.getLead(id);
-    if (!lead) return null;
-    return dbLeads.formatLead(lead);
-  } catch (err) {
-    console.error('[toolReadLead] error:', err.message);
-    return null;
-  }
-}
-
-async function toolUpdateLead(id, updates) {
-  for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
-
-    if (key === 'status' || key === 'leadStatus') {
-      await dbLeads.updateLeadStatus(id, value);
-    } else if (key === 'score' || key === 'leadScore') {
-      const label = updates.label || updates.scoreLabel || null;
-      const summary = updates.summary || updates.scoreSummary || null;
-      await dbLeads.updateLeadScore(id, value, label, summary);
-    } else if (key === 'notes' || key === 'leadNote') {
-      await dbLeads.updateLeadNote(id, value);
-    } else if (key === 'lastContact' || key === 'lastContacted') {
-      await query(
-        'UPDATE leads SET last_contact=NOW(), updated_at=NOW() WHERE id=$1',
-        [id]
-      );
-    } else if (key === 'emailThreadId' || key === 'emailThread') {
-      await query(
-        'UPDATE leads SET email_thread_id=$1 WHERE id=$2',
-        [value, id]
-      );
-    } else if (
-      key === 'label' || key === 'scoreLabel' ||
-      key === 'summary' || key === 'scoreSummary'
-    ) {
-      // Skip — handled as part of score update above
-      continue;
-    } else {
-      // Generic field update
-      await query(
-        `UPDATE leads SET ${key}=$1, updated_at=NOW() WHERE id=$2 AND company_id=1`,
-        [value, id]
-      );
-    }
-  }
-  return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
-// Job tools
-// ---------------------------------------------------------------------------
-
-async function toolReadJob(id) {
-  try {
-    const job = await dbJobs.getJob(id);
-    if (!job) return null;
-    return dbJobs.formatJob(job);
-  } catch (err) {
-    console.error('[toolReadJob] error:', err.message);
-    return null;
-  }
-}
-
-async function toolUpdateJob(id, updates) {
-  for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
-
-    if (key === 'status' || key === 'jobStatus') {
-      await dbJobs.updateJobStatus(id, value);
-    } else if (key === 'notes' || key === 'jobNotes') {
-      await dbJobs.updateJobField(id, 'notes', value);
-    } else if (key === 'proposalStatus') {
-      await dbJobs.updateJobField(id, 'proposal_status', value);
-    } else if (key === 'contractStatus') {
-      await dbJobs.updateJobField(id, 'contract_status', value);
-    } else if (key === 'estimatedValue') {
-      await dbJobs.updateJobField(id, 'estimated_value', value);
-    } else if (key === 'actualValue') {
-      await dbJobs.updateJobField(id, 'actual_value', value);
-    } else if (key === 'aiPlan') {
-      await dbJobs.updateJobField(id, 'ai_plan', value);
-    } else if (key === 'scopeOfWork') {
-      await dbJobs.updateJobField(id, 'scope_of_work', value);
-    } else if (key === 'kickoffDate') {
-      await dbJobs.updateJobField(id, 'kickoff_date', value);
-    } else if (key === 'proposalSentAt') {
-      await query(
-        'UPDATE jobs SET proposal_sent_at=NOW(), updated_at=NOW() WHERE id=$1',
-        [id]
-      );
-    } else if (key === 'proposalSignedAt') {
-      await query(
-        'UPDATE jobs SET proposal_signed_at=NOW(), updated_at=NOW() WHERE id=$1',
-        [id]
-      );
-    } else if (key === 'contractSignedAt') {
-      await query(
-        'UPDATE jobs SET contract_signed_at=NOW(), updated_at=NOW() WHERE id=$1',
-        [id]
-      );
-    } else if (key === 'depositPaid') {
-      await query(
-        'UPDATE jobs SET deposit_paid=$1, updated_at=NOW() WHERE id=$2',
-        [value, id]
-      );
-    } else if (key === 'emailThreadId') {
-      await query(
-        "UPDATE jobs SET notes=CONCAT(notes, ' [threadId:', $1, ']'), updated_at=NOW() WHERE id=$2",
-        [value, id]
-      );
-    } else {
-      // Generic field update
-      await query(
-        `UPDATE jobs SET ${key}=$1, updated_at=NOW() WHERE id=$2 AND company_id=1`,
-        [value, id]
-      );
-    }
-  }
-  return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
-// Client tools
-// ---------------------------------------------------------------------------
-
-async function toolReadClient(id) {
-  try {
-    let client;
-    if (typeof id === 'string' && isNaN(Number(id))) {
-      client = await dbClients.getClientByName(id);
-    } else {
-      client = await dbClients.getClient(id);
-    }
-    if (!client) return null;
-    return dbClients.formatClient(client);
-  } catch (err) {
-    console.error('[toolReadClient] error:', err.message);
-    return null;
-  }
-}
-
-async function toolUpdateClient(id, updates) {
+  // Map friendly field names → DB operations
   const fieldMap = {
-    notes: 'notes',
-    preferredContact: 'preferred_contact',
-    communicationStyle: 'communication_style',
-    decisionFactors: 'decision_factors',
-    keyConcerns: 'key_concerns',
+    leadStatus:   () => dbLeads.updateLeadStatus(id, value),
+    status:       () => dbLeads.updateLeadStatus(id, value),
+    notes:        () => dbLeads.updateLeadNote(id, value),
+    leadScore:    () => dbLeads.updateLeadScore(id, parseInt(value) || 0, null, null),
+    score:        () => dbLeads.updateLeadScore(id, parseInt(value) || 0, null, null),
+    aiSummary:    () => dbLeads.updateLeadScore(id, null, null, value),
+    lastContact:  () => dbLeads.logLeadContact(id),
   };
 
-  for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
-    const column = fieldMap[key] || key;
-    await query(
-      `UPDATE clients SET ${column}=$1, updated_at=NOW() WHERE id=$2 AND company_id=1`,
-      [value, id]
-    );
+  const handler = fieldMap[field];
+  if (handler) {
+    await handler();
+    return `Lead ${id} — ${field} updated to "${value}"`;
   }
-  return { ok: true };
+
+  // Generic fallback — direct column update via query
+  const { query } = require('../db');
+  const allowed = ['name','email','phone','address','service','message','source',
+    'score','score_label','status','notes','ai_summary','outreach_sent','sms_sent'];
+  const col = field.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase → snake_case
+  if (!allowed.includes(col)) return `Error: field "${field}" not updatable`;
+  await query(`UPDATE leads SET ${col} = $1, updated_at = NOW() WHERE id = $2`, [value, id]);
+  return `Lead ${id} — ${col} updated to "${value}"`;
 }
 
-// ---------------------------------------------------------------------------
-// Settings tools
-// ---------------------------------------------------------------------------
+// ─── JOB TOOLS ───────────────────────────────────────────────────────────────
 
+/**
+ * Read a job by DB id or job_ref (e.g. "JOB-003").
+ */
+async function toolReadJob({ jobId, rowNumber, jobRef }) {
+  let job;
+  if (jobRef) {
+    job = await dbJobs.getJobByRef(jobRef);
+  } else {
+    const id = jobId || rowNumber;
+    job = id ? await dbJobs.getJob(id) : null;
+  }
+  if (!job) return JSON.stringify({ error: `Job not found` });
+  return JSON.stringify(job, null, 2);
+}
+
+/**
+ * Update a single field on a job.
+ */
+async function toolUpdateJob({ jobId, rowNumber, field, value }) {
+  const id = jobId || rowNumber;
+  if (!id || !field) return 'Error: jobId and field required';
+
+  // Status shortcuts
+  if (field === 'status' || field === 'jobStatus') {
+    await dbJobs.updateJobStatus(id, value);
+    return `Job ${id} — status updated to "${value}"`;
+  }
+
+  // Map camelCase → snake_case for updateJobField
+  const colMap = {
+    notes:          'notes',
+    priority:       'priority',
+    estimatedValue: 'estimated_value',
+    actualValue:    'actual_value',
+    materialCost:   'material_cost',
+    laborCost:      'labor_cost',
+    proposalStatus: 'proposal_status',
+    contractStatus: 'contract_status',
+    kickoffDate:    'kickoff_date',
+    startDate:      'start_date',
+    endDate:        'end_date',
+    scopeOfWork:    'scope_of_work',
+    aiPlan:         'ai_plan',
+  };
+
+  const col = colMap[field] || field;
+  await dbJobs.updateJobField(id, col, value);
+  return `Job ${id} — ${col} updated to "${value}"`;
+}
+
+// ─── PHASE TOOLS ─────────────────────────────────────────────────────────────
+
+/**
+ * Read all phases for a job.
+ */
+async function toolReadPhases({ jobId }) {
+  if (!jobId) return JSON.stringify({ error: 'jobId required' });
+  const phases = await dbJobs.getPhases(jobId);
+  return JSON.stringify(phases, null, 2);
+}
+
+/**
+ * Update a phase's status.
+ */
+async function toolUpdatePhase({ phaseId, rowNumber, field, value }) {
+  const id = phaseId || rowNumber;
+  if (!id) return 'Error: phaseId required';
+
+  if (field === 'status') {
+    await dbJobs.updatePhaseStatus(id, value);
+    return `Phase ${id} — status updated to "${value}"`;
+  }
+  if (field === 'actualCost' || field === 'actual_cost') {
+    await dbJobs.updatePhaseActualCost(id, value);
+    return `Phase ${id} — actual cost updated to $${value}`;
+  }
+  if (field === 'clientFeedback' || field === 'client_feedback') {
+    const { query } = require('../db');
+    await query(`UPDATE job_phases SET client_feedback = $1, updated_at = NOW() WHERE id = $2`, [value, id]);
+    return `Phase ${id} — client feedback updated`;
+  }
+
+  return `Error: field "${field}" not supported for phases`;
+}
+
+/**
+ * Append a new phase to a job.
+ */
+async function toolAppendPhase({ data }) {
+  const { insertOne } = require('../db');
+  const { query } = require('../db');
+
+  // Get next phase number
+  const res = await query(`SELECT COUNT(*) FROM job_phases WHERE job_id = $1`, [data.jobId || data.job_id]);
+  const phaseNumber = parseInt(res.rows[0].count) + 1;
+
+  const phase = await insertOne(`
+    INSERT INTO job_phases (job_id, phase_number, name, description, assigned_to,
+      status, estimated_cost, start_date, end_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+  `, [
+    data.jobId || data.job_id,
+    phaseNumber,
+    data.name || data.phaseName || '',
+    data.description || '',
+    data.assignedTo || data.assigned_to || '',
+    data.status || 'pending',
+    parseFloat(data.estimatedCost || data.estimated_cost || 0) || null,
+    data.startDate || data.start_date || null,
+    data.endDate || data.end_date || null,
+  ]);
+  return JSON.stringify(phase, null, 2);
+}
+
+// ─── CLIENT TOOLS ────────────────────────────────────────────────────────────
+
+/**
+ * Read a client by id or name.
+ */
+async function toolReadClient({ clientId, rowNumber, name }) {
+  let client;
+  if (name) {
+    client = await dbClients.getClientByName(name);
+  } else {
+    const id = clientId || rowNumber;
+    client = id ? await dbClients.getClient(id) : null;
+  }
+  if (!client) return JSON.stringify({ error: 'Client not found' });
+  return JSON.stringify(client, null, 2);
+}
+
+/**
+ * Update a single field on a client.
+ */
+async function toolUpdateClient({ clientId, rowNumber, field, value }) {
+  const id = clientId || rowNumber;
+  if (!id || !field) return 'Error: clientId and field required';
+
+  const { query } = require('../db');
+  const colMap = {
+    notes:              'notes',
+    communicationStyle: 'communication_style',
+    decisionFactors:    'decision_factors',
+    keyConcerns:        'key_concerns',
+    preferredContact:   'preferred_contact',
+    totalRevenue:       'total_revenue',
+    jobCount:           'job_count',
+    lastJobAt:          'last_job_at',
+  };
+
+  const col = colMap[field] || field;
+  const allowed = Object.values(colMap).concat(['email','phone','address','source']);
+  if (!allowed.includes(col)) return `Error: field "${field}" not updatable`;
+
+  await query(`UPDATE clients SET ${col} = $1, updated_at = NOW() WHERE id = $2`, [value, id]);
+  return `Client ${id} — ${col} updated to "${value}"`;
+}
+
+// ─── SETTINGS TOOL ───────────────────────────────────────────────────────────
+
+/**
+ * Read company settings — injected into agent system prompts.
+ */
 async function toolReadSettings() {
-  try {
-    return await dbSettings.readSettings();
-  } catch (err) {
-    console.error('[toolReadSettings] error:', err.message);
-    return null;
-  }
+  const s = await dbSettings.readSettings();
+
+  const guidelines = [];
+  if (s.emailTone)        guidelines.push(`Write all emails in a ${s.emailTone} tone.`);
+  if (s.aboutUs)          guidelines.push(`Company background: ${s.aboutUs}`);
+  if (s.keySellingPoints) guidelines.push(`Key selling points: ${s.keySellingPoints}`);
+
+  const output = { ...s };
+  if (guidelines.length) output._communication_guidelines = guidelines.join(' ');
+  return JSON.stringify(output, null, 2);
 }
 
-// ---------------------------------------------------------------------------
-// Phase tools
-// ---------------------------------------------------------------------------
-
-async function toolReadPhases(jobId) {
-  try {
-    return await dbJobs.getPhases(jobId);
-  } catch (err) {
-    console.error('[toolReadPhases] error:', err.message);
-    return [];
-  }
-}
-
-async function toolUpdatePhase(phaseId, updates) {
-  for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
-
-    if (key === 'status') {
-      await dbJobs.updatePhaseStatus(phaseId, value);
-    } else if (key === 'actualCost') {
-      await dbJobs.updatePhaseActualCost(phaseId, value);
-    } else if (key === 'clientFeedback') {
-      await query(
-        'UPDATE job_phases SET client_feedback=$1, updated_at=NOW() WHERE id=$2',
-        [value, phaseId]
-      );
-    } else if (key === 'completedAt' || key === 'completionDate') {
-      await query(
-        'UPDATE job_phases SET completed_at=NOW(), updated_at=NOW() WHERE id=$1',
-        [phaseId]
-      );
-    } else {
-      await query(
-        `UPDATE job_phases SET ${key}=$1, updated_at=NOW() WHERE id=$2`,
-        [value, phaseId]
-      );
-    }
-  }
-  return { ok: true };
-}
-
-async function toolAppendPhase(jobId, phaseData) {
-  // Determine next phase_number
-  const maxRow = await getOne(
-    'SELECT MAX(phase_number) AS max_num FROM job_phases WHERE job_id=$1',
-    [jobId]
-  );
-  const nextNum = maxRow && maxRow.max_num != null ? Number(maxRow.max_num) + 1 : 1;
-
-  const name = g(phaseData, 'name', 'phaseName');
-  const description = g(phaseData, 'description', 'notes');
-  const assignedTo = g(phaseData, 'assignedTo', 'assigned_to');
-  const estimatedCost = g(phaseData, 'estimatedCost', 'cost', 'estimated_cost') || null;
-  const startDate = g(phaseData, 'startDate') || null;
-  const endDate = g(phaseData, 'endDate') || null;
-  const status = phaseData.status || 'pending';
-
-  const result = await query(
-    `INSERT INTO job_phases
-      (job_id, phase_number, name, description, assigned_to, estimated_cost, start_date, end_date, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id`,
-    [jobId, nextNum, name, description, assignedTo, estimatedCost, startDate, endDate, status]
-  );
-
-  return result.rows[0].id;
-}
-
-// ---------------------------------------------------------------------------
-// Lookup helpers
-// ---------------------------------------------------------------------------
-
-async function findLeadByEmail(email) {
-  try {
-    const row = await getOne(
-      'SELECT * FROM leads WHERE company_id=1 AND LOWER(email)=LOWER($1) LIMIT 1',
-      [email]
-    );
-    if (!row) return null;
-    return dbLeads.formatLead(row);
-  } catch (err) {
-    console.error('[findLeadByEmail] error:', err.message);
-    return null;
-  }
-}
-
-async function findJobByEmail(email) {
-  try {
-    const row = await getOne(
-      `SELECT j.*, c.name AS client_name
-       FROM jobs j
-       LEFT JOIN clients c ON j.client_id = c.id
-       WHERE j.company_id=1
-         AND c.email ILIKE $1
-         AND j.status NOT IN ('completed', 'cancelled')
-       ORDER BY j.created_at DESC
-       LIMIT 1`,
-      [email]
-    );
-    if (!row) return null;
-    return dbJobs.formatJob(row);
-  } catch (err) {
-    console.error('[findJobByEmail] error:', err.message);
-    return null;
-  }
-}
-
-async function findJobByClientName(name) {
-  try {
-    const row = await getOne(
-      `SELECT j.*, c.name AS client_name
-       FROM jobs j
-       LEFT JOIN clients c ON j.client_id = c.id
-       WHERE j.company_id=1
-         AND c.name ILIKE $1
-         AND j.status NOT IN ('completed', 'cancelled')
-       ORDER BY j.created_at DESC
-       LIMIT 1`,
-      [`%${name}%`]
-    );
-    if (!row) return null;
-    return dbJobs.formatJob(row);
-  } catch (err) {
-    console.error('[findJobByClientName] error:', err.message);
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
+// ─── EXPORTS ─────────────────────────────────────────────────────────────────
 
 module.exports = {
-  g,
+  // Lead tools
   toolReadLead,
   toolUpdateLead,
+  // Job tools
   toolReadJob,
   toolUpdateJob,
-  toolReadClient,
-  toolUpdateClient,
-  toolReadSettings,
+  // Phase tools
   toolReadPhases,
   toolUpdatePhase,
   toolAppendPhase,
-  findLeadByEmail,
-  findJobByEmail,
-  findJobByClientName,
+  // Client tools
+  toolReadClient,
+  toolUpdateClient,
+  // Settings
+  toolReadSettings,
 };

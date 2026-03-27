@@ -14,6 +14,7 @@ const { route } = require('../agents/orchestrator');
 const { logger } = require('../utils/logger');
 const { appendRow, getLastRow, findRowByEmail } = require('../tools/sheets');
 const { getNewMessages, parseMessage } = require('../tools/gmail-watch');
+const dbLeads = require('../services/leads');
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
@@ -155,29 +156,66 @@ function parseTallyPayload(body) {
 router.post('/new-lead', async (req, res) => {
   res.status(200).json({ received: true });
 
-  // Direct rowNumber trigger (Make.com, manual)
+  // ── Direct leadId trigger (from dashboard or internal calls) ─────────────
+  const leadId = req.body.leadId || req.body.lead_id;
+  if (leadId) {
+    logger.info('Webhook', `New lead trigger — leadId ${leadId}`);
+    fireAndForget('new_lead', { leadId: parseInt(leadId) });
+    return;
+  }
+
+  // ── Legacy rowNumber trigger (backward compat) ────────────────────────────
   const rowNumber = req.body.rowNumber || req.body.row;
   if (rowNumber) {
-    logger.info('Webhook', `New lead trigger — row ${rowNumber}`);
+    logger.info('Webhook', `New lead trigger — rowNumber ${rowNumber} (legacy)`);
     fireAndForget('new_lead', { rowNumber: parseInt(rowNumber) });
     return;
   }
 
-  // Tally submission — write to sheet first, then trigger agent
+  // ── Form submission (Tally / Google Form / raw JSON) ─────────────────────
   try {
-    const isTally = req.body?.data?.fields || req.body?.fields || req.body?.eventType === 'FORM_RESPONSE';
-    if (!isTally) { logger.warn('Webhook', 'new-lead: no rowNumber and no Tally fields'); return; }
+    const isTally  = req.body?.data?.fields || req.body?.fields;
+    const isGForm  = req.body?.firstName || req.body?.first_name || req.body?.name || req.body?.email;
+    if (!isTally && !isGForm) {
+      logger.warn('Webhook', 'new-lead: no leadId, rowNumber, or recognizable form data');
+      return;
+    }
 
-    logger.info('Webhook', 'Tally submission received — writing to Leads sheet…');
-    const leadData = parseTallyPayload(req.body);
-    logger.info('Webhook', `Parsed lead: ${leadData['First Name']} ${leadData['Last Name']} (${leadData['Email']})`);
+    let leadData;
+    if (isTally) {
+      logger.info('Webhook', 'Tally submission received — parsing…');
+      const parsed = parseTallyPayload(req.body);
+      leadData = {
+        name:      `${parsed['First Name'] || ''} ${parsed['Last Name'] || ''}`.trim(),
+        email:     parsed['Email'] || '',
+        phone:     parsed['Phone Number'] || '',
+        service:   parsed['Service Requested'] || '',
+        message:   parsed['Tell us about your project'] || '',
+        address:   [parsed['Street Address'], parsed['City'], parsed['State'], parsed['Zip Code']].filter(Boolean).join(', '),
+        source:    parsed['How did you hear about us?'] || '',
+        status:    'new',
+      };
+    } else {
+      // Raw JSON from Google Form webhook or direct POST
+      leadData = {
+        name:    req.body.name    || `${req.body.firstName || req.body.first_name || ''} ${req.body.lastName || req.body.last_name || ''}`.trim(),
+        email:   req.body.email   || '',
+        phone:   req.body.phone   || '',
+        service: req.body.service || req.body.projectType || req.body['Service Requested'] || '',
+        message: req.body.message || req.body.description || req.body['Project Description'] || '',
+        address: req.body.address || '',
+        source:  req.body.source  || req.body.heardAboutUs || '',
+        status:  'new',
+      };
+    }
 
-    await appendRow('Leads', leadData);
-    const newRow = await getLastRow('Leads'); // row number of the row we just added
-    logger.success('Webhook', `Lead written to row ${newRow} — firing Lead Agent`);
-    fireAndForget('new_lead', { rowNumber: newRow });
+    logger.info('Webhook', `Writing lead to Postgres: ${leadData.name} (${leadData.email})`);
+    const newLead = await dbLeads.createLead(leadData);
+    logger.success('Webhook', `Lead created — id ${newLead.id} — firing Lead Agent`);
+    fireAndForget('new_lead', { leadId: newLead.id });
+
   } catch (err) {
-    logger.error('Webhook', `Tally handler failed: ${err.message}`);
+    logger.error('Webhook', `New lead handler failed: ${err.message}`);
   }
 });
 

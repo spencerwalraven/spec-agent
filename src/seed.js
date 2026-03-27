@@ -1,256 +1,244 @@
 /**
- * SPEC Systems — Database Seed Script
- * Populates the database with realistic test data for Summit Remodeling.
+ * SPEC Systems — Demo Seed Data
+ * Populates the database with realistic demo data for client presentations.
  * Usage: node src/seed.js
+ * WARNING: Clears existing data for company_id = 1
  */
 require('dotenv').config();
 const { pool, query } = require('./db');
 
-const COMPANY_ID = 1;
-
 async function seed() {
-  console.log('🌱 Starting seed...\n');
+  console.log('🌱 Seeding SPEC Systems demo data...\n');
 
-  try {
-    // ─── CLEAR EXISTING DATA ────────────────────────────────────────────────
-    // Order matters — delete dependents before parents
-    console.log('Clearing existing data...');
-    await query(`DELETE FROM time_clock       WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM tasks            WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM job_phases       WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM invoices         WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM photos           WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM jobs             WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM clients          WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM leads            WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM team             WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM equipment        WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM marketing_campaigns WHERE company_id = $1`, [COMPANY_ID]);
-    await query(`DELETE FROM goals            WHERE company_id = $1`, [COMPANY_ID]);
-    console.log('  ✓ Cleared\n');
+  // ── Clean existing data (reverse FK order) ──────────────────────────────
+  await query(`DELETE FROM time_clock    WHERE company_id = 1`);
+  await query(`DELETE FROM tasks         WHERE company_id = 1`);
+  await query(`DELETE FROM activity_log  WHERE company_id = 1`);
+  await query(`DELETE FROM alerts        WHERE company_id = 1`);
+  await query(`DELETE FROM invoices      WHERE company_id = 1`);
+  await query(`DELETE FROM job_phases    WHERE job_id IN (SELECT id FROM jobs WHERE company_id = 1)`);
+  await query(`DELETE FROM jobs          WHERE company_id = 1`);
+  await query(`DELETE FROM clients       WHERE company_id = 1`);
+  await query(`DELETE FROM leads         WHERE company_id = 1`);
+  await query(`DELETE FROM team          WHERE company_id = 1`);
+  await query(`DELETE FROM settings      WHERE company_id = 1`);
+  console.log('🧹 Cleared existing demo data');
 
-    // ─── SETTINGS ───────────────────────────────────────────────────────────
-    await query(`
-      UPDATE settings SET
-        company_name       = 'Summit Remodeling',
-        owner_name         = 'Jake Summit',
-        phone              = '(555) 823-4400',
-        email              = 'jake@summitremodeling.com',
-        address            = '1420 Oak Ridge Dr, Nashville, TN 37215',
-        calendly_link      = 'https://calendly.com/summitremodeling',
-        google_review_link = 'https://g.page/summitremodeling',
-        email_signature    = 'Jake Summit | Summit Remodeling | (555) 823-4400',
-        email_tone         = 'Professional yet warm',
-        updated_at         = NOW()
-      WHERE company_id = $1
-    `, [COMPANY_ID]);
-    console.log('✓ Settings updated');
+  // ── Settings ────────────────────────────────────────────────────────────
+  await query(`
+    INSERT INTO settings (company_id, company_name, phone, email, address, owner_name,
+      calendly_link, google_review_link, email_signature, email_tone)
+    VALUES (1, 'Summit Remodeling', '(303) 555-0182', 'hello@summitremodeling.com',
+      '1420 Blake St, Denver, CO 80202', 'Spencer Walraven',
+      'https://calendly.com/summit-remodeling/estimate',
+      'https://g.page/r/summitremodeling/review',
+      'Spencer Walraven | Summit Remodeling | (303) 555-0182 | summitremodeling.com',
+      'friendly and professional')
+  `);
+  console.log('✅ Settings');
 
-    // ─── GOALS ──────────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO goals (company_id, metric, target, period)
-      VALUES
-        ($1, 'revenue',     85000, 'monthly'),
-        ($1, 'leads',       20,    'monthly'),
-        ($1, 'close_rate',  35,    'monthly')
-    `, [COMPANY_ID]);
-    console.log('✓ Goals inserted (3)');
+  // ── Team ────────────────────────────────────────────────────────────────
+  const teamRows = await query(`
+    INSERT INTO team (company_id, name, role, email, phone, pay_rate, pay_type, active)
+    VALUES
+      (1, 'Spencer Walraven', 'Owner',          'spencer@summitremodeling.com', '(303) 555-0182', 0,    'salary', true),
+      (1, 'Jake Morrison',    'Lead Carpenter',  'jake@summitremodeling.com',   '(303) 555-0147', 28.50,'hourly', true),
+      (1, 'Dena Park',        'Estimator',       'dena@summitremodeling.com',   '(303) 555-0193', 24.00,'hourly', true),
+      (1, 'Tyler Reyes',      'Apprentice',      'tyler@summitremodeling.com',  '(303) 555-0261', 18.00,'hourly', true)
+    RETURNING id, name
+  `);
+  const [spencer, jake, dena, tyler] = teamRows.rows;
+  console.log('✅ Team (4 members)');
 
-    // ─── TEAM ───────────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO team (company_id, name, role, email, phone, status, performance_score, jobs_completed)
-      VALUES
-        ($1, 'Mike Torres',   'Project Manager',       'mike@summitremodeling.com',   '(555)823-4401', 'active', 92, 47),
-        ($1, 'Carlos Rivera', 'Lead Carpenter',         'carlos@summitremodeling.com', '(555)823-4402', 'active', 88, 63),
-        ($1, 'Dena Walsh',    'Sales',                  'dena@summitremodeling.com',   '(555)823-4403', 'active', 95, 31),
-        ($1, 'Tom Bradley',   'Tile & Bath Specialist', NULL,                          '(555)823-4404', 'active', 85, 28)
-    `, [COMPANY_ID]);
-    console.log('✓ Team inserted (4)');
+  // ── Leads ───────────────────────────────────────────────────────────────
+  await query(`
+    INSERT INTO leads (company_id, name, email, phone, service, message, address, source,
+      score, score_label, status, notes, ai_summary, outreach_sent, created_at)
+    VALUES
+      (1, 'Amanda Torres', 'amanda.torres@gmail.com', '(720) 555-0384',
+       'Kitchen Remodel', 'Looking to completely gut and redo our 1990s kitchen. Budget is flexible — we want it done right.',
+       '847 Maple Ave, Denver, CO 80220', 'Google', 92, 'Hot', 'new',
+       'Very motivated buyer. Mentioned neighbor referral as well.',
+       'High-intent lead with flexible budget and urgent timeline. Likely to convert quickly.',
+       true, NOW() - INTERVAL '1 day'),
 
-    // ─── LEADS ──────────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO leads (company_id, name, email, phone, source, service, status, score, score_label, notes, created_at)
-      VALUES
-        ($1, 'Rachel Green',  'rachel@gmail.com',      '(555)301-1122', 'Google',    'Kitchen Remodel',       'new',       87, 'Hot',  'Wants full kitchen gut & renovation, budget ~$45k. Very interested.',      NOW() - interval '2 days'),
-        ($1, 'Brad Kim',      'brad.kim@outlook.com',  '(555)302-2233', 'Referral',  'Master Bath Renovation','Contacted', 72, 'Warm', 'Referred by Carlos. Looking to start in 2 months.',                        NOW() - interval '5 days'),
-        ($1, 'Amy Chen',      'amy.chen@gmail.com',    '(555)303-3344', 'Facebook',  'Deck & Patio',          'Converted', 90, 'Hot',  NULL,                                                                       NOW() - interval '30 days'),
-        ($1, 'David Park',    'dpark@yahoo.com',       '(555)304-4455', 'Google',    'Basement Finish',       'Lost',      45, 'Cold', NULL,                                                                       NOW() - interval '15 days'),
-        ($1, 'Maria Santos',  'msantos@gmail.com',     '(555)305-5566', 'Nextdoor',  'Whole Home Remodel',    'new',       78, 'Warm', 'Large scope project, $150k+ budget. Scheduling site visit.',               NOW() - interval '1 day')
-    `, [COMPANY_ID]);
-    console.log('✓ Leads inserted (5)');
+      (1, 'Brian Kowalski', 'bkowalski@outlook.com', '(303) 555-0512',
+       'Basement Finish', 'Want to finish our unfinished basement — roughly 800 sq ft. Looking for quotes.',
+       '2214 Elm St, Lakewood, CO 80215', 'Facebook Ad', 71, 'Warm', 'contacted',
+       'Requested estimate. Comparing 3 contractors.',
+       'Comparison shopper but engaged. Price-sensitive. Emphasize quality and warranty.',
+       true, NOW() - INTERVAL '3 days'),
 
-    // ─── CLIENTS ────────────────────────────────────────────────────────────
-    const amyRes = await query(`
-      INSERT INTO clients (company_id, name, email, phone, source, total_revenue, job_count, created_at)
-      VALUES ($1, 'Amy Chen', 'amy.chen@gmail.com', '(555)303-3344', 'Facebook', 32500, 1, NOW() - interval '28 days')
-      RETURNING id
-    `, [COMPANY_ID]);
-    const amyClientId = amyRes.rows[0].id;
+      (1, 'Priya Sharma', 'priya.sharma@yahoo.com', '(720) 555-0791',
+       'Master Bath Renovation', 'Complete master bath overhaul — tile, vanity, shower, the works.',
+       '3309 Pearl St, Boulder, CO 80301', 'Referral', 85, 'Hot', 'qualified',
+       'Estimate scheduled for next Tuesday.',
+       'Referred by Mike Johnson. High-budget expectations. Decision maker is engaged.',
+       true, NOW() - INTERVAL '5 days'),
 
-    const robertRes = await query(`
-      INSERT INTO clients (company_id, name, email, phone, source, total_revenue, job_count, created_at)
-      VALUES ($1, 'Robert Hughes', 'rhughes@gmail.com', '(555)400-1234', 'Referral', 67800, 2, NOW() - interval '180 days')
-      RETURNING id
-    `, [COMPANY_ID]);
-    const robertClientId = robertRes.rows[0].id;
-    console.log('✓ Clients inserted (2)');
+      (1, 'Derek Walsh', 'dwalsh@comcast.net', '(303) 555-0628',
+       'Deck Addition', 'Wanted a deck quote but went with another contractor.',
+       '910 Grant Ave, Englewood, CO 80113', 'Yelp', 45, 'Cold', 'lost',
+       'Lost to competitor on price.',
+       NULL, true, NOW() - INTERVAL '14 days')
+    RETURNING id, name
+  `);
+  console.log('✅ Leads (4)');
 
-    // ─── JOBS ────────────────────────────────────────────────────────────────
-    const job1Res = await query(`
-      INSERT INTO jobs (
-        company_id, client_id, job_ref, title, service, description,
-        address, status, priority, estimated_value, deposit_paid,
-        start_date, end_date, notes
-      ) VALUES (
-        $1, $2, 'JOB-001',
-        'Kitchen Renovation — Amy Chen',
-        'Kitchen Remodel',
-        'Full kitchen gut and renovation including new cabinets, quartz countertops, island, tile backsplash, and appliance installation.',
-        '4821 Hillside Ave, Nashville TN 37205',
-        'active', 'high', 32500, true,
-        NOW() - interval '10 days',
-        NOW() + interval '25 days',
-        'Client very happy with progress. Cabinets installed, waiting on countertop delivery.'
-      )
-      RETURNING id
-    `, [COMPANY_ID, amyClientId]);
-    const job1Id = job1Res.rows[0].id;
+  // ── Clients ─────────────────────────────────────────────────────────────
+  const clientRows = await query(`
+    INSERT INTO clients (company_id, name, email, phone, address, source,
+      total_revenue, job_count, communication_style, decision_factors, key_concerns, preferred_contact)
+    VALUES
+      (1, 'Mike Johnson',    'mike.johnson@gmail.com',   '(303) 555-0129',
+       '1847 Oak St, Denver, CO 80207',    'Google',   7200,  1,
+       'Prefers text updates. Very detail-oriented.',
+       'Quality of materials and craftsmanship.',
+       'Timeline and disruption to daily life.',
+       'text'),
 
-    const job2Res = await query(`
-      INSERT INTO jobs (
-        company_id, client_id, job_ref, title, service, description,
-        address, status, priority, estimated_value, actual_value,
-        deposit_paid, start_date, end_date
-      ) VALUES (
-        $1, $2, 'JOB-002',
-        'Master Bath Remodel — Robert Hughes',
-        'Bathroom Remodel',
-        'Master bathroom full remodel with heated floors, walk-in shower, double vanity, and soaking tub.',
-        '2219 Maple Grove Ct, Brentwood TN 37027',
-        'completed', 'normal', 28900, 31200,
-        true,
-        NOW() - interval '90 days',
-        NOW() - interval '30 days'
-      )
-      RETURNING id
-    `, [COMPANY_ID, robertClientId]);
-    const job2Id = job2Res.rows[0].id;
+      (1, 'Sarah Chen',      'sarah.chen@gmail.com',     '(720) 555-0345',
+       '4521 Pine Blvd, Denver, CO 80209', 'Referral', 18500, 1,
+       'Email communicator. Likes detailed progress photos.',
+       'Design aesthetics and resale value.',
+       'Color and material choices — very selective.',
+       'email'),
 
-    const job3Res = await query(`
-      INSERT INTO jobs (
-        company_id, client_id, job_ref, title, service, description,
-        address, status, priority, estimated_value, start_date
-      ) VALUES (
-        $1, $2, 'JOB-003',
-        'Deck & Outdoor Living — Robert Hughes',
-        'Outdoor Living',
-        '16x24 composite deck with built-in seating, pergola, and outdoor kitchen rough-in.',
-        '2219 Maple Grove Ct, Brentwood TN 37027',
-        'pending', 'normal', 38900,
-        NOW() + interval '14 days'
-      )
-      RETURNING id
-    `, [COMPANY_ID, robertClientId]);
-    const job3Id = job3Res.rows[0].id;
-    console.log('✓ Jobs inserted (3)');
+      (1, 'Robert Martinez', 'r.martinez@hotmail.com',   '(303) 555-0867',
+       '782 Cedar Ln, Aurora, CO 80012',   'Repeat',   0,     1,
+       'Prefers phone calls. No-nonsense, straightforward.',
+       'Value and reliability.',
+       'Getting everything done in one visit.',
+       'phone')
+    RETURNING id, name
+  `);
+  const [mike, sarah, robert] = clientRows.rows;
+  console.log('✅ Clients (3)');
 
-    // ─── JOB PHASES (JOB-001) ───────────────────────────────────────────────
-    await query(`
-      INSERT INTO job_phases (company_id, job_id, phase_number, name, status, estimated_cost, actual_cost, completed_at)
-      VALUES
-        ($1, $2, 1, 'Demo & Prep',          'completed', 2500, 2400, NOW() - interval '8 days'),
-        ($1, $2, 2, 'Cabinet Installation', 'completed', 8500, 8700, NOW() - interval '3 days')
-    `, [COMPANY_ID, job1Id]);
+  // ── Jobs ────────────────────────────────────────────────────────────────
+  const jobRows = await query(`
+    INSERT INTO jobs (company_id, client_id, job_ref, title, service, description, address,
+      status, estimated_value, actual_value, material_cost, labor_cost,
+      deposit_amount, deposit_paid, proposal_status, contract_status,
+      start_date, end_date, notes, created_at)
+    VALUES
+      (1, ${sarah.id}, 'JOB-001', 'Kitchen Remodel', 'Kitchen Remodel',
+       'Full kitchen gut and remodel — new cabinets, quartz countertops, tile backsplash, LVP flooring, appliance package.',
+       '4521 Pine Blvd, Denver, CO 80209',
+       'active', 18500, NULL, 6800, 7200, 5550, true,
+       'Signed', 'Signed',
+       NOW() - INTERVAL '12 days', NOW() + INTERVAL '18 days',
+       'Client is very particular about the cabinet color — confirmed with sample.', NOW() - INTERVAL '20 days'),
 
-    await query(`
-      INSERT INTO job_phases (company_id, job_id, phase_number, name, status, estimated_cost, assigned_to)
-      VALUES ($1, $2, 3, 'Countertop & Backsplash', 'in_progress', 6800, 'Tom Bradley')
-    `, [COMPANY_ID, job1Id]);
+      (1, ${mike.id}, 'JOB-002', 'Master Bath Renovation', 'Bathroom Remodel',
+       'Master bath full renovation — freestanding tub, walk-in shower, double vanity, heated tile floor.',
+       '1847 Oak St, Denver, CO 80207',
+       'completed', 7200, 7200, 2400, 3100, 2160, true,
+       'Signed', 'Signed',
+       NOW() - INTERVAL '45 days', NOW() - INTERVAL '8 days',
+       'Completed on time. Client left 5-star Google review.', NOW() - INTERVAL '52 days'),
 
-    await query(`
-      INSERT INTO job_phases (company_id, job_id, phase_number, name, status, estimated_cost)
-      VALUES ($1, $2, 4, 'Plumbing & Fixtures', 'pending', 3200)
-    `, [COMPANY_ID, job1Id]);
-    console.log('✓ Job phases inserted (4)');
+      (1, ${robert.id}, 'JOB-003', 'Home Addition — Master Suite', 'Addition',
+       '600 sq ft master suite addition — bedroom, walk-in closet, en-suite bath.',
+       '782 Cedar Ln, Aurora, CO 80012',
+       'proposal', 42000, NULL, NULL, NULL, 12600, false,
+       'Sent', '',
+       NULL, NULL,
+       'Proposal sent 2 days ago. Follow up Friday if no response.', NOW() - INTERVAL '6 days'),
 
-    // ─── INVOICES ────────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO invoices (company_id, job_id, invoice_type, amount, status, paid_at, sent_at)
-      VALUES
-        ($1, $2, 'deposit', 9750,  'paid', NOW() - interval '12 days', NOW() - interval '14 days'),
-        ($1, $2, 'final',   22750, 'sent', NULL,                        NOW() - interval '1 day')
-    `, [COMPANY_ID, job1Id]);
-    console.log('✓ Invoices inserted (2)');
+      (1, ${robert.id}, 'JOB-004', 'Composite Deck Build', 'Deck',
+       '400 sq ft composite deck with railing, built-in seating, and pergola.',
+       '782 Cedar Ln, Aurora, CO 80012',
+       'pending', 9800, NULL, NULL, NULL, NULL, false,
+       '', '',
+       NULL, NULL,
+       'Bundled with JOB-003 addition — can schedule back-to-back.', NOW() - INTERVAL '6 days')
+    RETURNING id, job_ref, title
+  `);
+  const [kitchenJob, bathJob, additionJob, deckJob] = jobRows.rows;
+  console.log('✅ Jobs (4)');
 
-    // ─── TASKS ───────────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO tasks (company_id, title, assigned_to, priority, status, due_date)
-      VALUES
-        ($1, 'Follow up with Rachel Green on kitchen estimate', 'Dena Walsh',  'high',   'pending', NOW() + interval '1 day'),
-        ($1, 'Order countertop materials for Amy Chen job',    'Mike Torres', 'urgent', 'pending', NOW())
-    `, [COMPANY_ID]);
-    console.log('✓ Tasks inserted (2)');
+  // ── Job Phases (Kitchen Remodel) ─────────────────────────────────────────
+  await query(`
+    INSERT INTO job_phases (job_id, phase_number, name, description, assigned_to,
+      status, estimated_cost, actual_cost, start_date, end_date, completed_at)
+    VALUES
+      (${kitchenJob.id}, 1, 'Demo & Haul-Out', 'Remove cabinets, counters, flooring, and appliances.',
+       'Jake Morrison', 'completed', 800, 750,
+       NOW() - INTERVAL '12 days', NOW() - INTERVAL '10 days', NOW() - INTERVAL '10 days'),
 
-    // ─── TIME CLOCK ──────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO time_clock (company_id, team_member_name, job_id, job_name, clock_in, clock_out, hours)
-      VALUES (
-        $1,
-        'Carlos Rivera',
-        $2,
-        'Kitchen Renovation — Amy Chen',
-        NOW() - interval '7 hours',
-        NOW() - interval '30 minutes',
-        6.5
-      )
-    `, [COMPANY_ID, job1Id]);
-    console.log('✓ Time clock inserted (1)');
+      (${kitchenJob.id}, 2, 'Rough-In & Plumbing', 'Relocate sink drain, add dishwasher line, run new electrical circuits.',
+       'Jake Morrison', 'completed', 2200, 2350,
+       NOW() - INTERVAL '9 days', NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days'),
 
-    // ─── EQUIPMENT ───────────────────────────────────────────────────────────
-    await query(`
-      INSERT INTO equipment (company_id, name, type, status, assigned_to)
-      VALUES ($1, 'Tile Saw (Makita)', 'Power Tool', 'in_use', 'Tom Bradley')
-    `, [COMPANY_ID]);
-    console.log('✓ Equipment inserted (1)');
+      (${kitchenJob.id}, 3, 'Cabinet & Countertop Install', 'Install Shaker cabinets, quartz countertops, and undermount sink.',
+       'Jake Morrison', 'in_progress', 5500, NULL,
+       NOW() - INTERVAL '3 days', NOW() + INTERVAL '4 days', NULL),
 
-    // ─── MARKETING CAMPAIGNS ─────────────────────────────────────────────────
-    await query(`
-      INSERT INTO marketing_campaigns (company_id, name, type, target_segment, status, message_body, sent_count, reply_count)
-      VALUES (
-        $1,
-        'Spring Kitchen Promo',
-        'Email',
-        'Past Clients',
-        'active',
-        'Spring kitchen renovation discount campaign targeting past clients for referrals',
-        47,
-        3
-      )
-    `, [COMPANY_ID]);
-    console.log('✓ Marketing campaigns inserted (1)');
+      (${kitchenJob.id}, 4, 'Tile & Flooring', 'Lay subway tile backsplash and LVP flooring throughout.',
+       'Tyler Reyes', 'pending', 2800, NULL,
+       NOW() + INTERVAL '5 days', NOW() + INTERVAL '10 days', NULL),
 
-    // ─── SUMMARY ─────────────────────────────────────────────────────────────
-    console.log('\n✅ Seed complete! Summary:');
-    console.log('   Settings:           updated');
-    console.log('   Goals:              3');
-    console.log('   Team members:       4');
-    console.log('   Leads:              5');
-    console.log('   Clients:            2  (Amy Chen id=' + amyClientId + ', Robert Hughes id=' + robertClientId + ')');
-    console.log('   Jobs:               3  (JOB-001 id=' + job1Id + ', JOB-002 id=' + job2Id + ', JOB-003 id=' + job3Id + ')');
-    console.log('   Job phases:         4  (for JOB-001)');
-    console.log('   Invoices:           2  (for JOB-001)');
-    console.log('   Tasks:              2');
-    console.log('   Time clock entries: 1');
-    console.log('   Equipment:          1');
-    console.log('   Marketing campaigns:1');
+      (${kitchenJob.id}, 5, 'Finish & Punch List', 'Install hardware, appliances, touch-up paint, final walkthrough.',
+       'Jake Morrison', 'pending', 1200, NULL,
+       NOW() + INTERVAL '11 days', NOW() + INTERVAL '18 days', NULL)
+  `);
+  console.log('✅ Job Phases (5 for kitchen)');
 
-  } catch (err) {
-    console.error('\n❌ Seed failed:', err.message);
-    console.error(err.stack);
-    process.exit(1);
-  } finally {
-    await pool.end();
-  }
+  // ── Invoices ─────────────────────────────────────────────────────────────
+  await query(`
+    INSERT INTO invoices (company_id, job_id, invoice_type, invoice_number, amount,
+      status, sent_at, paid_at, due_date)
+    VALUES
+      (1, ${kitchenJob.id}, 'deposit', 'INV-001', 5550.00,
+       'paid', NOW() - INTERVAL '19 days', NOW() - INTERVAL '18 days', NOW() - INTERVAL '12 days'),
+
+      (1, ${bathJob.id}, 'deposit', 'INV-002', 2160.00,
+       'paid', NOW() - INTERVAL '51 days', NOW() - INTERVAL '50 days', NOW() - INTERVAL '45 days'),
+
+      (1, ${bathJob.id}, 'final', 'INV-003', 5040.00,
+       'paid', NOW() - INTERVAL '9 days', NOW() - INTERVAL '7 days', NOW() - INTERVAL '1 day'),
+
+      (1, ${additionJob.id}, 'deposit', 'INV-004', 12600.00,
+       'pending', NULL, NULL, NOW() + INTERVAL '14 days')
+  `);
+  console.log('✅ Invoices (4)');
+
+  // ── Tasks ────────────────────────────────────────────────────────────────
+  await query(`
+    INSERT INTO tasks (company_id, title, description, priority, status, due_date, assigned_to, related_job)
+    VALUES
+      (1, 'Follow up with Amanda Torres',
+       'Hot lead from Google — score 92. Called once, no answer. Try again today.',
+       'urgent', 'open', NOW() + INTERVAL '1 hour', 'Dena Park', NULL),
+
+      (1, 'Order kitchen cabinets — JOB-001',
+       'Confirm final cabinet color with Sarah before placing order with supplier.',
+       'high', 'open', NOW() + INTERVAL '2 days', 'Spencer Walraven', 'JOB-001'),
+
+      (1, 'Schedule rough-in inspection — JOB-001',
+       'Plumbing and electrical rough-in complete. Call city to schedule inspection.',
+       'high', 'open', NOW() + INTERVAL '1 day', 'Jake Morrison', 'JOB-001')
+  `);
+  console.log('✅ Tasks (3)');
+
+  // ── Time Clock ───────────────────────────────────────────────────────────
+  await query(`
+    INSERT INTO time_clock (company_id, employee_name, job_id, job_name, clock_in, clock_out, hours_worked)
+    VALUES
+      (1, 'Jake Morrison', ${kitchenJob.id}, 'Kitchen Remodel — JOB-001',
+       NOW() - INTERVAL '4 hours 30 minutes', NULL, NULL),
+
+      (1, 'Tyler Reyes', ${kitchenJob.id}, 'Kitchen Remodel — JOB-001',
+       NOW() - INTERVAL '4 hours 30 minutes', NOW() - INTERVAL '30 minutes', 4.0)
+  `);
+  console.log('✅ Time Clock (Jake in, Tyler out)');
+
+  console.log('\n🎉 Seed complete! Database is loaded with Summit Remodeling demo data.');
+  await pool.end();
 }
 
-seed();
+seed().catch(err => {
+  console.error('❌ Seed failed:', err.message);
+  process.exit(1);
+});

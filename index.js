@@ -75,50 +75,48 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 
   if (event.type === 'checkout.session.completed') {
-    const session   = event.data.object;
-    const jobId     = session.metadata?.jobId;
-    const amountPaid = (session.amount_total || 0) / 100; // cents → dollars
-    const desc      = (session.metadata?.description || '').toLowerCase();
+    const session    = event.data.object;
+    const jobRef     = session.metadata?.jobId;   // e.g. "JOB-003"
+    const amountPaid = (session.amount_total || 0) / 100;
+    const desc       = (session.metadata?.description || '').toLowerCase();
+    const isFinal    = desc.includes('final') || desc.includes('balance');
 
-    if (jobId) {
+    if (jobRef) {
       try {
-        const jobs    = await readTab('Jobs');
-        const job     = jobs.find(j => g(j, 'Job ID') === jobId);
+        const job = await dbJobs.getJobByRef(jobRef);
         if (job) {
-          const row   = jobs.indexOf(job) + 2;
-          const today = new Date().toLocaleDateString('en-US');
-          const clientName = `${g(job,'First Name','')} ${g(job,'Last Name','')}`.trim() || 'Client';
-          const isFinal = desc.includes('final') || desc.includes('balance');
+          // Mark the matching invoice paid in Postgres
+          const invoices = await dbInvoices.getInvoicesForJob(job.id);
+          const inv = invoices.find(i => isFinal
+            ? i.invoiceType === 'final'
+            : i.invoiceType === 'deposit'
+          );
+          if (inv) await dbInvoices.markInvoicePaid(inv.id);
 
-          if (isFinal) {
-            await updateCell('Jobs', row, ['Final Invoice Paid', 'Final Paid'], 'Yes');
-            await updateCell('Jobs', row, ['Final Paid Date', 'Final Invoice Paid Date'], today);
-          } else {
-            await updateCell('Jobs', row, ['Deposit Paid', 'Deposit Invoice Paid'], 'Yes');
-            await updateCell('Jobs', row, ['Deposit Paid Date'], today);
-          }
+          // Update job deposit_paid flag
+          if (!isFinal) await dbJobs.updateJobField(job.id, 'notes',
+            (job.notes ? job.notes + '\n' : '') + `Deposit paid via Stripe on ${new Date().toLocaleDateString('en-US')}`
+          );
 
+          const clientName = job.clientName || 'Client';
           const { notifyOwner } = require('./src/tools/notify');
           await notifyOwner({
             subject: `💰 Payment Received — ${clientName}`,
-            message: `${clientName} just paid $${amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${isFinal ? '(final invoice)' : '(deposit)'} via Stripe.\n\nJob: ${g(job,'Service Type','Project Type') || 'Project'}\nJob ID: ${jobId}\n\nThe sheet has been updated automatically.`,
+            message: `${clientName} just paid $${amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${isFinal ? '(final invoice)' : '(deposit)'} via Stripe.\n\nJob: ${job.title || job.service || 'Project'}\nJob Ref: ${jobRef}\n\nDatabase has been updated automatically.`,
             urgent: true,
             eventType: 'paymentReceived',
           });
 
           logger.success('Stripe', `Payment recorded: ${clientName} paid $${amountPaid} (${isFinal ? 'final' : 'deposit'})`);
 
-          // Sync payment to QuickBooks if connected
+          // Sync to QuickBooks if connected
           try {
             const qbMod = require('./src/tools/quickbooks');
-            const qbInvoiceId = isFinal
-              ? g(job, 'QB Final Invoice ID')
-              : g(job, 'QB Deposit Invoice ID');
+            const qbInvoiceId = inv?.qbInvoiceId;
             if (qbInvoiceId) {
-              const qbCustomerId = g(job, 'QB Customer ID');
-              qbMod.markInvoicePaid(qbInvoiceId, qbCustomerId, amountPaid, today)
+              qbMod.markInvoicePaid(qbInvoiceId, null, amountPaid, new Date().toLocaleDateString('en-US'))
                 .then(() => logger.success('QB', `Stripe payment synced to QB for ${clientName}`))
-                .catch(e  => logger.warn('QB', `Could not sync Stripe payment to QB: ${e.message}`));
+                .catch(e  => logger.warn('QB', `Could not sync to QB: ${e.message}`));
             }
           } catch (_) {}
         }
@@ -2441,51 +2439,13 @@ app.get('/api/inventory', async (req, res) => {
 });
 
 // ─── API: EQUIPMENT ───────────────────────────────────────────────────────────
-
-const EQ_HEADERS = ['Equipment ID', 'Name', 'Category', 'Make/Model', 'Status', 'Assigned To', 'Assigned Job', 'Value', 'Notes', 'Date Added'];
-
-async function ensureEquipmentTab() {
-  try {
-    const sheets = getSheets();
-    await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Equipment!A1:A1' });
-  } catch (_) {
-    try {
-      const sheets = getSheets();
-      // Create the tab
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SHEET_ID,
-        requestBody: { requests: [{ addSheet: { properties: { title: 'Equipment' } } }] },
-      });
-      // Write headers
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: 'Equipment!A1',
-        valueInputOption: 'RAW',
-        requestBody: { values: [EQ_HEADERS] },
-      });
-    } catch (e2) {
-      console.error('ensureEquipmentTab:', e2.message);
-    }
-  }
-}
+const dbEquipment = require('./src/services/equipment');
 
 // GET /api/equipment — list all equipment
 app.get('/api/equipment', async (req, res) => {
   try {
-    const rows = await readTab('Equipment');
-    const items = rows.map((r, i) => ({
-      _row:        i + 2,
-      equipmentId: g(r, 'Equipment ID'),
-      name:        g(r, 'Name'),
-      category:    g(r, 'Category'),
-      makeModel:   g(r, 'Make/Model'),
-      status:      g(r, 'Status'),
-      assignedTo:  g(r, 'Assigned To'),
-      assignedJob: g(r, 'Assigned Job'),
-      value:       g(r, 'Value'),
-      notes:       g(r, 'Notes'),
-      dateAdded:   g(r, 'Date Added'),
-    }));
+    const { status } = req.query;
+    const items = await dbEquipment.getEquipment(status || null);
     res.json(items);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2493,51 +2453,35 @@ app.get('/api/equipment', async (req, res) => {
 // POST /api/equipment — create new equipment item
 app.post('/api/equipment', async (req, res) => {
   try {
-    await ensureEquipmentTab();
-    const { name, category, makeModel, status, assignedTo, assignedJob, value, notes } = req.body;
-    const equipmentId = 'EQ-' + String(Date.now()).slice(-5);
-    const today = new Date().toLocaleDateString('en-US');
-    const sheets = getSheets();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: 'Equipment!A:J',
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [[
-        equipmentId,
-        name || '',
-        category || '',
-        makeModel || '',
-        status || 'Available',
-        assignedTo || '',
-        assignedJob || '',
-        value || '',
-        notes || '',
-        today,
-      ]] },
-    });
-    res.json({ ok: true, equipmentId });
+    const item = await dbEquipment.createEquipment(req.body);
+    res.json({ ok: true, id: item.id, ...item });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /api/equipment/:row — update equipment row
+// PUT /api/equipment/:row — update equipment item
 app.put('/api/equipment/:row', async (req, res) => {
   try {
-    const row = parseInt(req.params.row, 10);
-    const { name, category, makeModel, status, assignedTo, assignedJob, value, notes } = req.body;
-    const fieldMap = { name: 'Name', category: 'Category', makeModel: 'Make/Model', status: 'Status', assignedTo: 'Assigned To', assignedJob: 'Assigned Job', value: 'Value', notes: 'Notes' };
-    for (const [key, col] of Object.entries(fieldMap)) {
-      if (req.body[key] !== undefined) await updateCell('Equipment', row, col, req.body[key]);
-    }
+    const id = parseInt(req.params.row, 10);
+    // Map camelCase → snake_case for DB
+    const data = {};
+    if (req.body.name       !== undefined) data.name        = req.body.name;
+    if (req.body.category   !== undefined) data.category    = req.body.category;
+    if (req.body.makeModel  !== undefined) data.serial_number = req.body.makeModel;
+    if (req.body.status     !== undefined) data.status      = req.body.status;
+    if (req.body.assignedTo !== undefined) data.assigned_to = req.body.assignedTo;
+    if (req.body.assignedJob !== undefined) data.assigned_job = req.body.assignedJob;
+    if (req.body.notes      !== undefined) data.notes       = req.body.notes;
+    if (req.body.condition  !== undefined) data.condition   = req.body.condition;
+    await dbEquipment.updateEquipment(id, data);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE /api/equipment/:row — soft delete (set Status to Retired)
+// DELETE /api/equipment/:row — soft delete (set status to retired)
 app.delete('/api/equipment/:row', async (req, res) => {
   try {
-    const row = parseInt(req.params.row, 10);
-    await updateCell('Equipment', row, 'Status', 'Retired');
+    const id = parseInt(req.params.row, 10);
+    await dbEquipment.updateEquipmentStatus(id, 'retired', null, null);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2545,11 +2489,9 @@ app.delete('/api/equipment/:row', async (req, res) => {
 // POST /api/equipment/:row/assign — assign equipment to a job
 app.post('/api/equipment/:row/assign', async (req, res) => {
   try {
-    const row = parseInt(req.params.row, 10);
+    const id = parseInt(req.params.row, 10);
     const { jobId, assignedTo } = req.body;
-    await updateCell('Equipment', row, 'Status', 'In Use');
-    await updateCell('Equipment', row, 'Assigned Job', jobId || '');
-    await updateCell('Equipment', row, 'Assigned To', assignedTo || '');
+    await dbEquipment.updateEquipmentStatus(id, 'in-use', assignedTo || null, jobId || null);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2557,10 +2499,8 @@ app.post('/api/equipment/:row/assign', async (req, res) => {
 // POST /api/equipment/:row/release — release equipment from job
 app.post('/api/equipment/:row/release', async (req, res) => {
   try {
-    const row = parseInt(req.params.row, 10);
-    await updateCell('Equipment', row, 'Status', 'Available');
-    await updateCell('Equipment', row, 'Assigned Job', '');
-    await updateCell('Equipment', row, 'Assigned To', '');
+    const id = parseInt(req.params.row, 10);
+    await dbEquipment.updateEquipmentStatus(id, 'available', null, null);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
