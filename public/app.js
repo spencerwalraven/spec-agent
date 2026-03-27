@@ -404,7 +404,7 @@ const PAGE_TITLES = {
   marketing: 'Marketing', settings: 'Settings', approvals: 'Approvals',
   conversations: 'Conversations', agents: 'AI Agents', more: 'More',
   inventory: 'Inventory & Materials', schedule: 'Schedule', analytics: 'Analytics',
-  field: 'Job Site Estimate',
+  field: 'Job Site Estimate', recurring: 'Recurring Jobs',
 };
 
 function navigate(page) {
@@ -438,6 +438,7 @@ function navigate(page) {
     else if (page === 'analytics')     loadAnalytics();
     else if (page === 'schedule')      loadSchedule();
     else if (page === 'inventory')     loadInventory();
+    else if (page === 'recurring')     loadRecurring();
   }
 }
 
@@ -1061,6 +1062,10 @@ async function showJobDetail(idx) {
   const kickoffLink   = g(j,'kickoffDocLink','Kickoff Doc Link','Kickoff Link');
   const estimateLink  = g(j,'estimateDocLink','Estimate Doc Link','Estimate Link');
 
+  window._openJobRow    = _currentJobRow;
+  window._openJobId     = jobId;
+  window._openJobClient = client;
+
   document.getElementById('jmTitle').textContent = client;
   document.getElementById('jmSub').textContent   = `${project}${jobId?' · '+jobId:''}`;
 
@@ -1613,6 +1618,81 @@ async function toggleTeamMember(row, el) {
   } catch(e) {
     el.classList.toggle('on', isOn); // revert
     toast('⚠️ Could not update');
+  }
+}
+
+// ── TIME CLOCK ────────────────────────────────────────────────────
+function switchTeamTab(tab) {
+  document.getElementById('teamTabMembers').classList.toggle('active', tab === 'members');
+  document.getElementById('teamTabClock').classList.toggle('active', tab === 'clock');
+  document.getElementById('teamMembersView').style.display = tab === 'members' ? '' : 'none';
+  document.getElementById('teamClockView').style.display   = tab === 'clock'   ? '' : 'none';
+  if (tab === 'clock') loadTimeclock();
+}
+
+async function loadTimeclock() {
+  const list = document.getElementById('clockList');
+  if (!list) return;
+  const skelHtml = '<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>';
+  list.innerHTML = skelHtml.repeat(2);
+
+  try {
+    const res  = await fetch('/api/timeclock');
+    const data = await res.json();
+
+    // Update date label
+    const label = document.getElementById('clockDateLabel');
+    if (label) {
+      const d = new Date();
+      label.textContent = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+    }
+
+    if (!data.members?.length) {
+      list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No team members found.<br>Add team members in Settings.</div>';
+      return;
+    }
+
+    list.innerHTML = data.members.map(m => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;border-radius:50%;background:${m.clockedIn ? 'rgba(34,197,94,.15)' : 'var(--card2)'};border:2px solid ${m.clockedIn ? 'var(--green)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+          ${m.clockedIn ? '🟢' : '⚪'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${m.name}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:1px">${m.role || 'Team Member'}</div>
+          <div style="font-size:12px;margin-top:4px;color:${m.clockedIn ? 'var(--green)' : 'var(--text3)'}">
+            ${m.clockedIn
+              ? `🟢 Clocked in · ${m.todayHours}h today`
+              : m.todayHours > 0
+                ? `⚫ Clocked out · ${m.todayHours}h today`
+                : '⚫ Not clocked in'}
+          </div>
+        </div>
+        <button
+          onclick="punchClock('${m.name.replace(/'/g, "\\'")}', '${m.clockedIn ? 'OUT' : 'IN'}')"
+          style="padding:10px 16px;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;${m.clockedIn ? 'background:rgba(239,68,68,.1);color:var(--red)' : 'background:rgba(34,197,94,.12);color:var(--green)'}">
+          ${m.clockedIn ? 'Clock Out' : 'Clock In'}
+        </button>
+      </div>
+    `).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2)">Could not load time clock</div>';
+  }
+}
+
+async function punchClock(name, action) {
+  try {
+    const res  = await fetch('/api/timeclock/punch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, action })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(action === 'IN' ? `✅ ${name} clocked in` : `👋 ${name} clocked out`);
+    loadTimeclock();
+  } catch(e) {
+    toast('Punch failed: ' + e.message);
   }
 }
 
@@ -2604,7 +2684,58 @@ const CAL_COLORS = {
   '8': '#616161', '1': '#7986CB', '2': '#33B679', '10': '#0B8043',
 };
 
+// ── DAILY DISPATCH ────────────────────────────────────────────
+async function loadDispatch() {
+  const list = document.getElementById('dispatchList');
+  const dateEl = document.getElementById('dispatchDate');
+  if (!list) return;
+
+  const today = new Date();
+  if (dateEl) {
+    dateEl.textContent = today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+  }
+
+  try {
+    const res  = await fetch('/api/jobs');
+    const jobs = await res.json();
+
+    // Show active/in-progress jobs only
+    const active = (jobs || []).filter(j => {
+      const s = (j.status || '').toLowerCase();
+      return s.includes('active') || s.includes('progress') || s.includes('planning');
+    });
+
+    if (!active.length) {
+      list.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--text2);text-align:center">No active jobs today</div>';
+      return;
+    }
+
+    list.innerHTML = active.map((j, i) => {
+      const statusColor = (j.status||'').toLowerCase().includes('progress') ? 'var(--gold)' : 'var(--green)';
+      const initials = (j.clientName||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      return `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--gold);flex-shrink:0">${i+1}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.clientName || '—'}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.projectType || ''} ${j.address ? '· ' + j.address : ''}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:var(--gold)">${j.status || 'Active'}</span>
+              ${j.sub ? `<span style="font-size:11px;color:var(--text2)">👷 ${j.sub}</span>` : ''}
+              ${j.jobId ? `<span style="font-size:11px;color:var(--text3)">${j.jobId}</span>` : ''}
+            </div>
+          </div>
+          ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;font-size:12px;font-weight:700;color:#3B82F6;text-decoration:none;flex-shrink:0">🗺️</a>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="padding:14px;color:var(--text2);font-size:13px;text-align:center">Could not load dispatch</div>';
+  }
+}
+
 async function loadSchedule() {
+  loadDispatch();
   const el = document.getElementById('scheduleList');
   if (!el) return;
   el.innerHTML = `<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>`.repeat(3);
@@ -3342,3 +3473,253 @@ document.addEventListener('DOMContentLoaded', () => {
   // pre-init the room so it's ready on first open
   if (!estRoomCount) estAddRoom('Kitchen');
 });
+
+// ── PHOTO UPLOAD ──────────────────────────────────────────────
+let photoModalJobRow = null;
+let photoModalJobId  = null;
+let photoFileData    = null;
+
+function openPhotoModal() {
+  // Get current job context from the open job modal
+  photoModalJobRow = window._openJobRow || null;
+  photoModalJobId  = window._openJobId  || null;
+  if (!photoModalJobRow) { showToast('Open a job first'); return; }
+  closeModal('jobModal');
+  document.getElementById('photoModalSub').textContent = `Photos for ${window._openJobClient || 'this job'} — visible to client automatically`;
+  document.getElementById('photoPreviewWrap').style.display = 'none';
+  photoFileData = null;
+  loadPhotoModalGrid();
+  openModal('photoModal');
+}
+
+async function loadPhotoModalGrid() {
+  if (!photoModalJobId) return;
+  const grid = document.getElementById('photoModalGrid');
+  grid.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Loading photos…</div>';
+  try {
+    const res    = await fetch(`/api/jobs/${photoModalJobId}/photos`);
+    const photos = await res.json();
+    if (!photos?.length) {
+      grid.innerHTML = '<div style="font-size:13px;color:var(--text2);text-align:center;padding:8px">No photos yet</div>';
+      return;
+    }
+    grid.innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${photos.length} Photo${photos.length!==1?'s':''}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        ${photos.map(p => `
+          <div>
+            <img src="${p.photoUrl}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;cursor:pointer"
+                 onclick="openLightboxModal('${p.photoUrl}','${(p.caption||p.timestamp||'').replace(/'/g,"&#39;")}')">
+            ${p.caption ? `<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">${p.caption}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch(e) {
+    grid.innerHTML = '<div style="font-size:13px;color:var(--text2);text-align:center">Could not load photos</div>';
+  }
+}
+
+function handlePhotoSelected() {
+  const file = document.getElementById('photoFileInput').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    document.getElementById('photoPreview').src = dataUrl;
+    document.getElementById('photoPreviewWrap').style.display = 'block';
+    // Store base64 without the data URL prefix
+    const parts = dataUrl.split(',');
+    photoFileData = { base64: parts[1], mimeType: file.type };
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhotoModal() {
+  if (!photoFileData || !photoModalJobRow) return;
+  const caption = document.getElementById('photoCaption').value;
+  const btn = document.getElementById('photoUploadBtn');
+  btn.textContent = 'Uploading…';
+  btn.disabled = true;
+  try {
+    const res  = await fetch(`/api/jobs/${photoModalJobRow}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobId:       photoModalJobId,
+        caption,
+        imageBase64: photoFileData.base64,
+        mimeType:    photoFileData.mimeType
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    showToast('📸 Photo uploaded — visible on client portal');
+    document.getElementById('photoPreviewWrap').style.display = 'none';
+    document.getElementById('photoFileInput').value = '';
+    photoFileData = null;
+    loadPhotoModalGrid();
+  } catch(e) {
+    showToast('Upload failed: ' + e.message, true);
+  } finally {
+    btn.textContent = 'Upload Photo';
+    btn.disabled = false;
+  }
+}
+
+function openLightboxModal(url, caption) {
+  // Reuse existing lightbox if available, otherwise simple alert
+  const lb = document.getElementById('photoLightbox');
+  if (lb) {
+    document.getElementById('lbImg').src = url;
+    document.getElementById('lbCaption').textContent = caption || '';
+    lb.style.display = 'flex';
+  }
+}
+
+// ── RECURRING JOBS ─────────────────────────────────────────────
+let recurringFilter = 'all';
+let recurringData   = [];
+
+async function loadRecurring() {
+  const list = document.getElementById('recurringList');
+  if (!list) return;
+  list.innerHTML = '<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>'.repeat(3);
+
+  try {
+    const res = await fetch('/api/recurring');
+    recurringData = await res.json();
+
+    // Check for due soon (next 7 days)
+    const today  = new Date();
+    const week   = new Date(today); week.setDate(week.getDate() + 7);
+    const dueSoon = recurringData.filter(r => {
+      if (!r.nextDate) return false;
+      const d = new Date(r.nextDate);
+      return d >= today && d <= week;
+    });
+    const banner = document.getElementById('recurringDueBanner');
+    if (banner) {
+      if (dueSoon.length) {
+        banner.style.display = 'block';
+        banner.textContent = `⚡ ${dueSoon.length} service${dueSoon.length>1?'s':''} due in the next 7 days`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    renderRecurringList();
+  } catch(e) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text2)">Could not load recurring jobs</div>';
+  }
+}
+
+function setRecurringFilter(btn) {
+  document.querySelectorAll('[data-rfilter]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  recurringFilter = btn.dataset.rfilter;
+  renderRecurringList();
+}
+
+function renderRecurringList() {
+  const list = document.getElementById('recurringList');
+  if (!list) return;
+
+  const items = recurringFilter === 'all'
+    ? recurringData
+    : recurringData.filter(r => r.frequency === recurringFilter);
+
+  if (!items.length) {
+    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="font-size:32px;margin-bottom:10px">🔁</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">No recurring jobs yet</div><div style="font-size:13px">Add recurring services to auto-schedule jobs for regular clients.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(r => {
+    const today   = new Date();
+    const nextD   = r.nextDate ? new Date(r.nextDate) : null;
+    const daysOut = nextD ? Math.ceil((nextD - today) / 86400000) : null;
+    const urgentColor = daysOut !== null && daysOut <= 3 ? 'var(--red)' : daysOut !== null && daysOut <= 7 ? 'var(--gold)' : 'var(--text2)';
+    const dueLabel = daysOut === null ? '—' : daysOut < 0 ? `${Math.abs(daysOut)}d overdue` : daysOut === 0 ? 'Due today' : `Due in ${daysOut}d`;
+
+    const freqColors = { Weekly:'var(--green)', 'Bi-Weekly':'var(--gold)', Monthly:'var(--blue)', Quarterly:'var(--text2)' };
+    const freqColor  = freqColors[r.frequency] || 'var(--text2)';
+
+    return `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(191,148,56,.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔁</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text1)">${r.clientName}</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:1px">${r.serviceType}${r.address ? ' · ' + r.address : ''}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:${freqColor}">${r.frequency}</span>
+              ${r.price ? `<span style="font-size:11px;font-weight:700;color:var(--green)">${r.price}</span>` : ''}
+              ${r.assignedTo ? `<span style="font-size:11px;color:var(--text2)">👷 ${r.assignedTo}</span>` : ''}
+            </div>
+            ${r.nextDate ? `<div style="font-size:12px;margin-top:6px;font-weight:600;color:${urgentColor}">📅 ${dueLabel} · Next: ${r.nextDate}</div>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button onclick="runRecurringJob(${r.row}, '${r.clientName.replace(/'/g,"&#39;")}')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);cursor:pointer">▶ Run Now</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openAddRecurringModal() {
+  // Set default next date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const el = document.getElementById('rNextDate');
+  if (el) el.value = tomorrow.toISOString().split('T')[0];
+  openModal('addRecurringModal');
+}
+
+async function saveRecurringJob() {
+  const clientName  = document.getElementById('rClientName')?.value?.trim();
+  const serviceType = document.getElementById('rServiceType')?.value;
+  const frequency   = document.getElementById('rFrequency')?.value;
+  if (!clientName) { showToast('Client name required', true); return; }
+
+  const btn = document.querySelector('#addRecurringModal .btn-gold');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+  try {
+    const res = await fetch('/api/recurring', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName,
+        address:     document.getElementById('rAddress')?.value?.trim()    || '',
+        serviceType,
+        frequency,
+        nextDate:    document.getElementById('rNextDate')?.value           || '',
+        price:       document.getElementById('rPrice')?.value?.trim()      || '',
+        assignedTo:  document.getElementById('rAssignedTo')?.value?.trim() || '',
+        notes:       document.getElementById('rNotes')?.value?.trim()      || ''
+      })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast('✅ Recurring job saved');
+    closeModal('addRecurringModal');
+    loadRecurring();
+  } catch(e) {
+    showToast('Save failed: ' + e.message, true);
+  } finally {
+    if (btn) { btn.textContent = 'Save Job'; btn.disabled = false; }
+  }
+}
+
+async function runRecurringJob(row, clientName) {
+  if (!confirm(`Create a new job for ${clientName} now?`)) return;
+  try {
+    const res  = await fetch(`/api/recurring/${row}/run`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    showToast(`✅ Job ${data.jobId} created for ${clientName}`);
+    loadRecurring();
+  } catch(e) {
+    showToast('Failed: ' + e.message, true);
+  }
+}

@@ -964,6 +964,116 @@ app.post('/api/team/:row/toggle', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── TIME CLOCK ────────────────────────────────────────────────────────
+// GET /api/timeclock — get today's punches + current status per team member
+app.get('/api/timeclock', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+
+    // Get team members
+    const teamRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: ssId,
+      range: 'Team!A:J'
+    });
+    const teamRows = (teamRes.data.values || []).slice(1).filter(r => r[0]);
+
+    // Get today's time clock entries
+    const today = new Date().toISOString().split('T')[0];
+    let clockRows = [];
+    try {
+      const clockRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: ssId,
+        range: 'Time Clock!A:G'
+      });
+      const allRows = (clockRes.data.values || []).slice(1);
+      clockRows = allRows.filter(r => r[0] && (r[2] || '').startsWith(today));
+    } catch(e) { /* tab may not exist yet */ }
+
+    // Build status per member
+    const members = teamRows.map(r => {
+      const name = r[0] || '';
+      const role = r[1] || '';
+      // Find latest punch for this person today
+      const myPunches = clockRows.filter(c => c[0] === name);
+      const lastPunch = myPunches[myPunches.length - 1];
+      const clockedIn = lastPunch && lastPunch[1] === 'IN';
+      const clockInTime = clockedIn ? lastPunch[2] : null;
+
+      // Calculate today's hours
+      let todayMinutes = 0;
+      for (let i = 0; i < myPunches.length - 1; i++) {
+        if (myPunches[i][1] === 'IN' && myPunches[i+1][1] === 'OUT') {
+          const inTime  = new Date(myPunches[i][2]);
+          const outTime = new Date(myPunches[i+1][2]);
+          todayMinutes += (outTime - inTime) / 60000;
+        }
+      }
+      // Add current session if still clocked in
+      if (clockedIn && clockInTime) {
+        todayMinutes += (Date.now() - new Date(clockInTime)) / 60000;
+      }
+
+      return {
+        name,
+        role,
+        phone: r[2] || '',
+        clockedIn,
+        clockInTime,
+        todayHours: (todayMinutes / 60).toFixed(1),
+        punchCount: myPunches.length
+      };
+    });
+
+    res.json({ members, date: today });
+  } catch(e) {
+    console.error('Timeclock fetch error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/timeclock/punch — clock in or out
+app.post('/api/timeclock/punch', requireAuth, async (req, res) => {
+  try {
+    const sheets    = req.app.locals.sheets;
+    const ssId      = req.session.sheetId;
+    const { name, action, jobId } = req.body; // action: 'IN' or 'OUT'
+    if (!name || !action) return res.status(400).json({ error: 'name and action required' });
+
+    const timestamp = new Date().toISOString();
+    const row = [name, action, timestamp, jobId || '', '', '', ''];
+
+    // Try to append to Time Clock tab, create header if needed
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId,
+        range: 'Time Clock!A:G',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [row] }
+      });
+    } catch(e) {
+      // Tab probably doesn't exist — create header then append
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: ssId,
+        range: 'Time Clock!A1:G1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['Name', 'Action', 'Timestamp', 'Job ID', 'Notes', 'Approved', 'Payroll Week']] }
+      });
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId,
+        range: 'Time Clock!A:G',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [row] }
+      });
+    }
+
+    res.json({ ok: true, name, action, timestamp });
+  } catch(e) {
+    console.error('Punch error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── API: ALERTS ────────────────────────────────────────────────────────────
 app.get('/api/alerts', async (req, res) => {
   try {
@@ -2736,6 +2846,116 @@ async function validateSheetSchema() {
     logger.warn('Startup', `Sheet validation skipped: ${err.message}`);
   }
 }
+
+// ── RECURRING JOBS ────────────────────────────────────────────────────────────
+// GET /api/recurring — list all recurring job templates
+app.get('/api/recurring', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    let rows = [];
+    try {
+      const r = await sheets.spreadsheets.values.get({
+        spreadsheetId: ssId,
+        range: 'Recurring Jobs!A:J'
+      });
+      rows = (r.data.values || []).slice(1).filter(r => r[0]);
+    } catch(e) { /* tab may not exist */ }
+
+    const items = rows.map((r, i) => ({
+      row:         i + 2,
+      clientName:  r[0] || '',
+      address:     r[1] || '',
+      serviceType: r[2] || '',
+      frequency:   r[3] || '', // Weekly / Bi-Weekly / Monthly / Quarterly
+      nextDate:    r[4] || '',
+      price:       r[5] || '',
+      assignedTo:  r[6] || '',
+      notes:       r[7] || '',
+      status:      r[8] || 'Active',
+      lastRun:     r[9] || ''
+    }));
+    res.json(items);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/recurring — create a new recurring job
+app.post('/api/recurring', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    const { clientName, address, serviceType, frequency, nextDate, price, assignedTo, notes } = req.body;
+    if (!clientName || !serviceType || !frequency) return res.status(400).json({ error: 'clientName, serviceType, frequency required' });
+
+    const row = [clientName, address||'', serviceType, frequency, nextDate||'', price||'', assignedTo||'', notes||'', 'Active', ''];
+
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId, range: 'Recurring Jobs!A:J',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [row] }
+      });
+    } catch(e) {
+      // Create header first
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: ssId, range: 'Recurring Jobs!A1:J1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['Client Name','Address','Service Type','Frequency','Next Date','Price','Assigned To','Notes','Status','Last Run']] }
+      });
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId, range: 'Recurring Jobs!A:J',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [row] }
+      });
+    }
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/recurring/:row/run — manually trigger a recurring job (creates a job entry)
+app.post('/api/recurring/:row/run', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    const rowNum = parseInt(req.params.row);
+
+    // Get this recurring job
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: ssId, range: `Recurring Jobs!A${rowNum}:J${rowNum}`
+    });
+    const data = (r.data.values || [[]])[0];
+    const clientName  = data[0] || '';
+    const serviceType = data[2] || '';
+    const price       = data[5] || '';
+    const assignedTo  = data[6] || '';
+
+    // Create a new job entry
+    const jobId    = 'JOB-' + Date.now().toString().slice(-5);
+    const today    = new Date().toISOString().split('T')[0];
+    const newJobRow = [jobId, clientName, data[1]||'', serviceType, today, '', 'Active', price, '', assignedTo, '', '', '', ''];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: ssId, range: 'Jobs!A:N',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [newJobRow] }
+    });
+
+    // Update last run date
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: ssId, range: `Recurring Jobs!J${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[today]] }
+    });
+
+    res.json({ ok: true, jobId });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);

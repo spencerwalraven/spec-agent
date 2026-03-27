@@ -1162,19 +1162,43 @@
 
     <!-- ── TEAM ────────────────────────────────────────────────────── -->
     <section class="page" id="page-team">
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="search" id="teamSearch" placeholder="Search team…" oninput="filterTeam()">
+      <!-- Tab bar -->
+      <div class="inv-tab-bar">
+        <button class="inv-tab active" id="teamTabMembers" onclick="switchTeamTab('members')">👥 Team</button>
+        <button class="inv-tab" id="teamTabClock" onclick="switchTeamTab('clock')">⏱️ Time Clock</button>
       </div>
-      <div class="filter-chips">
-        <button class="chip active" data-filter="all" onclick="setTeamFilter(this)">All</button>
-        <button class="chip" data-filter="active" onclick="setTeamFilter(this)">Active</button>
-        <button class="chip" data-filter="crew" onclick="setTeamFilter(this)">Crew</button>
-        <button class="chip" data-filter="sub" onclick="setTeamFilter(this)">Subcontractors</button>
+
+      <!-- Team Members view (existing content) -->
+      <div id="teamMembersView">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="teamSearch" placeholder="Search team…" oninput="filterTeam()">
+        </div>
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all" onclick="setTeamFilter(this)">All</button>
+          <button class="chip" data-filter="active" onclick="setTeamFilter(this)">Active</button>
+          <button class="chip" data-filter="crew" onclick="setTeamFilter(this)">Crew</button>
+          <button class="chip" data-filter="sub" onclick="setTeamFilter(this)">Subcontractors</button>
+        </div>
+        <div id="teamList">
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        </div>
       </div>
-      <div id="teamList">
-        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
-        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+
+      <!-- Time Clock view -->
+      <div id="teamClockView" style="display:none">
+        <div style="padding:4px 0 14px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text)">Today's Clock</div>
+            <div style="font-size:12px;color:var(--text2)" id="clockDateLabel">—</div>
+          </div>
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadTimeclock()">↻</button>
+        </div>
+        <div id="clockList">
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        </div>
       </div>
     </section>
 
@@ -1418,6 +1442,8 @@
         <button class="more-item" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
         <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
         <button class="more-item" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; suppliers</div></button>
+        <button class="more-item" onclick="navigate('recurring')"><div class="more-icon">🔁</div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
+        <button class="more-item" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
       </div>
 
       <a href="/logout" onclick="return confirm('Sign out of the dashboard?')" style="display:block;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:600;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1F0A0A'" onmouseout="this.style.background='var(--card)'">
@@ -1528,6 +1554,18 @@
           <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadSchedule()">↻</button>
         </div>
       </div>
+      <!-- Daily Dispatch -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">🗺️ Today's Dispatch</div>
+          <div style="font-size:12px;color:var(--text3)" id="dispatchDate">—</div>
+        </div>
+        <div id="dispatchList">
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
+
       <div style="background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:var(--text2);line-height:1.5">
         📅 Events from your <strong style="color:var(--text1)">Google Calendar</strong> — next 60 days. Hit <strong style="color:var(--text1)">Sync All</strong> to push all active jobs and phases to your calendar at once, or use <strong style="color:var(--text1)">🗓️ Schedule Kickoff</strong> on a job to add individual kickoff events.
       </div>
@@ -1564,6 +1602,35 @@
         <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>
     </section>
+
+  <!-- ── RECURRING JOBS ──────────────────────────────────────────────── -->
+  <section class="page" id="page-recurring">
+    <div style="padding:4px 0 12px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--text1)">Recurring Jobs</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">Weekly, monthly &amp; scheduled services</div>
+      </div>
+      <button class="btn btn-primary" style="padding:8px 14px;font-size:13px" onclick="openAddRecurringModal()">+ Add</button>
+    </div>
+
+    <!-- Due Soon banner -->
+    <div id="recurringDueBanner" style="display:none;background:rgba(191,148,56,.08);border:1px solid rgba(191,148,56,.25);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--gold);font-weight:600"></div>
+
+    <!-- Filter chips -->
+    <div class="filter-chips" style="margin-bottom:12px">
+      <button class="chip active" data-rfilter="all"      onclick="setRecurringFilter(this)">All</button>
+      <button class="chip" data-rfilter="Weekly"     onclick="setRecurringFilter(this)">Weekly</button>
+      <button class="chip" data-rfilter="Bi-Weekly"  onclick="setRecurringFilter(this)">Bi-Weekly</button>
+      <button class="chip" data-rfilter="Monthly"    onclick="setRecurringFilter(this)">Monthly</button>
+      <button class="chip" data-rfilter="Quarterly"  onclick="setRecurringFilter(this)">Quarterly</button>
+    </div>
+
+    <div id="recurringList">
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+    </div>
+  </section>
 
   </main>
 
@@ -1626,8 +1693,8 @@
     <div class="modal-body" id="jmBody"></div>
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="closeModal('jobModal')" style="flex:1">Close</button>
-      <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1">🗓️ Schedule Kickoff</button>
-      <button class="btn btn-secondary" onclick="syncJobToCalendar()" style="flex:1">📅 Sync Calendar</button>
+      <button class="btn btn-secondary" onclick="openPhotoModal()" style="flex:1">📸 Photos</button>
+      <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1">🗓️ Kickoff</button>
       <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1">📝 Change Order</button>
     </div>
   </div>
@@ -1706,8 +1773,125 @@
   </div>
 </div>
 
+<!-- Photo Upload Modal -->
+<div class="modal-overlay" id="photoModal" onclick="if(event.target===this)closeModal('photoModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📸 Job Photos</div>
+        <div class="modal-sub" id="photoModalSub">Before &amp; after — visible to client automatically</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('photoModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Existing photos grid -->
+      <div id="photoModalGrid" style="margin-bottom:16px"></div>
+
+      <!-- Upload section -->
+      <div style="background:var(--card2);border:1px dashed var(--border);border-radius:12px;padding:20px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">📷</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px">Add Photo</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Photos appear on the client portal automatically</div>
+        <input type="file" id="photoFileInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelected()">
+        <button class="btn btn-primary" style="margin-bottom:10px" onclick="document.getElementById('photoFileInput').click()">📷 Take / Choose Photo</button>
+        <div id="photoPreviewWrap" style="display:none;margin-top:12px">
+          <img id="photoPreview" style="max-width:100%;border-radius:10px;margin-bottom:10px" src="" alt="preview">
+          <select class="form-input" id="photoCaption" style="margin-bottom:10px">
+            <option value="Before">Before</option>
+            <option value="During">During</option>
+            <option value="After">After</option>
+            <option value="Detail">Detail Shot</option>
+            <option value="Issue">Issue Found</option>
+          </select>
+          <button class="btn btn-gold" id="photoUploadBtn" onclick="uploadPhotoModal()" style="width:100%">Upload Photo</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('photoModal')" style="flex:1">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
+
+<!-- Photo Lightbox -->
+<div id="photoLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;padding:20px" onclick="this.style.display='none'">
+  <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer" onclick="document.getElementById('photoLightbox').style.display='none'">✕</div>
+  <img id="lbImg" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain" src="" alt="">
+  <div id="lbCaption" style="color:rgba(255,255,255,.7);font-size:13px;margin-top:12px"></div>
+</div>
+
+<!-- Add Recurring Job Modal -->
+<div class="modal-overlay" id="addRecurringModal" onclick="if(event.target===this)closeModal('addRecurringModal')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">New Recurring Job</div>
+      <button class="modal-close" onclick="closeModal('addRecurringModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Client Name *</label>
+        <input class="form-input" id="rClientName" placeholder="e.g. Johnson Residence">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input class="form-input" id="rAddress" placeholder="123 Main St">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Service Type *</label>
+        <select class="form-input" id="rServiceType">
+          <option value="Lawn Mowing">Lawn Mowing</option>
+          <option value="Lawn Treatment">Lawn Treatment</option>
+          <option value="Fertilization">Fertilization</option>
+          <option value="Weed Control">Weed Control</option>
+          <option value="Irrigation Check">Irrigation Check</option>
+          <option value="Mulching">Mulching</option>
+          <option value="Pruning / Trimming">Pruning / Trimming</option>
+          <option value="Leaf Removal">Leaf Removal</option>
+          <option value="Snow Removal">Snow Removal</option>
+          <option value="Pressure Washing">Pressure Washing</option>
+          <option value="HVAC Maintenance">HVAC Maintenance</option>
+          <option value="General Maintenance">General Maintenance</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Frequency *</label>
+        <select class="form-input" id="rFrequency">
+          <option value="Weekly">Weekly</option>
+          <option value="Bi-Weekly">Bi-Weekly</option>
+          <option value="Monthly">Monthly</option>
+          <option value="Quarterly">Quarterly</option>
+          <option value="Annually">Annually</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Next Service Date</label>
+        <input class="form-input" id="rNextDate" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Price per Visit</label>
+        <input class="form-input" id="rPrice" placeholder="e.g. $150" type="text">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned To</label>
+        <input class="form-input" id="rAssignedTo" placeholder="Crew member name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="rNotes" rows="2" placeholder="Gate code, special instructions…" style="resize:none"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addRecurringModal')" style="flex:1">Cancel</button>
+      <button class="btn btn-gold" onclick="saveRecurringJob()" style="flex:1">Save Job</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js?v=12"></script>
 <script>
