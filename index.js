@@ -231,6 +231,9 @@ const PUBLIC_PREFIXES = [
   '/api/quickbooks/webhook',
   '/api/quickbooks/callback',
   '/webhook/sms',
+  '/pay',
+  '/paid',
+  '/api/pay/',
 ];
 
 app.use((req, res, next) => {
@@ -1621,6 +1624,194 @@ app.post('/webhook/email-reply', (req, res) => {
   route('email_reply', data).catch(console.error);
 });
 
+// POST /webhook/sms — Twilio inbound SMS handler
+app.post('/webhook/sms', express.urlencoded({ extended: false }), async (req, res) => {
+  // Always respond with empty TwiML immediately (Twilio requires fast response)
+  res.set('Content-Type', 'text/xml');
+  res.send('<Response></Response>');
+
+  try {
+    const from = req.body.From || '';  // E.164: +15551234567
+    const body = (req.body.Body || '').trim();
+    const to   = req.body.To   || '';
+
+    if (!from || !body) return;
+
+    logger.info('SMS', `Inbound from ${from}: ${body}`);
+
+    const sheets = app.locals.sheets;
+    const ssId   = process.env.SHEET_ID;
+
+    // Look up who sent this — check Leads tab first, then Clients tab
+    let senderName  = null;
+    let senderType  = null; // 'lead' or 'client'
+    let senderRow   = null;
+    let senderEmail = null;
+
+    // Normalize phone for comparison (strip to digits only)
+    const normalize = p => (p || '').replace(/\D/g, '').slice(-10);
+    const fromNorm  = normalize(from);
+
+    // Search Leads
+    try {
+      const leadRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Leads!A:Z' });
+      const leadRows = leadRes.data.values || [];
+      const header   = leadRows[0] || [];
+      const phoneIdx = header.findIndex(h => /phone/i.test(h));
+      const nameIdx  = header.findIndex(h => /name/i.test(h));
+      const emailIdx = header.findIndex(h => /email/i.test(h));
+      for (let i = 1; i < leadRows.length; i++) {
+        const row = leadRows[i];
+        if (normalize(row[phoneIdx]) === fromNorm) {
+          senderName  = row[nameIdx]  || 'Unknown';
+          senderEmail = row[emailIdx] || '';
+          senderType  = 'lead';
+          senderRow   = i + 1;
+          break;
+        }
+      }
+    } catch(_) {}
+
+    // Search Clients if not found in leads
+    if (!senderName) {
+      try {
+        const clientRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Clients!A:Z' });
+        const clientRows = clientRes.data.values || [];
+        const header     = clientRows[0] || [];
+        const phoneIdx   = header.findIndex(h => /phone/i.test(h));
+        const nameIdx    = header.findIndex(h => /name/i.test(h));
+        const emailIdx   = header.findIndex(h => /email/i.test(h));
+        for (let i = 1; i < clientRows.length; i++) {
+          const row = clientRows[i];
+          if (normalize(row[phoneIdx]) === fromNorm) {
+            senderName  = row[nameIdx]  || 'Unknown';
+            senderEmail = row[emailIdx] || '';
+            senderType  = 'client';
+            senderRow   = i + 1;
+            break;
+          }
+        }
+      } catch(_) {}
+    }
+
+    // Log to SMS Log tab
+    try {
+      const timestamp = new Date().toISOString();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId,
+        range: 'SMS Log!A:G',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[timestamp, 'INBOUND', from, senderName || 'Unknown', body, senderType || 'unknown', '']] }
+      });
+    } catch(e) {
+      // Create header and try again
+      try {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: ssId, range: 'SMS Log!A1:G1',
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [['Timestamp', 'Direction', 'Phone', 'Name', 'Message', 'Type', 'Agent Response']] }
+        });
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: ssId, range: 'SMS Log!A:G',
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[new Date().toISOString(), 'INBOUND', from, senderName || 'Unknown', body, senderType || 'unknown', '']] }
+        });
+      } catch(_) {}
+    }
+
+    // Notify owner of inbound SMS
+    try {
+      const sms = require('./src/tools/sms');
+      // Don't loop — only notify if sender is not our own outbound number
+      if (from !== process.env.TWILIO_PHONE) {
+        await sms.textOwner(`SMS from ${senderName || from}: "${body}"`);
+      }
+    } catch(_) {}
+
+    // Route to agent for auto-reply
+    try {
+      const orchestrator = require('./src/agents/orchestrator');
+      await orchestrator.handleEvent('sms_reply', {
+        from,
+        body,
+        senderName:  senderName  || 'Unknown',
+        senderEmail: senderEmail || '',
+        senderType:  senderType  || 'unknown',
+        senderRow,
+      });
+    } catch(_) {}
+
+  } catch(e) {
+    logger.error('SMS Webhook', e.message);
+  }
+});
+
+// GET /api/weather?address=... — check weather alerts for an address
+app.get('/api/weather', requireAuth, async (req, res) => {
+  try {
+    const address = req.query.address || '';
+    if (!address) return res.json({ alerts: [] });
+    const { checkWeatherAlerts } = require('./src/tools/weather');
+    const alerts = await checkWeatherAlerts(address);
+    res.json({ alerts: alerts || [] });
+  } catch(e) {
+    res.json({ alerts: [] }); // Never fail the dashboard
+  }
+});
+
+// GET /api/sms — get SMS conversation log
+app.get('/api/sms', requireAuth, async (req, res) => {
+  try {
+    const sheets = req.app.locals.sheets;
+    const ssId   = req.session.sheetId;
+    let rows = [];
+    try {
+      const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'SMS Log!A:G' });
+      rows = (r.data.values || []).slice(1).filter(r => r[0]);
+    } catch(_) {}
+
+    const messages = rows.map(r => ({
+      timestamp: r[0] || '',
+      direction: r[1] || 'OUTBOUND',
+      phone:     r[2] || '',
+      name:      r[3] || '',
+      message:   r[4] || '',
+      type:      r[5] || '',
+    })).reverse(); // Most recent first
+
+    res.json(messages);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/sms/send — send an SMS from the dashboard
+app.post('/api/sms/send', requireAuth, async (req, res) => {
+  try {
+    const { to, message, name } = req.body;
+    if (!to || !message) return res.status(400).json({ error: 'to and message required' });
+
+    const sms = require('./src/tools/sms');
+    await sms.sendSms(to, message);
+
+    // Log it
+    const sheets    = req.app.locals.sheets;
+    const ssId      = req.session.sheetId;
+    const timestamp = new Date().toISOString();
+    try {
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ssId, range: 'SMS Log!A:G',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[timestamp, 'OUTBOUND', to, name || '', message, '', '']] }
+      });
+    } catch(_) {}
+
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── CHANGE ORDER API ────────────────────────────────────────────────────────
 
 // Manually trigger a change order from the dashboard
@@ -1891,6 +2082,96 @@ app.get('/api/status/:jobId', async (req, res) => {
 // ─── CLIENT STATUS PAGE ───────────────────────────────────────────────────────
 app.get('/status/:jobId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'status.html'));
+});
+
+// ─── CLIENT PAY PAGE API ──────────────────────────────────────────────────────
+// GET /api/pay/:jobId — get payment info for client pay page (public — no auth)
+app.get('/api/pay/:jobId', async (req, res) => {
+  try {
+    const jobId  = (req.params.jobId || '').toUpperCase();
+    const sheets = app.locals.sheets;
+    const ssId   = process.env.SHEET_ID;
+
+    // Find job in Jobs tab
+    const jobRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Jobs!A:Z' });
+    const jobRows = jobRes.data.values || [];
+    const header  = jobRows[0] || [];
+
+    const idIdx        = header.findIndex(h => /job.?id/i.test(h));
+    const clientIdx    = header.findIndex(h => /client.*name|name.*client/i.test(h));
+    const typeIdx      = header.findIndex(h => /project.*type|type.*project|service/i.test(h));
+    const statusIdx    = header.findIndex(h => /^status$/i.test(h));
+    const depAmtIdx    = header.findIndex(h => /deposit.*amount|amount.*deposit/i.test(h));
+    const finalAmtIdx  = header.findIndex(h => /final.*amount|total.*amount|contract.*value/i.test(h));
+    const depPaidIdx   = header.findIndex(h => /deposit.*paid|dep.*paid/i.test(h));
+    const finalPaidIdx = header.findIndex(h => /final.*paid|invoice.*paid/i.test(h));
+    const depLinkIdx   = header.findIndex(h => /deposit.*link|stripe.*deposit/i.test(h));
+    const finalLinkIdx = header.findIndex(h => /final.*link|stripe.*final/i.test(h));
+
+    const row = jobRows.slice(1).find(r => (r[idIdx] || '').toUpperCase() === jobId);
+    if (!row) return res.status(404).json({ error: 'Job not found' });
+
+    // Get company info from Settings
+    let company = { name: 'Your Contractor', phone: '', email: '' };
+    try {
+      const settingsRes = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Settings!A:B' });
+      const sRows = settingsRes.data.values || [];
+      const setting = (key) => (sRows.find(r => r[0] === key) || [])[1] || '';
+      company = {
+        name:  setting('Company Name') || 'Your Contractor',
+        phone: setting('Phone')        || '',
+        email: setting('Email')        || '',
+      };
+    } catch(_) {}
+
+    res.json({
+      jobId,
+      clientName:    row[clientIdx]    || '',
+      projectType:   row[typeIdx]      || 'Project',
+      status:        row[statusIdx]    || '',
+      depositAmount: row[depAmtIdx]    || '',
+      finalAmount:   row[finalAmtIdx]  || '',
+      depositPaid:   row[depPaidIdx]   || '',
+      finalPaid:     row[finalPaidIdx] || '',
+      depositLink:   row[depLinkIdx]   || '',
+      finalLink:     row[finalLinkIdx] || '',
+      company,
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── CLIENT PAY PAGE ──────────────────────────────────────────────────────────
+app.get('/pay/:jobId', (req, res) => {
+  res.sendFile('pay.html', { root: path.join(__dirname, 'public') });
+});
+
+// ─── PAYMENT THANK-YOU PAGE ───────────────────────────────────────────────────
+app.get('/paid', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment Received</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #0A0908; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 32px; }
+    .icon { font-size: 64px; margin-bottom: 20px; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    p { color: rgba(255,255,255,.6); font-size: 15px; line-height: 1.6; }
+    .gold { color: #BF9438; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="icon">✅</div>
+    <h1>Payment Received!</h1>
+    <p>Thank you — your payment has been processed.<br>You'll receive a confirmation email shortly.</p>
+    <p style="margin-top:20px;font-size:13px" class="gold">Powered by SPEC Systems</p>
+  </div>
+</body>
+</html>`);
 });
 
 // ─── PHOTO LOG API ────────────────────────────────────────────────────────────

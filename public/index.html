@@ -1346,13 +1346,30 @@
 
     <!-- ── CONVERSATIONS PAGE ──────────────────────────────────────── -->
     <section class="page" id="page-conversations">
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="search" id="convSearch" placeholder="Search conversations…" oninput="filterConversations()">
+      <!-- Tab bar -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="convTabEmail" onclick="switchConvTab('email')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--gold);color:#000;font-size:13px;font-weight:700;cursor:pointer">✉️ Email</button>
+        <button id="convTabSms" onclick="switchConvTab('sms')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer">📱 SMS</button>
       </div>
-      <div id="convList">
-        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
-        <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+
+      <!-- Email panel -->
+      <div id="convPanelEmail">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="convSearch" placeholder="Search conversations…" oninput="filterConversations()">
+        </div>
+        <div id="convList">
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        </div>
+      </div>
+
+      <!-- SMS panel -->
+      <div id="convPanelSms" style="display:none">
+        <div id="smsConversations">
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+          <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+        </div>
       </div>
     </section>
 
@@ -1589,7 +1606,7 @@
     <section class="page" id="page-analytics">
       <div style="padding:4px 0 12px;display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text1)">Analytics</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text)">Analytics</div>
           <div style="font-size:13px;color:var(--text2);margin-top:2px">Revenue, sources &amp; team</div>
         </div>
         <div style="display:flex;gap:8px">
@@ -1597,6 +1614,9 @@
           <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadAnalytics()">↻ Refresh</button>
         </div>
       </div>
+
+      <!-- Summary Stats -->
+      <div id="analyticsSummary" style="margin-bottom:20px"></div>
 
       <!-- Goals & Targets -->
       <div id="analyticsGoals" style="margin-bottom:20px">
@@ -1609,13 +1629,13 @@
       </div>
 
       <!-- Lead Source Breakdown -->
-      <div style="font-size:16px;font-weight:700;color:var(--text1);margin:20px 0 10px">Lead Sources</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin:20px 0 10px">Lead Sources</div>
       <div id="analyticsLeadSources">
         <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>
 
       <!-- Team Performance -->
-      <div style="font-size:16px;font-weight:700;color:var(--text1);margin:20px 0 10px">Team Performance</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin:20px 0 10px">Team Performance</div>
       <div id="analyticsTeam">
         <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
       </div>

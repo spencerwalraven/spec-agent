@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Invoice Payment</title>
+  <style>
+    :root {
+      --navy: #0A2240;
+      --gold: #BF9438;
+      --gold2: #d4a84b;
+      --bg: #F4F5F7;
+      --card: #ffffff;
+      --text1: #111827;
+      --text2: #6B7280;
+      --text3: #9CA3AF;
+      --green: #22C55E;
+      --border: #E5E7EB;
+      --r: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text1);
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    .header {
+      background: var(--navy);
+      padding: 24px 20px 28px;
+      text-align: center;
+    }
+    .company-name {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .header-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: rgba(255,255,255,.6);
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--card);
+      margin: 14px 16px 0;
+      border-radius: var(--r);
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text2);
+      margin-bottom: 14px;
+    }
+    .amount-display {
+      text-align: center;
+      padding: 24px 0 16px;
+    }
+    .amount-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+    .amount-value {
+      font-size: 48px;
+      font-weight: 900;
+      color: var(--navy);
+      line-height: 1;
+    }
+    .amount-type {
+      font-size: 14px;
+      color: var(--text2);
+      margin-top: 6px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: var(--text2); }
+    .detail-val { font-weight: 600; color: var(--text1); }
+
+    .pay-btn {
+      display: block;
+      width: calc(100% - 32px);
+      margin: 16px 16px 0;
+      padding: 18px;
+      background: var(--gold);
+      color: var(--navy);
+      font-size: 17px;
+      font-weight: 800;
+      border: none;
+      border-radius: var(--r);
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .pay-btn:active { opacity: .85; }
+    .pay-btn.paid {
+      background: rgba(34,197,94,.15);
+      color: #166534;
+      cursor: default;
+    }
+
+    .secure-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 12px;
+      padding: 0 16px;
+    }
+
+    .contact-card {
+      background: var(--navy);
+      margin: 14px 16px 0;
+      border-radius: var(--r);
+      padding: 18px 20px;
+    }
+    .contact-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.5); margin-bottom: 10px; }
+    .contact-btns { display: flex; gap: 10px; }
+    .contact-btn {
+      flex: 1; padding: 12px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; text-align: center;
+      text-decoration: none; display: block;
+    }
+    .btn-call { background: var(--gold); color: var(--navy); }
+    .btn-email { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.2); }
+
+    .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 12px; color: var(--text2); }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--navy); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; padding: 32px; text-align: center; }
+    .paid-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: #166534; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; margin-top: 8px; }
+
+    .footer { text-align: center; padding: 24px 16px; font-size: 12px; color: var(--text3); }
+    .powered { color: var(--gold); font-weight: 600; }
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="loading"><div class="spinner"></div><div>Loading invoice…</div></div>
+</div>
+
+<script>
+  const jobId = location.pathname.split('/pay/')[1]?.split('/')[0]?.toUpperCase();
+
+  function fmt(val) {
+    if (!val) return '—';
+    const n = parseFloat(String(val).replace(/[$,]/g, ''));
+    if (isNaN(n)) return val;
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  function render(data) {
+    const { company, clientName, projectType, depositAmount, finalAmount, depositPaid, finalPaid, depositLink, finalLink, jobId } = data;
+
+    const depositIsPaid = !!depositPaid;
+    const finalIsPaid   = !!finalPaid;
+
+    const showDeposit = !!depositAmount;
+    const showFinal   = !!finalAmount;
+
+    document.title = `Invoice — ${company.name}`;
+
+    document.getElementById('root').innerHTML = `
+      <div class="header">
+        <div class="company-name">${company.name}</div>
+        <div class="header-title">Invoice</div>
+        <div class="header-sub">${projectType} for ${clientName}</div>
+      </div>
+
+      ${showDeposit ? `
+      <div class="card">
+        <div class="card-title">Deposit Invoice</div>
+        <div class="amount-display">
+          <div class="amount-label">Amount Due</div>
+          <div class="amount-value">${fmt(depositAmount)}</div>
+          <div class="amount-type">Project Deposit</div>
+          ${depositIsPaid ? '<div class="paid-badge">&#x2705; Paid</div>' : ''}
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">Job</span>
+          <span class="detail-val">${jobId}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">Type</span>
+          <span class="detail-val">${projectType}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">Status</span>
+          <span class="detail-val" style="color:${depositIsPaid ? 'var(--green)' : 'var(--gold)'}">${depositIsPaid ? '&#x2705; Paid' : '&#x23F3; Awaiting Payment'}</span>
+        </div>
+      </div>
+      ${!depositIsPaid && depositLink ? `
+        <a href="${depositLink}" class="pay-btn">&#x1F4B3; Pay Deposit ${fmt(depositAmount)}</a>
+        <div class="secure-note">&#x1F512; Secure payment powered by Stripe</div>
+      ` : depositIsPaid ? `
+        <div class="pay-btn paid">&#x2705; Deposit Paid</div>
+      ` : ''}
+      ` : ''}
+
+      ${showFinal ? `
+      <div class="card" style="margin-top:14px">
+        <div class="card-title">Final Invoice</div>
+        <div class="amount-display">
+          <div class="amount-label">Amount Due</div>
+          <div class="amount-value">${fmt(finalAmount)}</div>
+          <div class="amount-type">Final Payment</div>
+          ${finalIsPaid ? '<div class="paid-badge">&#x2705; Paid</div>' : ''}
+        </div>
+        <div class="detail-row">
+          <span class="detail-key">Status</span>
+          <span class="detail-val" style="color:${finalIsPaid ? 'var(--green)' : 'var(--gold)'}">${finalIsPaid ? '&#x2705; Paid' : '&#x23F3; Awaiting Payment'}</span>
+        </div>
+      </div>
+      ${!finalIsPaid && finalLink ? `
+        <a href="${finalLink}" class="pay-btn">&#x1F4B3; Pay Final Invoice ${fmt(finalAmount)}</a>
+        <div class="secure-note">&#x1F512; Secure payment powered by Stripe</div>
+      ` : finalIsPaid ? `
+        <div class="pay-btn paid">&#x2705; Final Invoice Paid</div>
+      ` : ''}
+      ` : ''}
+
+      ${!showDeposit && !showFinal ? `
+      <div class="card">
+        <div style="text-align:center;padding:24px 0;color:var(--text2)">No outstanding invoices for this job.</div>
+      </div>
+      ` : ''}
+
+      <div class="contact-card">
+        <div class="contact-title">Questions? We're here.</div>
+        <div class="contact-btns">
+          ${company.phone ? `<a class="contact-btn btn-call" href="tel:${company.phone}">&#x1F4DE; Call Us</a>` : ''}
+          ${company.email ? `<a class="contact-btn btn-email" href="mailto:${company.email}">&#x2709;&#xFE0F; Email</a>` : ''}
+        </div>
+      </div>
+
+      <div class="footer">Powered by <span class="powered">${company.name}</span></div>
+    `;
+  }
+
+  function renderError(msg) {
+    document.getElementById('root').innerHTML = `
+      <div class="error-state">
+        <div style="font-size:48px;margin-bottom:12px">&#x1F50D;</div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px">Invoice not found</div>
+        <div style="font-size:14px;color:var(--text2)">${msg || 'Check the link and try again.'}</div>
+      </div>
+    `;
+  }
+
+  async function load() {
+    if (!jobId) { renderError('No job ID in URL.'); return; }
+    try {
+      const res  = await fetch(`/api/pay/${jobId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Not found');
+      render({ ...data, jobId });
+    } catch(e) {
+      renderError(e.message);
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

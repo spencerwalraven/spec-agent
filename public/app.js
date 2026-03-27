@@ -434,7 +434,7 @@ function navigate(page) {
     else if (page === 'marketing') loadMarketing();
     else if (page === 'settings') loadSettings();
     else if (page === 'approvals')     loadApprovals();
-    else if (page === 'conversations') loadConversations();
+    else if (page === 'conversations') { loadConversations(); loadSmsConversations(); }
     else if (page === 'field')         loadField();
     else if (page === 'analytics')     loadAnalytics();
     else if (page === 'schedule')      loadSchedule();
@@ -2087,6 +2087,98 @@ function statusColor(status, source) {
   return 'badge-gray';
 }
 
+// ── SMS CONVERSATIONS ──────────────────────────────────────────────────────
+
+let _activeConvTab = 'email';
+
+function switchConvTab(tab) {
+  _activeConvTab = tab;
+  const emailPanel = document.getElementById('convPanelEmail');
+  const smsPanel   = document.getElementById('convPanelSms');
+  const emailBtn   = document.getElementById('convTabEmail');
+  const smsBtn     = document.getElementById('convTabSms');
+
+  if (tab === 'sms') {
+    if (emailPanel) emailPanel.style.display = 'none';
+    if (smsPanel)   smsPanel.style.display   = 'block';
+    if (emailBtn) { emailBtn.style.background = 'var(--card2)'; emailBtn.style.color = 'var(--text2)'; emailBtn.style.fontWeight = '600'; }
+    if (smsBtn)   { smsBtn.style.background   = 'var(--gold)';  smsBtn.style.color   = '#000';         smsBtn.style.fontWeight  = '700'; }
+    loadSmsConversations();
+  } else {
+    if (emailPanel) emailPanel.style.display = 'block';
+    if (smsPanel)   smsPanel.style.display   = 'none';
+    if (emailBtn) { emailBtn.style.background = 'var(--gold)';  emailBtn.style.color = '#000';         emailBtn.style.fontWeight = '700'; }
+    if (smsBtn)   { smsBtn.style.background   = 'var(--card2)'; smsBtn.style.color   = 'var(--text2)'; smsBtn.style.fontWeight  = '600'; }
+  }
+}
+
+async function loadSmsConversations() {
+  const el = document.getElementById('smsConversations');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">Loading SMS…</div>';
+
+  try {
+    const res  = await fetch('/api/sms');
+    const msgs = await res.json();
+
+    if (!Array.isArray(msgs) || !msgs.length) {
+      el.innerHTML = `
+        <div style="padding:32px;text-align:center;color:var(--text2)">
+          <div style="font-size:32px;margin-bottom:10px">📱</div>
+          <div style="font-weight:700;margin-bottom:6px">No SMS yet</div>
+          <div style="font-size:13px">Texts will appear here when clients or leads text your Twilio number.</div>
+        </div>`;
+      return;
+    }
+
+    // Group by phone number
+    const byPhone = {};
+    msgs.forEach(m => {
+      if (!byPhone[m.phone]) byPhone[m.phone] = { name: m.name, phone: m.phone, messages: [] };
+      byPhone[m.phone].messages.push(m);
+    });
+
+    el.innerHTML = Object.values(byPhone).map(conv => {
+      const last  = conv.messages[0];
+      const count = conv.messages.length;
+      const safeName = (conv.name || '').replace(/'/g, '&#39;');
+      return `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;cursor:pointer" onclick="openSmsThread('${conv.phone}', '${safeName}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:50%;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📱</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:700;color:var(--text1)">${conv.name || conv.phone}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last.direction === 'INBOUND' ? '← ' : '→ '}${last.message}</div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);text-align:right;flex-shrink:0">
+              <div>${count} msg${count !== 1 ? 's' : ''}</div>
+              <div style="margin-top:3px">${last.type || ''}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text2)">Could not load SMS</div>';
+  }
+}
+
+function openSmsThread(phone, name) {
+  const msg = prompt(`Reply to ${name || phone}:`);
+  if (!msg) return;
+  fetch('/api/sms/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to: phone, message: msg, name })
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      toastSuccess(`Sent to ${name || phone}`);
+      loadSmsConversations();
+    } else {
+      toastError(data.error || 'Send failed');
+    }
+  }).catch(() => toastError('Send failed'));
+}
+
 function relTime(str) {
   try {
     const diff = (Date.now() - new Date(str)) / 1000;
@@ -2770,7 +2862,7 @@ const CAL_COLORS = {
 
 // ── DAILY DISPATCH ────────────────────────────────────────────
 async function loadDispatch() {
-  const list = document.getElementById('dispatchList');
+  const list   = document.getElementById('dispatchList');
   const dateEl = document.getElementById('dispatchDate');
   if (!list) return;
 
@@ -2783,7 +2875,6 @@ async function loadDispatch() {
     const res  = await fetch('/api/jobs');
     const jobs = await res.json();
 
-    // Show active/in-progress jobs only
     const active = (jobs || []).filter(j => {
       const s = (j.status || '').toLowerCase();
       return s.includes('active') || s.includes('progress') || s.includes('planning');
@@ -2794,25 +2885,54 @@ async function loadDispatch() {
       return;
     }
 
+    // Render cards immediately
     list.innerHTML = active.map((j, i) => {
-      const statusColor = (j.status||'').toLowerCase().includes('progress') ? 'var(--gold)' : 'var(--green)';
       const initials = (j.clientName||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      const cardId   = `dispatch-card-${i}`;
       return `
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
-          <div style="width:36px;height:36px;border-radius:10px;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--gold);flex-shrink:0">${i+1}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:15px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.clientName || '—'}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.projectType || ''} ${j.address ? '· ' + j.address : ''}</div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
-              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:var(--gold)">${j.status || 'Active'}</span>
-              ${j.sub ? `<span style="font-size:11px;color:var(--text2)">👷 ${j.sub}</span>` : ''}
-              ${j.jobId ? `<span style="font-size:11px;color:var(--text3)">${j.jobId}</span>` : ''}
+        <div id="${cardId}" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--gold);flex-shrink:0">${i+1}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.clientName || '—'}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.projectType || ''} ${j.address ? '· ' + j.address : ''}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:var(--gold)">${j.status || 'Active'}</span>
+                ${j.sub ? `<span style="font-size:11px;color:var(--text2)">👷 ${j.sub}</span>` : ''}
+                ${j.jobId ? `<span style="font-size:11px;color:var(--text3)">${j.jobId}</span>` : ''}
+              </div>
+              <!-- Weather badge injected here -->
+              <div id="${cardId}-weather" style="margin-top:6px"></div>
             </div>
+            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;font-size:12px;font-weight:700;color:#3B82F6;text-decoration:none;flex-shrink:0">🗺️</a>` : ''}
           </div>
-          ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;font-size:12px;font-weight:700;color:#3B82F6;text-decoration:none;flex-shrink:0">🗺️</a>` : ''}
         </div>
       `;
     }).join('');
+
+    // Fetch weather for each job with an address (background, non-blocking)
+    active.forEach((j, i) => {
+      if (!j.address) return;
+      const weatherEl = document.getElementById(`dispatch-card-${i}-weather`);
+      if (!weatherEl) return;
+
+      fetch(`/api/weather?address=${encodeURIComponent(j.address)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.alerts?.length) return;
+          weatherEl.innerHTML = `
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${data.alerts.map(a => `
+                <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#DC2626">
+                  ${a.icon} ${a.detail}
+                </span>
+              `).join('')}
+            </div>
+          `;
+        })
+        .catch(() => {}); // Silently ignore weather failures
+    });
+
   } catch(e) {
     list.innerHTML = '<div style="padding:14px;color:var(--text2);font-size:13px;text-align:center">Could not load dispatch</div>';
   }
@@ -2890,6 +3010,99 @@ async function syncAllToCalendar() {
 function fmt$(n) {
   if (!n && n !== 0) return '—';
   return '$' + Math.round(n).toLocaleString();
+}
+
+// Render one animated bar chart row (pure CSS)
+function _barItem(label, value, maxValue, color, formattedValue, subLabel) {
+  const pct = maxValue > 0 ? Math.min(100, Math.round((value / maxValue) * 100)) : 0;
+  return `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-size:13px;font-weight:600;color:var(--text)">${label}</span>
+        <span style="font-size:13px;font-weight:800;color:${color}">${formattedValue}</span>
+      </div>
+      <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+        <div style="height:100%;width:0%;background:${color};border-radius:999px;transition:width 1s ease" data-tw="${pct}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">${subLabel !== undefined ? subLabel : (pct + '% of top')}</div>
+    </div>
+  `;
+}
+
+// Animate all bar elements within a container after insertion
+function _animateBars(container) {
+  if (!container) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      container.querySelectorAll('[data-tw]').forEach(bar => {
+        bar.style.width = bar.getAttribute('data-tw');
+      });
+    });
+  });
+}
+
+// Map a lead source name to a brand color
+function _sourceColor(source) {
+  const s = (source || '').toLowerCase();
+  if (s.includes('referral') || s.includes('refer')) return 'var(--gold)';
+  if (s.includes('google'))   return '#4285F4';
+  if (s.includes('facebook') || s.includes('fb')) return '#1877F2';
+  if (s.includes('instagram')) return '#E1306C';
+  if (s.includes('yelp'))     return '#D32323';
+  if (s.includes('website') || s.includes('web')) return 'var(--green)';
+  return 'var(--text2)';
+}
+
+// Color a team score (0–5 rating or 0–100 score)
+function _scoreColor(score) {
+  if (score === null || score === undefined || isNaN(Number(score))) return 'var(--text2)';
+  const n = Number(score);
+  // Handle 0-5 rating scale (max 5)
+  const normalized = n <= 5 ? (n / 5) * 100 : n;
+  if (normalized >= 80) return 'var(--green)';
+  if (normalized >= 60) return 'var(--gold)';
+  return 'var(--red)';
+}
+
+// Summary 2x2 stat grid at the top of analytics
+function renderAnalyticsSummary(profitData, sourcesData, teamData) {
+  const el = document.getElementById('analyticsSummary');
+  if (!el) return;
+
+  const totalRevenue = profitData?.summary?.total    || 0;
+  const jobCount     = profitData?.summary?.jobCount || 0;
+  const avgJobVal    = jobCount > 0 ? Math.round(totalRevenue / jobCount) : 0;
+  const avgMargin    = profitData?.summary?.avgMargin;
+  const marginColor  = avgMargin === null || avgMargin === undefined ? 'var(--text2)'
+    : avgMargin >= 30 ? 'var(--green)' : avgMargin >= 15 ? 'var(--gold)' : 'var(--red)';
+
+  // Avg customer satisfaction from team ratings (0–5)
+  let satLabel = '—';
+  if (teamData?.length) {
+    const rated = teamData.filter(t => t.avgRating !== null && t.avgRating !== undefined && t.avgRating !== '');
+    if (rated.length) {
+      const avg = rated.reduce((s, t) => s + parseFloat(t.avgRating || 0), 0) / rated.length;
+      satLabel = '★ ' + avg.toFixed(1);
+    }
+  }
+
+  const tiles = [
+    { label: 'Total Pipeline',  value: fmt$(totalRevenue),                  color: 'var(--gold)'  },
+    { label: 'Jobs in System',  value: jobCount > 0 ? String(jobCount) : '—', color: 'var(--text)'  },
+    { label: 'Avg Job Value',   value: avgJobVal > 0 ? fmt$(avgJobVal) : '—', color: 'var(--blue)'  },
+    { label: 'Avg Rating',      value: satLabel,                              color: 'var(--green)' },
+  ];
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${tiles.map(t => `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">${t.label}</div>
+          <div style="font-size:22px;font-weight:800;color:${t.color};letter-spacing:-.5px">${t.value}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 /* ─── INVENTORY / MATERIALS ─────────────────────────────────────── */
@@ -3376,70 +3589,84 @@ async function loadAnalytics() {
     api('/api/analytics/team').catch(() => null),
   ]).then(results => results.slice(1));
 
+  // ── SUMMARY CARD ──
+  renderAnalyticsSummary(profitData, sourcesData, teamData);
+
   // ── PROFITABILITY ──
   if (profitEl && profitData) {
     const { jobs, summary } = profitData;
-    const marginColor = m => m === null ? 'var(--text3)' : m >= 30 ? '#22C55E' : m >= 15 ? '#F59E0B' : '#EF4444';
+    const marginColor = m => m === null || m === undefined ? 'var(--text3)' : m >= 30 ? 'var(--green)' : m >= 15 ? 'var(--gold)' : 'var(--red)';
+
+    // Build job bars: use contractVal as the bar metric
+    const maxVal = jobs.length ? Math.max(...jobs.map(j => j.contractVal || 0), 1) : 1;
+
     profitEl.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
-        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:var(--navy)">${fmt$(summary.total)}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Pipeline</div>
-        </div>
-        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:${marginColor(summary.avgMargin)}">${summary.avgMargin !== null ? summary.avgMargin + '%' : '—'}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Avg Margin</div>
-        </div>
-        <div style="background:var(--card);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:var(--navy)">${summary.jobCount}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Total Jobs</div>
-        </div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px">Job Profitability</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px">
+        ${jobs.length ? jobs.map(j => {
+          const pct = maxVal > 0 ? Math.min(100, Math.round(((j.contractVal || 0) / maxVal) * 100)) : 0;
+          const mColor = marginColor(j.margin);
+          const barColor = j.overBudget ? 'var(--red)' : j.margin !== null && j.margin >= 30 ? 'var(--green)' : j.margin !== null && j.margin >= 15 ? 'var(--gold)' : 'var(--blue)';
+          return `
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text)">${j.clientName}</div>
+                  <div style="font-size:11px;color:var(--text3)">${j.projectType || ''}${j.projectType && j.jobId ? ' · ' : ''}${j.jobId || ''}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:10px">
+                  <div style="font-size:13px;font-weight:800;color:var(--gold)">${fmt$(j.contractVal)}</div>
+                  ${j.margin !== null && j.margin !== undefined ? `<div style="font-size:11px;font-weight:700;color:${mColor}">${j.margin}% margin</div>` : ''}
+                </div>
+              </div>
+              <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:0%;background:${barColor};border-radius:999px;transition:width 1s ease" data-tw="${pct}%"></div>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3)">
+                <span>${j.phasesDone}/${j.totalPhases} phases</span>
+                ${j.estCost > 0 ? `<span>Est cost: ${fmt$(j.estCost)}</span>` : ''}
+                ${j.actualCost > 0 ? `<span>Actual: ${fmt$(j.actualCost)}</span>` : ''}
+                ${j.overBudget ? `<span style="color:var(--red);font-weight:700">Over budget</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('') : `<div style="color:var(--text3);font-size:14px;padding:8px 0">No jobs with contract values yet.</div>`}
       </div>
-      <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:10px">Job Profitability</div>
-      ${jobs.map(j => `
-        <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <div>
-              <div style="font-weight:700;color:var(--text1)">${j.clientName}</div>
-              <div style="font-size:12px;color:var(--text2)">${j.projectType || ''} · ${j.jobId}</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-weight:800;color:var(--navy)">${fmt$(j.contractVal)}</div>
-              ${j.margin !== null ? `<div style="font-size:12px;font-weight:700;color:${marginColor(j.margin)}">${j.margin}% margin</div>` : ''}
-            </div>
-          </div>
-          ${j.overBudget ? `<div style="background:#FEF2F2;color:#DC2626;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;margin-top:4px">⚠️ Over estimated budget — review actual costs</div>` : ''}
-          <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--text2)">
-            <span>Est: ${fmt$(j.estCost)}</span>
-            ${j.actualCost > 0 ? `<span>Actual: ${fmt$(j.actualCost)}</span>` : ''}
-            <span>${j.phasesDone}/${j.totalPhases} phases done</span>
-          </div>
-        </div>
-      `).join('')}
     `;
+    _animateBars(profitEl);
   } else if (profitEl) {
     profitEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:20px 0">No profitability data yet — add job values and phases to get started.</div>`;
   }
 
   // ── LEAD SOURCES ──
   if (sourcesEl && sourcesData?.length) {
-    const max = Math.max(...sourcesData.map(s => s.leads), 1);
-    sourcesEl.innerHTML = sourcesData.map(s => `
-      <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-weight:700;color:var(--text1)">${s.source}</div>
-          <div style="font-size:12px;color:var(--text2)">${s.leads} lead${s.leads !== 1 ? 's' : ''} · ${s.conversionRate}% close rate</div>
-        </div>
-        <div style="background:#F4F5F7;border-radius:99px;height:6px;overflow:hidden">
-          <div style="background:var(--navy);height:100%;width:${Math.round((s.leads / max) * 100)}%;border-radius:99px;transition:width .5s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--text2)">
-          <span>${s.converted} converted</span>
-          <span>${s.totalValue > 0 ? fmt$(s.totalValue) + ' revenue' : 'No revenue tracked'}</span>
-          ${s.avgJobValue > 0 ? `<span>Avg ${fmt$(s.avgJobValue)}/job</span>` : ''}
-        </div>
+    const maxLeads = Math.max(...sourcesData.map(s => s.leads || 0), 1);
+    sourcesEl.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+        ${sourcesData.map(s => {
+          const color = _sourceColor(s.source);
+          const pct   = Math.round(((s.leads || 0) / maxLeads) * 100);
+          return `
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                <span style="font-size:13px;font-weight:700;color:var(--text)">${s.source}</span>
+                <span style="font-size:13px;font-weight:800;color:${color}">${s.leads} lead${s.leads !== 1 ? 's' : ''}</span>
+              </div>
+              <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:0%;background:${color};border-radius:999px;transition:width 1s ease" data-tw="${pct}%"></div>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3)">
+                <span>${s.conversionRate}% close rate</span>
+                <span>${s.converted} converted</span>
+                ${s.totalValue > 0 ? `<span>${fmt$(s.totalValue)} revenue</span>` : ''}
+                ${s.avgJobValue > 0 ? `<span>Avg ${fmt$(s.avgJobValue)}/job</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
-    `).join('');
+    `;
+    _animateBars(sourcesEl);
   } else if (sourcesEl) {
     sourcesEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No lead source data yet — add "How did you hear about us?" to your lead form.</div>`;
   }
@@ -3447,22 +3674,51 @@ async function loadAnalytics() {
   // ── TEAM PERFORMANCE ──
   if (teamEl && teamData?.length) {
     const active = teamData.filter(t => /yes|active/i.test(t.active || ''));
-    teamEl.innerHTML = (active.length ? active : teamData).map(t => `
-      <div style="background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div>
-            <div style="font-weight:700;color:var(--text1)">${t.name}</div>
-            <div style="font-size:12px;color:var(--text2)">${t.role || ''}</div>
-          </div>
-          ${t.avgRating !== null ? `<div style="font-size:18px;font-weight:800;color:var(--gold)">★ ${t.avgRating}</div>` : ''}
-        </div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2)">
-          ${t.jobsClosed > 0 ? `<span>🏆 ${t.jobsClosed} jobs closed</span>` : ''}
-          ${t.totalRevenue > 0 ? `<span>💰 ${fmt$(t.totalRevenue)} revenue</span>` : ''}
-          ${t.phasesAssigned > 0 ? `<span>📋 ${t.phasesDone}/${t.phasesAssigned} phases done</span>` : ''}
-        </div>
+    const members = active.length ? active : teamData;
+    // Max revenue for bar scaling
+    const maxRev = Math.max(...members.map(t => t.totalRevenue || 0), 1);
+
+    teamEl.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+        ${members.map(t => {
+          const rating    = t.avgRating !== null && t.avgRating !== undefined && t.avgRating !== '' ? parseFloat(t.avgRating) : null;
+          const ratingPct = rating !== null ? Math.round((rating / 5) * 100) : 0;
+          const rColor    = _scoreColor(rating);
+          const revPct    = maxRev > 0 ? Math.min(100, Math.round(((t.totalRevenue || 0) / maxRev) * 100)) : 0;
+          return `
+            <div style="margin-bottom:20px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text)">${t.name}</div>
+                  <div style="font-size:11px;color:var(--text3)">${t.role || ''}</div>
+                </div>
+                ${rating !== null ? `<div style="font-size:16px;font-weight:800;color:${rColor}">★ ${rating.toFixed(1)}</div>` : ''}
+              </div>
+              ${rating !== null ? `
+                <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden;margin-bottom:3px">
+                  <div style="height:100%;width:0%;background:${rColor};border-radius:999px;transition:width 1s ease" data-tw="${ratingPct}%"></div>
+                </div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${ratingPct}% satisfaction score</div>
+              ` : ''}
+              ${t.totalRevenue > 0 ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <span style="font-size:11px;color:var(--text3)">Revenue</span>
+                  <span style="font-size:11px;font-weight:700;color:var(--gold)">${fmt$(t.totalRevenue)}</span>
+                </div>
+                <div style="height:5px;background:var(--border);border-radius:999px;overflow:hidden;margin-bottom:6px">
+                  <div style="height:100%;width:0%;background:var(--gold);border-radius:999px;transition:width 1.1s ease" data-tw="${revPct}%"></div>
+                </div>
+              ` : ''}
+              <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+                ${t.jobsClosed > 0 ? `<span>${t.jobsClosed} jobs closed</span>` : ''}
+                ${t.phasesAssigned > 0 ? `<span>${t.phasesDone}/${t.phasesAssigned} phases done</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
-    `).join('');
+    `;
+    _animateBars(teamEl);
   } else if (teamEl) {
     teamEl.innerHTML = `<div style="color:var(--text3);font-size:14px;padding:8px 0">No team data yet.</div>`;
   }
