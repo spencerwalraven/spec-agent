@@ -10,6 +10,8 @@ const dbClients  = require('./src/services/clients');
 const dbJobs     = require('./src/services/jobs');
 const dbTasks    = require('./src/services/tasks');
 const dbTeam     = require('./src/services/team');
+const dbInvoices = require('./src/services/invoices');
+const dbMarketing = require('./src/services/marketing');
 
 // Catch unhandled errors so they appear in Railway logs
 process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
@@ -293,6 +295,13 @@ app.use((req, res, next) => {
 
   next();
 });
+
+function requireAuth(req, res, next) {
+  if (!isAuthenticated(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
 
 // Who am I?
 app.get('/api/me', (req, res) => {
@@ -628,49 +637,34 @@ app.post('/api/setup/gmail-watch', async (req, res) => {
 // Returns all leads/jobs that have an email thread, sorted by last contact
 app.get('/api/conversations', async (req, res) => {
   try {
-    const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
+    const [leads, jobs] = await Promise.all([dbLeads.getLeads(), dbJobs.getJobs()]);
     const conversations = [];
 
-    leads.forEach((r, i) => {
-      const threadId = g(r, 'Email Thread ID', 'emailThread');
-      if (!threadId) return;
-      const name = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim();
+    leads.forEach(l => {
+      if (!l.emailThreadId) return;
       conversations.push({
-        _row:       i + 2,
-        source:     'lead',
-        name,
-        email:      g(r, 'Email'),
-        threadId,
-        lastContact: g(r, 'Last Contact', 'Last Contacted'),
-        status:     g(r, 'Status', 'Lead Status'),
-        project:    g(r, 'Service Requested', 'Service Type', 'Project Type'),
+        _row: l.id, source:'lead', name: l.name || '',
+        email: l.email, threadId: l.emailThreadId,
+        lastContact: l.lastContact, status: l.status,
+        project: l.serviceRequested,
       });
     });
 
-    jobs.forEach((r, i) => {
-      const threadId = g(r, 'Client Email Thread', 'Email Thread ID', 'emailThread');
-      if (!threadId) return;
-      const name = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim();
+    jobs.forEach(j => {
+      if (!j.emailThreadId) return;
       conversations.push({
-        _row:       i + 2,
-        source:     'job',
-        name,
-        email:      g(r, 'Email'),
-        threadId,
-        jobId:      g(r, 'Job ID'),
-        lastContact: g(r, 'Last Contact', 'Last Client Contact'),
-        status:     g(r, 'Job Status', 'Status'),
-        project:    g(r, 'Service Type', 'Project Type'),
+        _row: j.id, source:'job', name: j.clientName || '',
+        email: j.clientEmail, threadId: j.emailThreadId,
+        jobId: j.jobRef, lastContact: j.updatedAt,
+        status: j.status, project: j.service,
       });
     });
 
-    // Sort newest contact first
     conversations.sort((a, b) => {
       const da = a.lastContact ? new Date(a.lastContact) : new Date(0);
       const db = b.lastContact ? new Date(b.lastContact) : new Date(0);
       return db - da;
     });
-
     res.json(conversations);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -688,44 +682,39 @@ app.get('/api/thread/:threadId', async (req, res) => {
 app.get('/api/summary', async (req, res) => {
   try {
     const [leads, jobs, clients, settings] = await Promise.all([
-      readTab('Leads'), readTab('Jobs'), readTab('Clients'), readSettings(),
+      dbLeads.getLeads(), dbJobs.getJobs(), dbClients.getClients(), dbSettings.readSettings(),
     ]);
 
     const now = new Date();
     const newLeadsThisMonth = leads.filter(l => {
-      const d = new Date(g(l, 'Timestamp', 'Date Added', 'Created'));
+      const d = new Date(l.createdAt);
       return !isNaN(d) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
 
-    const activeJobs = jobs.filter(j =>
-      /progress|active/i.test(g(j, 'Job Status', 'Status'))
-    ).length;
+    const activeJobs = jobs.filter(j => /progress|active/i.test(j.status)).length;
 
     let pipelineValue = 0;
     jobs.forEach(j => {
-      const v = parseFloat(String(g(j, 'Total Job Value', 'Job Value', 'Contract Amount')).replace(/[$,]/g, ''));
-      if (!isNaN(v) && !/complete/i.test(g(j, 'Job Status', 'Status'))) pipelineValue += v;
+      const v = parseFloat(j.estimatedValue) || 0;
+      if (v > 0 && !/complete/i.test(j.status)) pipelineValue += v;
     });
 
-    const converted = leads.filter(l => /convert/i.test(g(l, 'Lead Status', 'Status'))).length;
+    const converted = leads.filter(l => /convert/i.test(l.status)).length;
     const conversionRate = leads.length > 0 ? Math.round((converted / leads.length) * 100) + '%' : '—';
 
-    // Recent activity — last 8 leads + in-progress jobs
     const activity = [];
     [...leads].reverse().slice(0, 5).forEach(l => {
-      const name = `${g(l,'First Name')} ${g(l,'Last Name')}`.trim();
-      if (name) activity.push({
-        text: `${name} — ${g(l,'Project Type','Service Type') || 'new lead'}`,
-        time: g(l, 'Timestamp', 'Date Added') ? relativeTime(g(l,'Timestamp','Date Added')) : 'recently',
-        color: scoreColor(g(l,'Lead Score')),
+      if (l.name) activity.push({
+        text: `${l.name} — ${l.serviceRequested || 'new lead'}`,
+        time: l.createdAt ? relativeTime(l.createdAt) : 'recently',
+        color: scoreColor(l.score),
         type: 'lead',
       });
     });
-    jobs.filter(j => /progress/i.test(g(j,'Job Status','Status'))).slice(0,3).forEach(j => {
-      const name = `${g(j,'First Name')} ${g(j,'Last Name')}`.trim();
-      if (name) activity.push({
-        text: `${name} — ${g(j,'Service Type','Project Type') || 'job'} in progress`,
-        time: g(j,'Kickoff Date') ? relativeTime(g(j,'Kickoff Date')) : '',
+    jobs.filter(j => /progress/i.test(j.status)).slice(0, 3).forEach(j => {
+      if (j.clientName) activity.push({
+        text: `${j.clientName} — ${j.service || 'job'} in progress`,
+        time: j.startDate ? relativeTime(j.startDate) : '',
         color: 'blue', type: 'job',
       });
     });
@@ -1028,112 +1017,63 @@ app.post('/api/timeclock/punch', requireAuth, async (req, res) => {
 // ─── API: ALERTS ────────────────────────────────────────────────────────────
 app.get('/api/alerts', async (req, res) => {
   try {
-    const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
+    const [leads, jobs] = await Promise.all([dbLeads.getLeads(), dbJobs.getJobs()]);
     const alerts = [];
 
-    // Hot leads not yet contacted (score >= 80, status New, no Last Contact)
     leads.forEach(l => {
-      const score = parseInt(g(l,'Lead Score','AI Score'));
-      const status = g(l,'Lead Status','Status').toLowerCase();
-      const lastContact = g(l,'Last Contact','Last Contacted');
-      const name = `${g(l,'First Name')} ${g(l,'Last Name')}`.trim();
-      if (score >= 80 && status === 'new' && !lastContact && name) {
-        alerts.push({
-          type: 'urgent',
-          priority: 'high',
-          icon: '🔥',
-          title: 'Hot lead not yet contacted',
-          desc: `${name} · Score ${score}/100 · ${g(l,'Service Requested','Service Type','Project Type') || 'new lead'}`,
-          tag: `Lead: ${name}`,
-        });
+      const score = parseInt(l.score) || 0;
+      const status = (l.status || '').toLowerCase();
+      if (score >= 80 && status === 'new' && !l.lastContact && l.name) {
+        alerts.push({ type:'urgent', priority:'high', icon:'🔥',
+          title:'Hot lead not yet contacted',
+          desc:`${l.name} · Score ${score}/100 · ${l.serviceRequested || 'new lead'}`,
+          tag:`Lead: ${l.name}` });
       }
-      // Stale active leads (no contact in 3+ days)
-      const days = daysBetween(g(l,'Last Contact','Last Contacted'));
-      if (days !== null && days >= 3 && !['converted','dead','lost'].includes(status) && name) {
-        alerts.push({
-          type: 'warning',
-          priority: 'medium',
-          icon: '⏰',
-          title: `No contact in ${days} days — ${name}`,
-          desc: `Status: ${g(l,'Lead Status','Status') || 'Unknown'} · Last contact: ${g(l,'Last Contact','Last Contacted') || 'never'}`,
-          tag: `Lead: ${name}`,
-        });
+      const days = daysBetween(l.lastContact);
+      if (days !== null && days >= 3 && !['converted','dead','lost'].includes(status) && l.name) {
+        alerts.push({ type:'warning', priority:'medium', icon:'⏰',
+          title:`No contact in ${days} days — ${l.name}`,
+          desc:`Status: ${l.status || 'Unknown'} · Last contact: ${l.lastContact || 'never'}`,
+          tag:`Lead: ${l.name}` });
       }
     });
 
-    // Job-level alerts
     jobs.forEach(j => {
-      const name = `${g(j,'First Name')} ${g(j,'Last Name')}`.trim();
-      const contractStatus = g(j,'Contract Status','Contract').toLowerCase();
-      const depositPaid = g(j,'Deposit Paid','Deposit Invoice Paid');
-      const finalPaid = g(j,'Final Paid','Final Invoice Paid');
-      const jobStatus = g(j,'Job Status','Status').toLowerCase();
-      const jobId = g(j,'Job ID');
+      const name = j.clientName || '';
+      const contractStatus = (j.contractStatus || '').toLowerCase();
+      const jobStatus = (j.status || '').toLowerCase();
+      const jobId = j.jobId || j.jobRef || '';
 
-      // Deposit overdue: Contract Signed but Deposit Paid = No for more than 3 days
       if (contractStatus.includes('sign')) {
-        const contractDate = g(j,'Contract Signed Date','Contract Date','Proposal Date','Proposal Sent Date');
-        const daysSigned = daysBetween(contractDate);
-        if (daysSigned !== null && daysSigned > 3 && depositPaid && !/yes|paid/i.test(depositPaid) && name) {
-          alerts.push({
-            type: 'urgent',
-            priority: 'high',
-            icon: '💰',
-            title: `Deposit overdue — ${name}`,
-            desc: `Contract signed ${daysSigned} days ago · Deposit still unpaid · ${g(j,'Service Type','Project Type') || ''}`,
-            tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
-          });
+        const daysSigned = daysBetween(j.contractSignedAt);
+        if (daysSigned !== null && daysSigned > 3 && !j.depositPaid && name) {
+          alerts.push({ type:'urgent', priority:'high', icon:'💰',
+            title:`Deposit overdue — ${name}`,
+            desc:`Contract signed ${daysSigned} days ago · Deposit still unpaid · ${j.service || ''}`,
+            tag:jobId ? `Job: ${jobId}` : `Job: ${name}` });
         }
       }
 
-      // No progress update this week (In Progress jobs with no weekly progress notes)
       if (jobStatus.includes('progress') && name) {
-        const jobNotes = g(j,'Job Notes','Notes','Weekly Progress Notes','Progress Notes');
-        const lastUpdate = g(j,'Last Progress Update','Last Update');
-        const daysSinceUpdate = daysBetween(lastUpdate);
-        if (!jobNotes && !lastUpdate || (daysSinceUpdate !== null && daysSinceUpdate >= 7)) {
-          alerts.push({
-            type: 'warning',
-            priority: 'medium',
-            icon: '📋',
-            title: `No progress update this week — ${name}`,
-            desc: `${g(j,'Service Type','Project Type') || 'Job'} is in progress · No weekly notes recorded`,
-            tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
-          });
+        const daysSinceUpdate = daysBetween(j.updatedAt);
+        if (daysSinceUpdate !== null && daysSinceUpdate >= 7) {
+          alerts.push({ type:'warning', priority:'medium', icon:'📋',
+            title:`No progress update this week — ${name}`,
+            desc:`${j.service || 'Job'} is in progress`,
+            tag:jobId ? `Job: ${jobId}` : `Job: ${name}` });
         }
       }
 
-      // Contract not signed after 5 days
-      const proposalDate = g(j,'Proposal Sent Date','Proposal Date','Proposal Sent');
-      const daysProposal = daysBetween(proposalDate);
-      if (daysProposal !== null && daysProposal >= 5 &&
-          !contractStatus.includes('sign') && name &&
-          contractStatus && !contractStatus.includes('decline')) {
-        alerts.push({
-          type: 'warning',
-          priority: 'medium',
-          icon: '📄',
-          title: `Contract not signed — ${name}`,
-          desc: `Proposal sent ${daysProposal} days ago · ${g(j,'Service Type','Project Type') || ''}`,
-          tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
-        });
-      }
-
-      // Final invoice unpaid on complete jobs
-      if (jobStatus.includes('complete') && finalPaid && !/yes|paid/i.test(finalPaid) && name) {
-        alerts.push({
-          type: 'urgent',
-          priority: 'high',
-          icon: '💰',
-          title: `Final invoice unpaid — ${name}`,
-          desc: `Job complete · ${g(j,'Total Job Value','Job Value') || ''}`,
-          tag: jobId ? `Job: ${jobId}` : `Job: ${name}`,
-        });
+      const daysProposal = daysBetween(j.proposalSentAt);
+      if (daysProposal !== null && daysProposal >= 5 && !contractStatus.includes('sign') && name && contractStatus && !contractStatus.includes('decline')) {
+        alerts.push({ type:'warning', priority:'medium', icon:'📄',
+          title:`Contract not signed — ${name}`,
+          desc:`Proposal sent ${daysProposal} days ago · ${j.service || ''}`,
+          tag:jobId ? `Job: ${jobId}` : `Job: ${name}` });
       }
     });
 
-    // Sort by priority
-    const order = { high: 0, medium: 1, low: 2 };
+    const order = { high:0, medium:1, low:2 };
     alerts.sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2));
     res.json(alerts);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1141,32 +1081,15 @@ app.get('/api/alerts', async (req, res) => {
 
 // ─── API: MARKETING ─────────────────────────────────────────────────────────
 app.get('/api/marketing', async (req, res) => {
-  try {
-    const rows = await readTab('Marketing Library');
-    res.json(rows.map((r, i) => ({
-      _row: i + 2,
-      campaignName: g(r, 'Campaign Name', 'Name'),
-      type:         g(r, 'Target Segment', 'Campaign Type', 'Type'),
-      description:  g(r, 'Message Theme', 'Description', 'Email Body', 'Body'),
-      audience:     g(r, 'Target Segment', 'Target Audience', 'Audience'),
-      status:       g(r, 'Status', 'Campaign Status'),
-      launchDate:   g(r, 'Launch Date', 'Date Sent', 'Last Run Date'),
-      emailsSent:   g(r, 'Emails Sent Count', 'Reach', 'Recipients'),
-      conversions:  g(r, 'Conversions'),
-    })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbMarketing.getCampaigns()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Launch a campaign — write "Launched" to Status column
 app.post('/api/marketing/:row/launch', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    await updateCell('Marketing Library', row, ['Status', 'Campaign Status'], 'Launched');
-    // Also try to write today's date to Launch Date
-    try {
-      await updateCell('Marketing Library', row, ['Launch Date', 'Date Sent'], new Date().toLocaleDateString('en-US'));
-    } catch(_) {}
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    await dbMarketing.launchCampaign(id);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1174,23 +1097,17 @@ app.post('/api/marketing/:row/launch', async (req, res) => {
 // ─── API: APPROVALS ──────────────────────────────────────────────────────────
 app.get('/api/approvals', async (req, res) => {
   try {
-    const rows = await readTab('Jobs');
+    const jobs = await dbJobs.getJobs();
     const items = [];
-    rows.forEach((r, i) => {
-      const rowNum = i + 2;
-      const clientName = `${g(r,'First Name')} ${g(r,'Last Name')}`.trim() || g(r,'Client Name','Name') || 'Unknown';
-      const jobId      = g(r, 'Job ID');
-      const serviceType= g(r, 'Service Type', 'Project Type');
-      const jobValue   = g(r, 'Total Job Value', 'Contract Amount', 'Job Value');
-      const checks = [
-        { type:'proposal', cols:['Proposal Sent'],   linkCols:['Proposal Doc Link','Proposal Link'],   label:'Proposal'     },
-        { type:'contract', cols:['Contract Status'],  linkCols:['Contract Doc Link','Contract Link'],   label:'Contract'     },
-      ];
-      checks.forEach(({ type, cols, linkCols, label }) => {
-        if (g(r, ...cols) === 'Pending Approval') {
-          items.push({ _row: rowNum, jobId, clientName, serviceType, jobValue, type, label, docLink: g(r, ...linkCols) });
-        }
-      });
+    jobs.forEach(j => {
+      if (j.proposalStatus === 'Pending Approval') {
+        items.push({ _row:j.id, jobId:j.jobRef, clientName:j.clientName, serviceType:j.service,
+          jobValue:j.estimatedValue, type:'proposal', label:'Proposal', docLink:'' });
+      }
+      if (j.contractStatus === 'Pending Approval') {
+        items.push({ _row:j.id, jobId:j.jobRef, clientName:j.clientName, serviceType:j.service,
+          jobValue:j.estimatedValue, type:'contract', label:'Contract', docLink:'' });
+      }
     });
     res.json(items);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1198,58 +1115,25 @@ app.get('/api/approvals', async (req, res) => {
 
 app.post('/api/jobs/:row/approve', async (req, res) => {
   try {
-    const row  = parseInt(req.params.row);
+    const id = parseInt(req.params.row);
     const { type } = req.body;
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    const colMap = {
-      proposal: ['Proposal Sent'],
-      contract:  ['Contract Status'],
-    };
-    const linkMap = {
-      proposal: ['Proposal Doc Link','Proposal Link'],
-      contract:  ['Contract Doc Link','Contract Link'],
-    };
-    if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
-    await updateCell('Jobs', row, colMap[type], 'Approved');
-    // Fire Make webhook if configured — include client info so Make doesn't need extra sheet reads
-    const urlMap = { proposal: process.env.MAKE_PROPOSAL_WEBHOOK, contract: process.env.MAKE_CONTRACT_WEBHOOK, template: process.env.MAKE_TEMPLATE_WEBHOOK };
-    const webhookUrl = urlMap[type];
-    if (webhookUrl) {
-      try {
-        const jobRows = await readTab('Jobs');
-        const jobRow  = jobRows[row - 2] || {};
-        const payload = {
-          rowNumber:   row,
-          type,
-          approved:    true,
-          jobId:       g(jobRow, 'Job ID'),
-          clientName:  `${g(jobRow,'First Name')} ${g(jobRow,'Last Name')}`.trim(),
-          clientEmail: g(jobRow, 'Email'),
-          serviceType: g(jobRow, 'Service Type', 'Project Type'),
-          jobValue:    g(jobRow, 'Total Job Value', 'Contract Amount'),
-          docLink:     g(jobRow, ...linkMap[type]),
-        };
-        const { default: nodeFetch } = await import('node-fetch').catch(() => ({ default: null }));
-        const fetchFn = nodeFetch || (typeof fetch !== 'undefined' ? fetch : null);
-        if (fetchFn) await fetchFn(webhookUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      } catch (we) { console.warn('Webhook failed:', we.message); }
-    }
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const fieldMap = { proposal:'proposal_status', contract:'contract_status' };
+    if (!fieldMap[type]) return res.status(400).json({ error: 'Unknown type' });
+    await dbJobs.updateJobField(id, fieldMap[type], 'Approved');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/jobs/:row/flag', async (req, res) => {
   try {
-    const row  = parseInt(req.params.row);
+    const id = parseInt(req.params.row);
     const { type, note } = req.body;
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    const colMap = {
-      proposal: ['Proposal Sent'],
-      contract:  ['Contract Status'],
-    };
-    if (!colMap[type]) return res.status(400).json({ error: 'Unknown type' });
-    await updateCell('Jobs', row, colMap[type], 'Flagged — Needs Revision');
-    if (note) await updateCell('Jobs', row, ['Job Notes','Notes'], note);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const fieldMap = { proposal:'proposal_status', contract:'contract_status' };
+    if (!fieldMap[type]) return res.status(400).json({ error: 'Unknown type' });
+    await dbJobs.updateJobField(id, fieldMap[type], 'Flagged — Needs Revision');
+    if (note) await dbJobs.updateJobField(id, 'notes', note);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1257,33 +1141,24 @@ app.post('/api/jobs/:row/flag', async (req, res) => {
 // ─── API: FIELD UPDATE (PM logs daily progress from job site) ────────────────
 app.post('/api/jobs/:row/field-update', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
     const { note, notifyClient } = req.body;
     if (!note) return res.status(400).json({ error: 'Note required' });
 
-    const now = new Date().toLocaleDateString('en-US');
-    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const job = await dbJobs.getJob(id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    const timestamp = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    const existingNotes = (job.notes || '').trim();
+    const newNotes = existingNotes ? `${existingNotes}\n[${timestamp}]: ${note}` : `[${timestamp}]: ${note}`;
+    await dbJobs.updateJobField(id, 'notes', newNotes);
 
-    // Append note with timestamp to Job Notes
-    const { readRow } = require('./src/tools/sheets');
-    const existing = await readRow('Jobs', row);
-    const existingNotes = (existing?.['Job Notes'] || existing?.['Notes'] || '').trim();
-    const newNotes = existingNotes
-      ? `${existingNotes}\n[${timestamp}]: ${note}`
-      : `[${timestamp}]: ${note}`;
-
-    await updateCell('Jobs', row, ['Job Notes', 'Notes'], newNotes);
-    await updateCell('Jobs', row, ['Last Client Update', 'Last Update'], now);
-
-    // Optionally trigger client weekly update agent
     if (notifyClient) {
       const { route } = require('./src/agents/orchestrator');
-      route('send_weekly_update', { rowNumber: row }).catch(err =>
-        logger.error('API', `Field update notify client failed: ${err.message}`)
+      route('send_weekly_update', { rowNumber: id }).catch(err =>
+        logger.error('API', `Field update notify failed: ${err.message}`)
       );
     }
-
     res.json({ ok: true, timestamp });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1291,33 +1166,24 @@ app.post('/api/jobs/:row/field-update', async (req, res) => {
 // ─── API: FIELD ISSUE FLAG (PM flags a problem, owner gets text + email) ─────
 app.post('/api/jobs/:row/field-issue', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
     const { issue, severity } = req.body;
     if (!issue) return res.status(400).json({ error: 'Issue description required' });
 
-    const { readRow } = require('./src/tools/sheets');
-    const job = await readRow('Jobs', row);
-    const clientName = `${job?.['First Name'] || ''} ${job?.['Last Name'] || ''}`.trim() || 'Unknown Client';
-    const projectType = job?.['Service Type'] || job?.['Project Type'] || 'Project';
-
-    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-
-    // Append issue to notes
-    const existingNotes = (job?.['Job Notes'] || job?.['Notes'] || '').trim();
+    const job = await dbJobs.getJob(id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    const timestamp = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
     const issueNote = `[${timestamp}] ⚠️ ISSUE FLAGGED: ${issue}`;
-    const newNotes = existingNotes ? `${existingNotes}\n${issueNote}` : issueNote;
-    await updateCell('Jobs', row, ['Job Notes', 'Notes'], newNotes);
+    const newNotes = job.notes ? `${job.notes}\n${issueNote}` : issueNote;
+    await dbJobs.updateJobField(id, 'notes', newNotes);
 
-    // Notify owner via email + text
     const { notifyOwner } = require('./src/tools/notify');
     await notifyOwner({
-      subject: `⚠️ Issue Flagged — ${clientName} ${projectType}`,
-      message: `A field issue was flagged on the ${clientName} job (row ${row}).\n\nSeverity: ${severity || 'Unknown'}\n\nIssue: ${issue}\n\nLogged at: ${timestamp}`,
-      urgent: true,
-      eventType: 'fieldIssue',
+      subject: `⚠️ Issue Flagged — ${job.clientName || 'Client'} ${job.service || ''}`,
+      message: `A field issue was flagged on the ${job.clientName || ''} job.\n\nSeverity: ${severity || 'Unknown'}\n\nIssue: ${issue}\n\nLogged at: ${timestamp}`,
+      urgent: true, eventType: 'fieldIssue',
     });
-
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1346,11 +1212,45 @@ app.post('/api/goals', async (req, res) => {
 });
 
 // Legacy webhook aliases — kept for backward compat with existing Make.com scenarios
-app.post('/webhook/new-lead', (req, res) => {
+app.post('/webhook/new-lead', async (req, res) => {
   res.status(200).json({ received: true });
-  const { route } = require('./src/agents/orchestrator');
-  const rowNumber = req.body.rowNumber || req.body.row;
-  if (rowNumber) route('new_lead', { rowNumber: parseInt(rowNumber) }).catch(console.error);
+  try {
+    const { route } = require('./src/agents/orchestrator');
+    const body = req.body || {};
+
+    // If a DB lead id is provided directly, use it
+    if (body.leadId || body.id) {
+      const id = parseInt(body.leadId || body.id);
+      if (!isNaN(id)) {
+        route('new_lead', { rowNumber: id }).catch(console.error);
+        return;
+      }
+    }
+
+    // Legacy: rowNumber from Make.com scenarios (still supported during transition)
+    if (body.rowNumber || body.row) {
+      route('new_lead', { rowNumber: parseInt(body.rowNumber || body.row) }).catch(console.error);
+      return;
+    }
+
+    // New: form data comes in directly — create lead in DB
+    if (body.name || body.email || body.firstName) {
+      const name = body.name || [body.firstName || '', body.lastName || ''].filter(Boolean).join(' ');
+      const leadData = {
+        name, email: body.email || '', phone: body.phone || '',
+        source: body.source || body.leadSource || 'Website',
+        serviceRequested: body.serviceRequested || body.projectType || body.service || '',
+        notes: body.notes || body.message || '',
+        status: 'New',
+      };
+      const newLead = await dbLeads.createLead(leadData);
+      if (newLead?.id) {
+        route('new_lead', { rowNumber: newLead.id }).catch(console.error);
+      }
+    }
+  } catch (err) {
+    console.error('Webhook new-lead error:', err.message);
+  }
 });
 
 app.post('/webhook/email-reply', (req, res) => {
@@ -1678,50 +1578,33 @@ function changeOrderResponsePage(type, co, companyName = 'Your Contractor') {
 app.get('/api/sub/:name', async (req, res) => {
   try {
     const subName = decodeURIComponent(req.params.name).toLowerCase();
-    const settings = await readSettings();
+    const [settings, jobs] = await Promise.all([dbSettings.readSettings(), dbJobs.getJobs()]);
 
-    // Get all phases assigned to this sub
-    const phaseRows = await readTab('Job Phases');
-    const myPhases  = phaseRows.filter(p => {
-      const assigned = (g(p,'Assigned To','Assigned Name','assignedTo') || '').toLowerCase();
-      const trade    = (g(p,'Trade','Assigned Trade') || '').toLowerCase();
-      return assigned.includes(subName) || trade.includes(subName);
-    });
+    // Get all phases across all jobs, filter to this sub
+    const { getAll } = require('./src/db');
+    const allPhases = await getAll(
+      `SELECT p.*, j.address, j.service, j.client_id, c.name AS client_name
+       FROM job_phases p
+       JOIN jobs j ON p.job_id = j.id
+       LEFT JOIN clients c ON j.client_id = c.id
+       WHERE j.company_id = $1 AND (
+         LOWER(p.assigned_to) LIKE $2
+       ) ORDER BY p.status ASC, p.start_date ASC`,
+      [1, `%${subName}%`]
+    );
 
-    if (!myPhases.length) return res.status(404).json({ error: 'No phases found for this sub' });
+    if (!allPhases.length) return res.status(404).json({ error: 'No phases found for this sub' });
 
-    // Group by job and enrich with job data
-    const jobRows = await readTab('Jobs');
-    const jobMap  = {};
-    jobRows.forEach(j => { jobMap[g(j,'Job ID') || ''] = j; });
-
-    const phases = myPhases.map((p, i) => {
-      const jobId  = g(p,'Job ID') || '';
-      const job    = jobMap[jobId] || {};
-      const status = g(p,'Status','Phase Status') || 'Pending';
-      return {
-        _row:      p._row || (i + 2),
-        phaseId:   g(p,'Phase ID') || '',
-        jobId,
-        phaseName: g(p,'Phase','Phase Name') || '—',
-        trade:     g(p,'Trade','Assigned Trade') || '',
-        status,
-        startDate: g(p,'Start Date','Phase Start') || '',
-        endDate:   g(p,'End Date','Due Date','Phase End') || '',
-        materials: g(p,'Materials Needed','Materials') || '',
-        notes:     g(p,'Description','Notes') || '',
-        // Job info
-        clientFirst:  g(job,'First Name') || '',
-        address:      g(job,'Street Address','Address') || '',
-        city:         g(job,'City') || '',
-        projectType:  g(job,'Service Type','Project Type') || '',
-      };
-    }).sort((a, b) => {
-      // Sort: in-progress first, then pending by start date, then complete
-      const order = { 'in progress': 0, 'active': 0, 'pending': 1, 'complete': 2, 'done': 2 };
-      const ao = order[(a.status||'').toLowerCase()] ?? 1;
-      const bo = order[(b.status||'').toLowerCase()] ?? 1;
-      return ao - bo;
+    const phases = allPhases.map(p => ({
+      _row: p.id, phaseId: p.id, jobId: p.job_id,
+      phaseName: p.name || '—', trade: p.assigned_to || '',
+      status: p.status || 'Pending', startDate: p.start_date || '',
+      endDate: p.end_date || '', materials: '', notes: p.description || '',
+      clientFirst: (p.client_name || '').split(' ')[0] || '',
+      address: p.address || '', city: '', projectType: p.service || '',
+    })).sort((a, b) => {
+      const order = { 'in progress':0, 'active':0, 'pending':1, 'complete':2, 'completed':2 };
+      return (order[(a.status||'').toLowerCase()] ?? 1) - (order[(b.status||'').toLowerCase()] ?? 1);
     });
 
     res.json({
@@ -1735,31 +1618,14 @@ app.get('/api/sub/:name', async (req, res) => {
 // Sub marks a phase complete
 app.post('/api/sub/phase/:row/complete', async (req, res) => {
   try {
-    const row  = parseInt(req.params.row);
+    const id = parseInt(req.params.row);
     const { notes } = req.body || {};
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    await updateCell('Job Phases', row, 'Status', 'Complete');
-    await updateCell('Job Phases', row, 'Completion Date', new Date().toLocaleDateString('en-US'));
-    if (notes) await updateCell('Job Phases', row, 'Description', notes);
-
-    // Text the client that this phase is done
-    try {
-      const phaseRows = await readTab('Job Phases');
-      const phase     = phaseRows[row - 2];
-      const phaseName = g(phase, 'Phase Name', 'Phase') || 'A phase';
-      const jobId     = g(phase, 'Job ID') || '';
-      if (jobId) {
-        const jobRows = await readTab('Jobs');
-        const job     = jobRows.find(j => g(j, 'Job ID') === jobId);
-        const phone   = job ? g(job, 'Phone Number', 'Phone') : '';
-        const firstName = job ? g(job, 'First Name') : '';
-        if (phone) {
-          const { textPerson } = require('./src/tools/notify');
-          const msg = `Hey ${firstName || 'there'} 👋 Quick update on your project — the ${phaseName} phase just wrapped up! We'll keep you posted as we move to the next step. Any questions, just reply!`;
-          await textPerson({ to: phone, message: msg });
-        }
-      }
-    } catch (smsErr) { console.warn('Phase complete SMS failed:', smsErr.message); }
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    await dbJobs.updatePhaseStatus(id, 'completed');
+    if (notes) {
+      const { query } = require('./src/db');
+      await query(`UPDATE job_phases SET description=CONCAT(COALESCE(description,''), ' | Notes: ', $1), updated_at=NOW() WHERE id=$2`, [notes, id]);
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1773,46 +1639,29 @@ app.get('/sub/:name', (req, res) => {
 app.get('/api/status/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const rows = await readTab('Jobs');
-    const job  = rows.find(r => (g(r,'Job ID') || '').toUpperCase() === jobId.toUpperCase());
+    const [job, settings] = await Promise.all([
+      dbJobs.getJobByRef(jobId.toUpperCase()),
+      dbSettings.readSettings(),
+    ]);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
-    const settings = await readSettings();
-
-    // Load phases
-    const phaseRows = await readTab('Job Phases');
-    const phases = phaseRows
-      .filter(p => (g(p,'Job ID') || '').toUpperCase() === jobId.toUpperCase())
-      .map(p => ({
-        name:   g(p,'Phase','Phase Name') || '—',
-        trade:  g(p,'Trade','Assigned Trade') || '',
-        status: g(p,'Status','Phase Status') || 'Pending',
-        start:  g(p,'Start Date','Phase Start') || '',
-        end:    g(p,'End Date','Due Date','Phase End') || '',
-      }));
-
-    const totalPhases    = phases.length;
-    const completePhases = phases.filter(p => p.status.toLowerCase().includes('complete')).length;
-    const progressPct    = totalPhases > 0 ? Math.round((completePhases / totalPhases) * 100) : 0;
+    const phases = await dbJobs.getPhases(job.id);
+    const mappedPhases = phases.map(p => ({
+      name: p.name, trade: p.assignedTo || '', status: p.status,
+      start: p.startDate, end: p.endDate,
+    }));
+    const totalPhases = mappedPhases.length;
+    const completePhases = mappedPhases.filter(p => p.status.toLowerCase().includes('complet')).length;
+    const progressPct = totalPhases > 0 ? Math.round((completePhases / totalPhases) * 100) : 0;
 
     res.json({
-      company: {
-        name:  settings.companyName || 'Your Contractor',
-        phone: settings.phone || '',
-        email: settings.email || '',
-      },
+      company: { name: settings.companyName || 'Your Contractor', phone: settings.phone || '', email: settings.email || '' },
       job: {
-        id:          g(job,'Job ID') || jobId,
-        clientName:  `${g(job,'First Name')||''} ${g(job,'Last Name')||''}`.trim(),
-        projectType: g(job,'Service Type','Project Type') || 'Remodeling Project',
-        status:      g(job,'Job Status','Status') || 'In Progress',
-        startDate:   g(job,'Site Visit Date','Kickoff Date','Start Date') || '',
-        endDate:     g(job,'Est. Completion','Estimated End','End Date') || '',
-        lastUpdate:  g(job,'Last Client Update','Last Update') || '',
-        notes:       g(job,'Job Notes','Notes') || '',
-        address:     g(job,'Street Address','Address') || '',
+        id: job.jobRef, clientName: job.clientName || '', projectType: job.service || 'Remodeling Project',
+        status: job.status, startDate: job.startDate, endDate: job.endDate,
+        lastUpdate: '', notes: job.notes || '', address: job.address || '',
       },
-      phases,
+      phases: mappedPhases,
       progress: { total: totalPhases, complete: completePhases, pct: progressPct },
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -3246,6 +3095,39 @@ app.delete('/api/tasks/:row', requireAuth, async (req, res) => {
     await dbTasks.deleteTask(parseInt(req.params.row));
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: ANALYTICS (PostgreSQL) ─────────────────────────────────────────────
+app.get('/api/analytics', async (req, res) => {
+  try {
+    const { query } = require('./src/db');
+    const [leads, jobs, invoices] = await Promise.all([
+      dbLeads.getLeads(), dbJobs.getJobs(),
+      query(`SELECT * FROM invoices WHERE company_id = $1 AND status = 'paid'`, [1]).then(r => r.rows),
+    ]);
+
+    const now = new Date();
+    const thisMonth = leads.filter(l => {
+      const d = new Date(l.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+
+    const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+    const activeJobs = jobs.filter(j => /active|progress/i.test(j.status)).length;
+    const completedJobs = jobs.filter(j => /complet/i.test(j.status)).length;
+    const converted = leads.filter(l => /convert/i.test(l.status)).length;
+
+    res.json({
+      totalLeads: leads.length,
+      newLeadsThisMonth: thisMonth,
+      convertedLeads: converted,
+      conversionRate: leads.length > 0 ? ((converted / leads.length) * 100).toFixed(1) + '%' : '0%',
+      activeJobs,
+      completedJobs,
+      totalRevenue,
+      averageJobValue: completedJobs > 0 ? (totalRevenue / completedJobs).toFixed(0) : 0,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 const PORT = process.env.PORT || 3000;
