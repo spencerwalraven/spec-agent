@@ -1067,7 +1067,44 @@ app.post('/api/timeclock/punch', requireAuth, async (req, res) => {
       });
     }
 
-    res.json({ ok: true, name, action, timestamp });
+    // ── QuickBooks Payroll sync on clock-OUT ──────────────────────────────
+    let qbSync = null;
+    if (action === 'OUT' && qb) {
+      try {
+        const qbStatus = await qb.getConnectionStatus();
+        if (qbStatus.connected) {
+          // Find the matching clock-IN for this employee today
+          const today = new Date().toISOString().split('T')[0];
+          let clockRows = [];
+          try {
+            const cr = await sheets.spreadsheets.values.get({
+              spreadsheetId: ssId,
+              range: 'Time Clock!A:G'
+            });
+            clockRows = (cr.data.values || []).slice(1);
+          } catch(_) {}
+
+          // Get today's punches for this employee, find last IN
+          const myPunches = clockRows.filter(r => r[0] === name && (r[2]||'').startsWith(today));
+          const lastIn    = [...myPunches].reverse().find(r => r[1] === 'IN');
+
+          if (lastIn) {
+            qbSync = await qb.createTimeActivity({
+              employeeName: name,
+              clockIn:      lastIn[2],
+              clockOut:     timestamp,
+              jobId:        jobId || lastIn[3] || null,
+            });
+            logger.success('QB Payroll', `Time synced for ${name}: ${qbSync.hours}h ${qbSync.minutes}m`);
+          }
+        }
+      } catch(qbErr) {
+        // QB sync failure should never block the punch from saving
+        logger.error('QB Payroll', `Time sync failed for ${name}: ${qbErr.message}`);
+      }
+    }
+
+    res.json({ ok: true, name, action, timestamp, qbSync });
   } catch(e) {
     console.error('Punch error:', e.message);
     res.status(500).json({ error: e.message });

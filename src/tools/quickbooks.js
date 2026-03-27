@@ -280,6 +280,90 @@ async function markInvoicePaid(qbInvoiceId, customerId, amount, paymentDate) {
   return res.Payment;
 }
 
+// ─── EMPLOYEE ─────────────────────────────────────────────────────────────────
+
+async function findOrCreateEmployee(displayName) {
+  if (!displayName) throw new Error('Employee name required');
+
+  // Search existing employees
+  try {
+    const query  = `select * from Employee where DisplayName = '${displayName.replace(/'/g, "\\'")}'`;
+    const result = await qbRequest('GET', `/query?query=${encodeURIComponent(query)}`);
+    const existing = result.QueryResponse?.Employee?.[0];
+    if (existing) {
+      logger.info('QuickBooks', `Found existing employee: ${displayName} (ID: ${existing.Id})`);
+      return existing.Id;
+    }
+  } catch (_) {}
+
+  // Create new employee
+  const nameParts  = displayName.trim().split(' ');
+  const firstName  = nameParts[0] || displayName;
+  const lastName   = nameParts.slice(1).join(' ') || '';
+
+  const res = await qbRequest('POST', '/employee', {
+    Employee: {
+      DisplayName: displayName,
+      GivenName:   firstName,
+      FamilyName:  lastName,
+      Active:      true,
+    },
+  });
+  const id = res.Employee?.Id;
+  logger.success('QuickBooks', `Created QB employee: ${displayName} (ID: ${id})`);
+  return id;
+}
+
+// ─── TIME ACTIVITY ────────────────────────────────────────────────────────────
+
+/**
+ * Push a completed time entry to QuickBooks Payroll.
+ * Requires QuickBooks Payroll subscription on the client's QB account.
+ *
+ * @param {object} opts
+ * @param {string} opts.employeeName  — crew member's display name
+ * @param {Date}   opts.clockIn       — clock-in timestamp
+ * @param {Date}   opts.clockOut      — clock-out timestamp
+ * @param {string} [opts.jobId]       — SPEC job ID (used as description)
+ * @param {string} [opts.customerRef] — QB customer ID to link billable hours
+ */
+async function createTimeActivity({ employeeName, clockIn, clockOut, jobId, customerRef }) {
+  const inTime  = new Date(clockIn);
+  const outTime = new Date(clockOut);
+  const totalMs = outTime - inTime;
+  if (totalMs <= 0) throw new Error('Clock-out must be after clock-in');
+
+  const totalMinutes = Math.round(totalMs / 60000);
+  const hours        = Math.floor(totalMinutes / 60);
+  const minutes      = totalMinutes % 60;
+  const txnDate      = inTime.toISOString().split('T')[0];
+
+  // Find or create the employee in QB
+  const employeeId = await findOrCreateEmployee(employeeName);
+
+  const timeActivity = {
+    TxnDate:     txnDate,
+    NameOf:      'Employee',
+    EmployeeRef: { value: String(employeeId) },
+    Hours:       hours,
+    Minutes:     minutes,
+    Description: jobId ? `SPEC Job ${jobId}` : 'Field work',
+    BillableStatus: customerRef ? 'Billable' : 'NotBillable',
+    ...(customerRef ? { CustomerRef: { value: String(customerRef) } } : {}),
+  };
+
+  const res = await qbRequest('POST', '/timeactivity', { TimeActivity: timeActivity });
+  const ta  = res.TimeActivity;
+  logger.success('QuickBooks', `Time entry pushed: ${employeeName} · ${hours}h ${minutes}m on ${txnDate} (ID: ${ta?.Id})`);
+  return {
+    qbTimeId: ta?.Id,
+    hours,
+    minutes,
+    txnDate,
+    employeeId,
+  };
+}
+
 // ─── WEBHOOK VERIFICATION ─────────────────────────────────────────────────────
 
 function verifyWebhookSignature(rawBody, signatureHeader) {
@@ -329,9 +413,11 @@ module.exports = {
   buildAuthUrl,
   exchangeCodeForTokens,
   findOrCreateCustomer,
+  findOrCreateEmployee,
   createInvoice,
   getInvoice,
   markInvoicePaid,
+  createTimeActivity,
   verifyWebhookSignature,
   getConnectionStatus,
   qbRequest,
