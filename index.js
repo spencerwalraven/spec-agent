@@ -3,6 +3,14 @@ const express = require('express');
 const path    = require('path');
 const { google } = require('googleapis');
 
+// ─── DB SERVICES ─────────────────────────────────────────────────────────────
+const dbSettings = require('./src/services/settings');
+const dbLeads    = require('./src/services/leads');
+const dbClients  = require('./src/services/clients');
+const dbJobs     = require('./src/services/jobs');
+const dbTasks    = require('./src/services/tasks');
+const dbTeam     = require('./src/services/team');
+
 // Catch unhandled errors so they appear in Railway logs
 process.on('uncaughtException',  e => console.error('UNCAUGHT EXCEPTION:', e));
 process.on('unhandledRejection', e => console.error('UNHANDLED REJECTION:', e));
@@ -736,64 +744,29 @@ app.get('/api/summary', async (req, res) => {
 });
 
 // ─── API: LEADS ─────────────────────────────────────────────────────────────
+// ─── API: LEADS (PostgreSQL) ─────────────────────────────────────────────────
 app.get('/api/leads', async (req, res) => {
-  try {
-    const rows = await readTab('Leads');
-    res.json(rows.map((r, i) => ({
-      _row: i + 2,
-      firstName:    g(r, 'First Name'),
-      lastName:     g(r, 'Last Name'),
-      email:        g(r, 'Email'),
-      phone:        g(r, 'Phone Number', 'Phone'),
-      address:      g(r, 'Street Address', 'Address'),
-      city:         g(r, 'City'),
-      state:        g(r, 'State'),
-      zip:          g(r, 'Zip Code', 'Zip', 'ZIP'),
-      projectType:  g(r, 'Service Requested', 'Service Type', 'Project Type'),
-      description:  g(r, 'Tell us about your project', 'Project Description', 'Description'),
-      budget:       g(r, 'Budget'),
-      timeline:     g(r, 'Timeline'),
-      leadScore:    g(r, 'Lead Score', 'AI Score'),
-      scoreReason:  g(r, 'Score Reasoning', 'Score Label'),
-      leadStatus:   g(r, 'Status', 'Lead Status'),
-      assignedRep:  g(r, 'Assigned Salesmen', 'Assigned Rep', 'Sales Rep', 'Salesperson'),
-      notes:        g(r, 'Notes', 'Agent Notes', 'Qualifying Notes'),
-      lastContact:  g(r, 'Last Contact', 'Last Contacted'),
-      nurtureStep:  g(r, 'Nurture Day', 'Nurture Step'),
-      booked:       g(r, 'Call Scheduled', 'Booked', 'Call Booked'),
-      timestamp:    g(r, 'Timestamp', 'Date Added'),
-      heardAboutUs: g(r, 'How did you hear about us?', 'Source'),
-    })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbLeads.getLeads()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: CONVERT LEAD ──────────────────────────────────────────────────────
 app.post('/api/leads/:row/convert', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    await updateCell('Leads', row, ['Status', 'Lead Status'], 'Converted');
+    await dbLeads.updateLeadStatus(parseInt(req.params.row), 'Converted');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: LOST LEAD ──────────────────────────────────────────────────────────
 app.post('/api/leads/:row/lost', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    await updateCell('Leads', row, ['Status', 'Lead Status'], 'Lost');
+    await dbLeads.updateLeadStatus(parseInt(req.params.row), 'Lost');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: SAVE LEAD NOTE ─────────────────────────────────────────────────────
 app.post('/api/leads/:row/note', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    const { note } = req.body;
-    await updateCell('Leads', row, ['Notes', 'Agent Notes', 'Qualifying Notes'], note || '');
+    await dbLeads.updateLeadNote(parseInt(req.params.row), req.body.note || '');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -801,153 +774,60 @@ app.post('/api/leads/:row/note', async (req, res) => {
 // ─── API: UPDATE JOB STATUS ──────────────────────────────────────────────────
 app.post('/api/jobs/:row/status', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    const { status } = req.body;
-    await updateCell('Jobs', row, ['Job Status', 'Status'], status || '');
+    await dbJobs.updateJobStatus(parseInt(req.params.row), req.body.status || '');
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: JOBS ──────────────────────────────────────────────────────────────
+// ─── API: JOBS (PostgreSQL) ──────────────────────────────────────────────────
 app.get('/api/jobs', async (req, res) => {
-  try {
-    const rows = await readTab('Jobs');
-    res.json(rows.map((r, i) => ({
-      _row: i + 2,
-      jobId:           g(r, 'Job ID'),
-      firstName:       g(r, 'First Name'),
-      lastName:        g(r, 'Last Name'),
-      clientName:      `${g(r,'First Name')} ${g(r,'Last Name')}`.trim(),
-      email:           g(r, 'Email'),
-      phone:           g(r, 'Phone Number', 'Phone'),
-      address:         g(r, 'Street Address', 'Address'),
-      city:            g(r, 'City'),
-      serviceType:     g(r, 'Service Type', 'Project Type'),
-      description:     g(r, 'Project Description', 'Description'),
-      jobStatus:       g(r, 'Job Status', 'Status'),
-      qualityTier:     g(r, 'Quality Tier'),
-      salesperson:     g(r, 'Salesperson', 'Sales Rep'),
-      estimateLow:     g(r, 'AI Estimate Low', 'Estimate Low', 'Low Estimate'),
-      estimateHigh:    g(r, 'AI Estimate High', 'Estimate High', 'High Estimate'),
-      depositAmount:   g(r, 'Deposit Amount'),
-      totalJobValue:   g(r, 'Total Job Value', 'Contract Amount', 'Job Value'),
-      contractStatus:  g(r, 'Contract Status'),
-      contractLink:    g(r, 'Contract Doc Link', 'Contract Link'),
-      proposalStatus:  g(r, 'Proposal Status', 'Proposal Accepted'),
-      proposalLink:    g(r, 'Proposal Doc Link', 'Proposal Link'),
-      proposalDate:    g(r, 'Proposal Sent Date', 'Proposal Sent', 'Proposal Date'),
-      kickoffDocLink:  g(r, 'Kickoff Doc Link', 'Kickoff Document'),
-      kickoffDate:     g(r, 'Site Visit Date', 'Kickoff Date'),
-      startDate:       g(r, 'Site Visit Date', 'Kickoff Date', 'Start Date'),
-      endDate:         g(r, 'Est. Completion', 'Estimated End', 'End Date'),
-      jobTemplateLink: g(r, 'Job Template Link'),
-      phasesTotal:     g(r, 'Phases Total', 'Total Phases'),
-      phasesComplete:  g(r, 'Phases Complete', 'Phases Completed'),
-      depositPaid:     g(r, 'Deposit Paid', 'Deposit Invoice Paid'),
-      depositSent:     g(r, 'Deposit Invoice Sent'),
-      finalPaid:       g(r, 'Final Invoice Paid', 'Final Paid'),
-      finalSent:       g(r, 'Final Invoice Sent'),
-      jobNotes:        g(r, 'Job Notes', 'Notes'),
-      depositInvoice:  g(r, 'Deposit Invoice Link', 'Deposit Invoice'),
-      finalInvoice:    g(r, 'Final Invoice Link', 'Final Invoice'),
-      jobComplete:     g(r, 'Job Complete', 'Completion'),
-      completionDate:  g(r, 'Completion Date', 'Job Completion Date'),
-      jobNotes:        g(r, 'Job Notes', 'Notes'),
-      sqFootage:       g(r, 'Total Sq Footage', 'Sq Footage'),
-    })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbJobs.getJobs(req.query.status)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: JOB PHASES ────────────────────────────────────────────────────────
+// ─── API: JOB PHASES (PostgreSQL) ────────────────────────────────────────────
 app.get('/api/phases', async (req, res) => {
   try {
     const { jobId } = req.query;
-    const rows = await readTab('Job Phases');
-    const phases = rows
-      .filter(r => !jobId || g(r,'Job ID') === jobId)
-      .map((r, i) => ({
-        _row: i + 2,
-        phaseId:       g(r, 'Phase ID'),
-        jobId:         g(r, 'Job ID'),
-        clientName:    g(r, 'Client Name'),
-        phaseName:     g(r, 'Phase Name'),
-        phaseOrder:    g(r, 'Phase Order'),
-        description:   g(r, 'Description'),
-        materials:     g(r, 'Materials Needed'),
-        laborHrs:      g(r, 'Estimated Labor Hrs', 'Est Labor Hrs'),
-        estCost:       g(r, 'Estimated Cost', 'Est Cost'),
-        status:        g(r, 'Status'),
-        completionDate:g(r, 'Completion Date'),
-        assignedName:  g(r, 'Assigned Name'),
-        teamId:        g(r, 'Team ID'),
-        subNotified:   g(r, 'Sub Notified'),
-        subConfirmed:  g(r, 'Sub Confirmed'),
-        phaseRating:   g(r, 'Phase Rating'),
-        clientFeedback:g(r, 'Client Feedback'),
-        progress:      g(r, 'Progress'),
-      }))
-      .sort((a, b) => parseInt(a.phaseOrder) - parseInt(b.phaseOrder));
-    res.json(phases);
+    if (!jobId) return res.json([]);
+    res.json(await dbJobs.getPhases(parseInt(jobId)));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Update phase actual cost (job costing)
 app.post('/api/phases/:row/actual-cost', async (req, res) => {
   try {
-    const rowNum = parseInt(req.params.row);
-    const { actualCost } = req.body;
-    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
-    const ok = await updateCell('Job Phases', rowNum, ['Actual Cost', 'Actual'], String(actualCost || '0'));
-    res.json({ success: ok });
+    await dbJobs.updatePhaseActualCost(parseInt(req.params.row), req.body.actualCost);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Update phase status
 app.post('/api/phases/:row/status', async (req, res) => {
   try {
-    const rowNum = parseInt(req.params.row);
-    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
-    const { status } = req.body;
-    const ok = await updateCell('Job Phases', rowNum, 'Status', status);
-    if (status === 'Complete') {
-      await updateCell('Job Phases', rowNum, 'Completion Date',
-        new Date().toLocaleDateString('en-US'));
-    }
-    res.json({ success: ok });
+    await dbJobs.updatePhaseStatus(parseInt(req.params.row), req.body.status);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: CLIENTS ───────────────────────────────────────────────────────────
+// ─── API: CLIENTS (PostgreSQL) ───────────────────────────────────────────────
 app.get('/api/clients', async (req, res) => {
-  try {
-    const rows = await readTab('Clients');
-    res.json(rows.map((r, i) => ({
-      _row: i + 2,
-      clientId:      g(r, 'Client ID'),
-      firstName:     g(r, 'First Name'),
-      lastName:      g(r, 'Last Name'),
-      email:         g(r, 'Email'),
-      phone:         g(r, 'Phone'),
-      address:       g(r, 'Address', 'Street Address'),
-      city:          g(r, 'City'),
-      lifetimeValue: g(r, 'Lifetime Value', 'Total Job Value', 'LTV'),
-      jobsCompleted: g(r, 'Jobs Completed', 'Total Jobs'),
-      lastJobDate:   g(r, 'Last Job Date', 'Last Job'),
-      referralScore: g(r, 'Referral Score', 'Referral Potential'),
-      reviewStatus:  g(r, 'Review Status', 'Google Review'),
-      reviewLink:    g(r, 'Review Link'),
-      notes:         g(r, 'Client Notes', 'Notes'),
-      preferredContact: g(r, 'Preferred Contact'),
-      birthday:      g(r, 'Birthday'),
-      anniversary:   g(r, 'Home Anniversary', 'Anniversary'),
-    })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbClients.getClients()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── API: CLIENT 360 TIMELINE ───────────────────────────────────────────────
-// GET /api/clients/:name/timeline — full activity history for a client
+// ─── API: CLIENT 360 TIMELINE (PostgreSQL) ───────────────────────────────────
 app.get('/api/clients/:name/timeline', async (req, res) => {
+  try {
+    const name = decodeURIComponent(req.params.name);
+    const events = await dbClients.getClientTimeline(name);
+    res.json({ name, events, jobCount: events.filter(e => e.type === 'job').length });
+  } catch (e) {
+    console.error('Timeline error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── LEGACY TIMELINE (sheets fallback — remove after full migration) ─────────
+app.get('/api/clients/:name/timeline_LEGACY_DISABLED', async (req, res) => {
   try {
     const name   = decodeURIComponent(req.params.name);
     const events = [];
@@ -1066,196 +946,83 @@ app.get('/api/clients/:name/timeline', async (req, res) => {
   }
 });
 
-// ─── API: TEAM ──────────────────────────────────────────────────────────────
+// ─── API: TEAM (PostgreSQL) ──────────────────────────────────────────────────
 app.get('/api/team', async (req, res) => {
-  try {
-    const [teamRows, jobRows] = await Promise.all([
-      readTab('Team'), readTab('Jobs'),
-    ]);
-
-    const team = teamRows.map((r, i) => {
-      const name = g(r, 'Name', 'Team Member', 'Employee Name');
-      const teamId = g(r, 'Team ID', 'ID');
-      const assignedJobs = jobRows.filter(j =>
-        g(j,'Salesperson','Sales Rep') === name ||
-        g(j,'Salesperson','Sales Rep') === teamId
-      ).length;
-      return {
-        _row: i + 2,
-        teamId,
-        name,
-        role:         g(r, 'Role', 'Position', 'Title'),
-        email:        g(r, 'Email'),
-        phone:        g(r, 'Phone'),
-        active:       g(r, 'Active', 'Status', 'Is Active'),
-        activeJobs:   assignedJobs,
-        leadsAssigned:g(r, 'Leads Assigned', 'Total Leads'),
-        type:         g(r, 'Type', 'Employee Type') || 'Employee',
-        specialty:    g(r, 'Specialty', 'Skills'),
-        startDate:    g(r, 'Start Date'),
-        notes:        g(r, 'Notes'),
-      };
-    });
-    res.json(team);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbTeam.getTeam()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Toggle team member active/inactive
 app.post('/api/team/:row/toggle', async (req, res) => {
   try {
-    const rowNum = parseInt(req.params.row);
-    if (isNaN(rowNum) || rowNum < 2) return res.status(400).json({ error: 'Invalid row' });
-    const { active } = req.body;
-    const ok = await updateCell('Team', rowNum, 'Active', active ? 'Yes' : 'No');
-    res.json({ success: ok });
+    await dbTeam.toggleMemberStatus(parseInt(req.params.row));
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── TIME CLOCK ────────────────────────────────────────────────────────
-// GET /api/timeclock — get today's punches + current status per team member
+// ─── API: TIME CLOCK (PostgreSQL) ────────────────────────────────────────────
 app.get('/api/timeclock', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
+    const [team, punches, open] = await Promise.all([
+      dbTeam.getTeam(),
+      dbTeam.getTimeclock(req.query.date),
+      dbTeam.getCurrentlyClocked(),
+    ]);
+    const openByName = {};
+    open.forEach(p => { openByName[p.name] = p; });
 
-    // Get team members
-    const teamRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ssId,
-      range: 'Team!A:J'
-    });
-    const teamRows = (teamRes.data.values || []).slice(1).filter(r => r[0]);
-
-    // Get today's time clock entries
-    const today = new Date().toISOString().split('T')[0];
-    let clockRows = [];
-    try {
-      const clockRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: ssId,
-        range: 'Time Clock!A:G'
-      });
-      const allRows = (clockRes.data.values || []).slice(1);
-      clockRows = allRows.filter(r => r[0] && (r[2] || '').startsWith(today));
-    } catch(e) { /* tab may not exist yet */ }
-
-    // Build status per member
-    const members = teamRows.map(r => {
-      const name = r[0] || '';
-      const role = r[1] || '';
-      // Find latest punch for this person today
-      const myPunches = clockRows.filter(c => c[0] === name);
-      const lastPunch = myPunches[myPunches.length - 1];
-      const clockedIn = lastPunch && lastPunch[1] === 'IN';
-      const clockInTime = clockedIn ? lastPunch[2] : null;
-
-      // Calculate today's hours
-      let todayMinutes = 0;
-      for (let i = 0; i < myPunches.length - 1; i++) {
-        if (myPunches[i][1] === 'IN' && myPunches[i+1][1] === 'OUT') {
-          const inTime  = new Date(myPunches[i][2]);
-          const outTime = new Date(myPunches[i+1][2]);
-          todayMinutes += (outTime - inTime) / 60000;
-        }
-      }
-      // Add current session if still clocked in
-      if (clockedIn && clockInTime) {
-        todayMinutes += (Date.now() - new Date(clockInTime)) / 60000;
-      }
-
+    const members = team.map(m => {
+      const myPunches = punches.filter(p => p.name === m.name);
+      const openPunch = openByName[m.name];
+      const todayMinutes = myPunches.reduce((sum, p) => sum + (parseFloat(p.hours) || 0) * 60, 0)
+        + (openPunch ? (Date.now() - new Date(openPunch.clockIn)) / 60000 : 0);
       return {
-        name,
-        role,
-        phone: r[2] || '',
-        clockedIn,
-        clockInTime,
-        todayHours: (todayMinutes / 60).toFixed(1),
-        punchCount: myPunches.length
+        ...m,
+        clockedIn:    !!openPunch,
+        clockInTime:  openPunch?.clockIn || null,
+        openPunchId:  openPunch?.id || null,
+        todayHours:   (todayMinutes / 60).toFixed(1),
+        punchCount:   myPunches.length,
       };
     });
-
-    res.json({ members, date: today });
-  } catch(e) {
-    console.error('Timeclock fetch error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+    res.json({ members, punches, date: req.query.date || new Date().toISOString().slice(0,10) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/timeclock/punch — clock in or out
 app.post('/api/timeclock/punch', requireAuth, async (req, res) => {
   try {
-    const sheets    = req.app.locals.sheets;
-    const ssId      = req.session.sheetId;
-    const { name, action, jobId } = req.body; // action: 'IN' or 'OUT'
+    const { name, action, jobId, jobName } = req.body;
     if (!name || !action) return res.status(400).json({ error: 'name and action required' });
 
-    const timestamp = new Date().toISOString();
-    const row = [name, action, timestamp, jobId || '', '', '', ''];
+    let punch, qbSync = null;
+    if (action === 'IN') {
+      punch = await dbTeam.clockIn(name, jobId || null, jobName || '');
+    } else {
+      const open = await dbTeam.getLastOpenPunch(name);
+      if (!open) return res.status(400).json({ error: 'No open punch found for ' + name });
+      punch = await dbTeam.clockOut(open.id);
 
-    // Try to append to Time Clock tab, create header if needed
-    try {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId,
-        range: 'Time Clock!A:G',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [row] }
-      });
-    } catch(e) {
-      // Tab probably doesn't exist — create header then append
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: ssId,
-        range: 'Time Clock!A1:G1',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [['Name', 'Action', 'Timestamp', 'Job ID', 'Notes', 'Approved', 'Payroll Week']] }
-      });
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId,
-        range: 'Time Clock!A:G',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [row] }
-      });
-    }
-
-    // ── QuickBooks Payroll sync on clock-OUT ──────────────────────────────
-    let qbSync = null;
-    if (action === 'OUT' && qb) {
-      try {
-        const qbStatus = await qb.getConnectionStatus();
-        if (qbStatus.connected) {
-          // Find the matching clock-IN for this employee today
-          const today = new Date().toISOString().split('T')[0];
-          let clockRows = [];
-          try {
-            const cr = await sheets.spreadsheets.values.get({
-              spreadsheetId: ssId,
-              range: 'Time Clock!A:G'
-            });
-            clockRows = (cr.data.values || []).slice(1);
-          } catch(_) {}
-
-          // Get today's punches for this employee, find last IN
-          const myPunches = clockRows.filter(r => r[0] === name && (r[2]||'').startsWith(today));
-          const lastIn    = [...myPunches].reverse().find(r => r[1] === 'IN');
-
-          if (lastIn) {
+      // QuickBooks Payroll sync
+      if (qb) {
+        try {
+          const qbStatus = await qb.getConnectionStatus();
+          if (qbStatus.connected) {
             qbSync = await qb.createTimeActivity({
               employeeName: name,
-              clockIn:      lastIn[2],
-              clockOut:     timestamp,
-              jobId:        jobId || lastIn[3] || null,
+              clockIn:  open.clock_in,
+              clockOut: punch.clock_out,
+              jobId:    jobId || open.job_id || null,
             });
-            logger.success('QB Payroll', `Time synced for ${name}: ${qbSync.hours}h ${qbSync.minutes}m`);
+            await dbTeam.markQbSynced(punch.id, qbSync?.id);
+            logger.success('QB Payroll', `Time synced for ${name}: ${qbSync?.hours}h`);
           }
+        } catch(qbErr) {
+          logger.error('QB Payroll', `Sync failed for ${name}: ${qbErr.message}`);
         }
-      } catch(qbErr) {
-        // QB sync failure should never block the punch from saving
-        logger.error('QB Payroll', `Time sync failed for ${name}: ${qbErr.message}`);
       }
     }
-
-    res.json({ ok: true, name, action, timestamp, qbSync });
-  } catch(e) {
-    console.error('Punch error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+    res.json({ ok: true, name, action, punch, qbSync });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── API: ALERTS ────────────────────────────────────────────────────────────
@@ -1556,77 +1323,26 @@ app.post('/api/jobs/:row/field-issue', async (req, res) => {
 });
 
 // ─── API: SETTINGS ───────────────────────────────────────────────────────────
-app.get('/api/settings',  async (req, res) => {
-  try { res.json(await readSettings()); }
+// ── SETTINGS (PostgreSQL) ──────────────────────────────────────────────────
+app.get('/api/settings', async (req, res) => {
+  try { res.json(await dbSettings.readSettings()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/settings', async (req, res) => {
-  try { await writeSettings(req.body); res.json({ success: true }); }
+  try { await dbSettings.writeSettings(req.body); res.json({ success: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── GOALS & TARGETS ──────────────────────────────────────────────────────────
+// ── GOALS (PostgreSQL) ────────────────────────────────────────────────────
 app.get('/api/goals', async (req, res) => {
-  try {
-    const sheets = getSheets();
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID, range: 'Settings!A1:B80',
-    });
-    const rawMap = {};
-    (r.data.values || []).forEach(row => {
-      if (row[0]) rawMap[row[0].trim()] = (row[1] || '').trim();
-    });
-    res.json({
-      revenueGoal:    parseFloat(rawMap['Goal Revenue']    || '0') || 0,
-      leadsGoal:      parseInt(rawMap['Goal Leads']        || '0') || 0,
-      conversionGoal: parseFloat(rawMap['Goal Conversion'] || '0') || 0,
-      jobsGoal:       parseInt(rawMap['Goal Jobs']         || '0') || 0,
-      period:         rawMap['Goal Period'] || 'Monthly',
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbSettings.readGoals()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/goals', async (req, res) => {
-  try {
-    const { revenueGoal, leadsGoal, conversionGoal, jobsGoal, period } = req.body;
-    const sheets = getSheets();
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID, range: 'Settings!A1:A80',
-    });
-    const labels = (r.data.values || []).map(row => (row[0] || '').trim());
-    const goalMap = {
-      'Goal Revenue':    String(revenueGoal    ?? ''),
-      'Goal Leads':      String(leadsGoal      ?? ''),
-      'Goal Conversion': String(conversionGoal ?? ''),
-      'Goal Jobs':       String(jobsGoal       ?? ''),
-      'Goal Period':     period || 'Monthly',
-    };
-    const toAppend = [];
-    for (const [label, value] of Object.entries(goalMap)) {
-      const rowIdx = labels.indexOf(label);
-      if (rowIdx !== -1) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SHEET_ID,
-          range: `Settings!B${rowIdx + 1}`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [[value]] },
-        });
-      } else {
-        toAppend.push([label, value]);
-      }
-    }
-    if (toAppend.length) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
-        range: 'Settings!A:B',
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        requestBody: { values: toAppend },
-      });
-    }
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { await dbSettings.writeGoals(req.body); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Legacy webhook aliases — kept for backward compat with existing Make.com scenarios
@@ -3504,57 +3220,30 @@ async function getTasks(sheets, ssId) {
   } catch(_) { return []; }
 }
 
+// ─── API: TASKS (PostgreSQL) ─────────────────────────────────────────────────
 app.get('/api/tasks', requireAuth, async (req, res) => {
-  try {
-    const tasks = await getTasks(req.app.locals.sheets, req.session.sheetId);
-    res.json(tasks);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await dbTasks.getTasks(req.query.status)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/tasks', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
-    const { title, assignedTo, dueDate, priority, clientName, jobId, notes } = req.body;
-    if (!title) return res.status(400).json({ error: 'title required' });
-
-    const createdAt = new Date().toISOString();
-    const row = [title, assignedTo||'', dueDate||'', priority||'Normal', 'Open', clientName||'', jobId||'', notes||'', createdAt, ''];
-
-    try {
-      await sheets.spreadsheets.values.append({ spreadsheetId: ssId, range: 'Tasks!A:J', valueInputOption: 'USER_ENTERED', requestBody: { values: [row] } });
-    } catch(_) {
-      await sheets.spreadsheets.values.update({ spreadsheetId: ssId, range: 'Tasks!A1:J1', valueInputOption: 'USER_ENTERED', requestBody: { values: [['Title','Assigned To','Due Date','Priority','Status','Client','Job ID','Notes','Created At','Completed At']] } });
-      await sheets.spreadsheets.values.append({ spreadsheetId: ssId, range: 'Tasks!A:J', valueInputOption: 'USER_ENTERED', requestBody: { values: [row] } });
-    }
-    res.json({ ok: true });
+    if (!req.body.title) return res.status(400).json({ error: 'title required' });
+    const task = await dbTasks.createTask(req.body);
+    res.json({ ok: true, task });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/tasks/:row/complete', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
-    const rowNum = parseInt(req.params.row);
-    const completedAt = new Date().toISOString();
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: ssId,
-      requestBody: { valueInputOption: 'USER_ENTERED', data: [
-        { range: `Tasks!E${rowNum}`, values: [['Complete']] },
-        { range: `Tasks!J${rowNum}`, values: [[completedAt]] },
-      ]}
-    });
+    await dbTasks.completeTask(parseInt(req.params.row));
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/tasks/:row', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
-    const rowNum = parseInt(req.params.row);
-    // Clear the row
-    await sheets.spreadsheets.values.clear({ spreadsheetId: ssId, range: `Tasks!A${rowNum}:J${rowNum}` });
+    await dbTasks.deleteTask(parseInt(req.params.row));
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
