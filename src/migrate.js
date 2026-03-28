@@ -260,7 +260,11 @@ async function migrate() {
       status            VARCHAR(50) DEFAULT 'active',  -- active | inactive
       performance_score DECIMAL(4,1),
       jobs_completed    INTEGER DEFAULT 0,
-      qb_employee_id    VARCHAR(100),
+      qb_employee_id        VARCHAR(100),
+      login_username        VARCHAR(100),
+      login_password_hash   VARCHAR(255),
+      login_role            VARCHAR(50) DEFAULT 'field',
+      notes                 TEXT,
       created_at        TIMESTAMPTZ DEFAULT NOW(),
       updated_at        TIMESTAMPTZ DEFAULT NOW()
     );

@@ -39,12 +39,12 @@ async function seed() {
 
   // ── Team ────────────────────────────────────────────────────────────────
   const teamRows = await query(`
-    INSERT INTO team (company_id, name, role, email, phone, pay_rate, pay_type, active)
+    INSERT INTO team (company_id, name, role, email, phone, status)
     VALUES
-      (1, 'Spencer Walraven', 'Owner',          'spencer@summitremodeling.com', '(303) 555-0182', 0,    'salary', true),
-      (1, 'Jake Morrison',    'Lead Carpenter',  'jake@summitremodeling.com',   '(303) 555-0147', 28.50,'hourly', true),
-      (1, 'Dena Park',        'Estimator',       'dena@summitremodeling.com',   '(303) 555-0193', 24.00,'hourly', true),
-      (1, 'Tyler Reyes',      'Apprentice',      'tyler@summitremodeling.com',  '(303) 555-0261', 18.00,'hourly', true)
+      (1, 'Spencer Walraven', 'Owner',         'spencer@summitremodeling.com', '(303) 555-0182', 'active'),
+      (1, 'Jake Morrison',    'Lead Carpenter', 'jake@summitremodeling.com',   '(303) 555-0147', 'active'),
+      (1, 'Dena Park',        'Estimator',      'dena@summitremodeling.com',   '(303) 555-0193', 'active'),
+      (1, 'Tyler Reyes',      'Apprentice',     'tyler@summitremodeling.com',  '(303) 555-0261', 'active')
     RETURNING id, name
   `);
   const [spencer, jake, dena, tyler] = teamRows.rows;
@@ -187,44 +187,44 @@ async function seed() {
 
   // ── Invoices ─────────────────────────────────────────────────────────────
   await query(`
-    INSERT INTO invoices (company_id, job_id, invoice_type, invoice_number, amount,
+    INSERT INTO invoices (company_id, job_id, invoice_type, amount,
       status, sent_at, paid_at, due_date)
     VALUES
-      (1, ${kitchenJob.id}, 'deposit', 'INV-001', 5550.00,
+      (1, ${kitchenJob.id}, 'deposit', 5550.00,
        'paid', NOW() - INTERVAL '19 days', NOW() - INTERVAL '18 days', NOW() - INTERVAL '12 days'),
 
-      (1, ${bathJob.id}, 'deposit', 'INV-002', 2160.00,
+      (1, ${bathJob.id}, 'deposit', 2160.00,
        'paid', NOW() - INTERVAL '51 days', NOW() - INTERVAL '50 days', NOW() - INTERVAL '45 days'),
 
-      (1, ${bathJob.id}, 'final', 'INV-003', 5040.00,
+      (1, ${bathJob.id}, 'final', 5040.00,
        'paid', NOW() - INTERVAL '9 days', NOW() - INTERVAL '7 days', NOW() - INTERVAL '1 day'),
 
-      (1, ${additionJob.id}, 'deposit', 'INV-004', 12600.00,
+      (1, ${additionJob.id}, 'deposit', 12600.00,
        'pending', NULL, NULL, NOW() + INTERVAL '14 days')
   `);
   console.log('✅ Invoices (4)');
 
   // ── Tasks ────────────────────────────────────────────────────────────────
   await query(`
-    INSERT INTO tasks (company_id, title, description, priority, status, due_date, assigned_to, related_job)
+    INSERT INTO tasks (company_id, title, description, priority, status, due_date, assigned_to)
     VALUES
       (1, 'Follow up with Amanda Torres',
        'Hot lead from Google — score 92. Called once, no answer. Try again today.',
-       'urgent', 'open', NOW() + INTERVAL '1 hour', 'Dena Park', NULL),
+       'urgent', 'open', NOW() + INTERVAL '1 hour', 'Dena Park'),
 
       (1, 'Order kitchen cabinets — JOB-001',
        'Confirm final cabinet color with Sarah before placing order with supplier.',
-       'high', 'open', NOW() + INTERVAL '2 days', 'Spencer Walraven', 'JOB-001'),
+       'high', 'open', NOW() + INTERVAL '2 days', 'Spencer Walraven'),
 
       (1, 'Schedule rough-in inspection — JOB-001',
        'Plumbing and electrical rough-in complete. Call city to schedule inspection.',
-       'high', 'open', NOW() + INTERVAL '1 day', 'Jake Morrison', 'JOB-001')
+       'high', 'open', NOW() + INTERVAL '1 day', 'Jake Morrison')
   `);
   console.log('✅ Tasks (3)');
 
   // ── Time Clock ───────────────────────────────────────────────────────────
   await query(`
-    INSERT INTO time_clock (company_id, employee_name, job_id, job_name, clock_in, clock_out, hours_worked)
+    INSERT INTO time_clock (company_id, team_member_name, job_id, job_name, clock_in, clock_out, hours)
     VALUES
       (1, 'Jake Morrison', ${kitchenJob.id}, 'Kitchen Remodel — JOB-001',
        NOW() - INTERVAL '4 hours 30 minutes', NULL, NULL),

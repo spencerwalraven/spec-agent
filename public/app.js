@@ -1622,6 +1622,49 @@ function renderTeam() {
   el.innerHTML = html;
 }
 
+function showAddTeamMember() {
+  // Clear form
+  ['newMemberName','newMemberRole','newMemberPhone','newMemberEmail','newMemberUsername','newMemberPassword'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  openModal('addTeamModal');
+}
+
+async function saveNewTeamMember() {
+  const name = document.getElementById('newMemberName')?.value?.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+
+  const data = {
+    name,
+    role:  document.getElementById('newMemberRole')?.value?.trim()  || '',
+    phone: document.getElementById('newMemberPhone')?.value?.trim() || '',
+    email: document.getElementById('newMemberEmail')?.value?.trim() || '',
+  };
+
+  try {
+    const result = await api('/api/team', { method: 'POST', body: data });
+    if (!result?.ok) throw new Error(result?.error || 'Failed to add team member');
+
+    // If login credentials provided, set them
+    const username = document.getElementById('newMemberUsername')?.value?.trim();
+    const password = document.getElementById('newMemberPassword')?.value?.trim();
+    if (username && password && result.id) {
+      const loginRole = document.getElementById('newMemberLoginRole')?.value || 'field';
+      await api(`/api/team/${result.id}/set-login`, {
+        method: 'POST',
+        body: { username, password, role: loginRole }
+      });
+    }
+
+    closeModal('addTeamModal');
+    showToast(`${name} added to team!`);
+    await loadTeam();
+  } catch (e) {
+    showToast(e.message || 'Error adding team member', 'error');
+  }
+}
+
 function showTeamDetail(idx) {
   const m = allTeam[idx];
   if (!m) return;

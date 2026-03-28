@@ -314,6 +314,13 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requireOwner(req, res, next) {
+  if (!req.user || req.user.role !== 'owner') {
+    return res.status(403).json({ error: 'Owner access required' });
+  }
+  next();
+}
+
 // Who am I?
 app.get('/api/me', (req, res) => {
   const session = getAuthSession(req);
@@ -328,8 +335,8 @@ app.get('/login', (req, res) => {
 });
 
 // Login form submit
-app.post('/login', (req, res) => {
-  const { password } = req.body;
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
   const users = getUsers();
 
   if (!users.length) {
@@ -338,9 +345,25 @@ app.post('/login', (req, res) => {
     return res.redirect('/');
   }
 
-  const user = users.find(u => u.password === password);
-  if (user) {
-    setSessionCookie(res, user);
+  let matchedUser = users.find(u => u.password === password);
+
+  // Also check team table for DB-managed logins
+  if (!matchedUser && process.env.DATABASE_URL) {
+    try {
+      const { getOne } = require('./src/db');
+      const hash = crypto.createHmac('sha256', SESS_SECRET).update(password).digest('hex');
+      const member = await getOne(
+        `SELECT * FROM team WHERE company_id = 1 AND login_username = $1 AND login_password_hash = $2 AND status = 'active'`,
+        [username ? username.toLowerCase() : '', hash]
+      );
+      if (member) {
+        matchedUser = { name: member.name, password, role: member.login_role || 'field' };
+      }
+    } catch (_) {}
+  }
+
+  if (matchedUser) {
+    setSessionCookie(res, matchedUser);
     return res.redirect('/');
   }
   res.redirect('/login?error=1');
@@ -950,6 +973,38 @@ app.get('/api/clients/:name/timeline_LEGACY_DISABLED', async (req, res) => {
 app.get('/api/team', async (req, res) => {
   try { res.json(await dbTeam.getTeam()); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/team — add a new team member
+app.post('/api/team', async (req, res) => {
+  try {
+    const { name, role, email, phone, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { insertOne } = require('./src/db');
+    const member = await insertOne(`
+      INSERT INTO team (company_id, name, role, email, phone, status, notes)
+      VALUES ($1,$2,$3,$4,$5,'active',$6)
+    `, [1, name, role || '', email || '', phone || '', notes || '']);
+    res.json({ ok: true, id: member.id, ...member });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/team/:id/set-login — set login credentials for a team member
+// This stores hashed credentials in the team table so owner can manage logins from UI
+app.post('/api/team/:id/set-login', requireOwner, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { username, password, role: loginRole } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    const hash = crypto.createHmac('sha256', SESS_SECRET).update(password).digest('hex');
+    const { query } = require('./src/db');
+    await query(
+      `UPDATE team SET login_username = $1, login_password_hash = $2, login_role = $3, updated_at = NOW() WHERE id = $4`,
+      [username.toLowerCase(), hash, loginRole || 'field', id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/team/:row/toggle', async (req, res) => {

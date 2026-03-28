@@ -49,6 +49,14 @@ function formatJob(r) {
     qbEstimateId:      r.qb_estimate_id || '',
     qbInvoiceId:       r.qb_invoice_id  || '',
     createdAt:         r.created_at,
+    // Frontend compatibility aliases
+    jobStatus:         r.status          || '',
+    Status:            r.status          || '',
+    totalJobValue:     r.estimated_value || 0,
+    serviceType:       r.service         || r.title || '',
+    'Project Type':    r.service         || r.title || '',
+    'Client Name':     r.client_name     || '',
+    'Job ID':          r.job_ref         || `JOB-${r.id}`,
   };
 }
 
