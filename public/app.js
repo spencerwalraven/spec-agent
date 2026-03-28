@@ -738,9 +738,12 @@ function renderKanban() {
   const leads = allLeads.filter(l => {
     if (!search) return true;
     const name = (l.name || `${l.firstName||''} ${l.lastName||''}`).toLowerCase();
-    const svc  = (l.serviceRequested || l.service || '').toLowerCase();
+    const svc  = (l.projectType || l.serviceRequested || l.service || '').toLowerCase();
     return name.includes(search) || svc.includes(search);
-  }).filter(l => !/lost|converted/i.test(l.status || ''));
+  }).filter(l => {
+    const st = (g(l,'leadStatus','Status','status') || '').toLowerCase();
+    return !/lost|converted|dead/i.test(st);
+  });
 
   const stages = [
     { key:'new',       label:'New',           color:'#3B82F6' },
@@ -753,9 +756,8 @@ function renderKanban() {
   const buckets = {};
   stages.forEach(s => { buckets[s.key] = []; });
   leads.forEach(l => {
-    const st = (l.status || '').toLowerCase();
-    if      (st.includes('new'))                               buckets.new.push(l);
-    else if (st.includes('contacted'))                         buckets.contacted.push(l);
+    const st = (g(l,'leadStatus','Status','status') || '').toLowerCase();
+    if      (st.includes('contacted'))                         buckets.contacted.push(l);
     else if (st.includes('qualified'))                         buckets.qualified.push(l);
     else if (st.includes('proposal'))                          buckets.proposal.push(l);
     else if (st.includes('booked') || st.includes('consultat'))buckets.booked.push(l);
@@ -781,10 +783,10 @@ function renderKanban() {
                   ? `<div style="text-align:center;padding:18px 8px;color:var(--text3);font-size:12px">—</div>`
                   : cards.map(l => {
                       const idx   = allLeads.indexOf(l);
-                      const score = parseInt(l.score || l.leadScore || 0);
+                      const score = parseInt(g(l,'leadScore','score','Lead Score','AI Score') || 0);
                       const sc    = score >= 80 ? '#EF4444' : score >= 60 ? '#F59E0B' : '#6B7280';
                       const name  = l.name || `${l.firstName||''} ${l.lastName||''}`.trim() || 'Unknown';
-                      const svc   = l.serviceRequested || l.service || '—';
+                      const svc   = g(l,'projectType','serviceRequested','Service Requested','service') || '—';
                       return `
                         <div onclick="showLeadDetail(${idx})" style="background:var(--card2);border-radius:10px;padding:11px 12px;cursor:pointer;border:1px solid var(--border)">
                           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
