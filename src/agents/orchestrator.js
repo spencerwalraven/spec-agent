@@ -70,7 +70,7 @@ async function route(type, payload = {}) {
 
       // ── LEAD LIFECYCLE ─────────────────────────────────────────────────
       case 'new_lead':
-        return await leadAgent.handleNewLead({ rowNumber: payload.rowNumber || payload.row });
+        return await leadAgent.handleNewLead({ rowNumber: payload.rowNumber || payload.leadId || payload.row });
 
       case 'email_reply': {
         // Determine sender email
