@@ -258,7 +258,7 @@ async function seed() {
 
   // ── Equipment ──────────────────────────────────────────────────────────
   await query(`
-    INSERT INTO equipment (company_id, name, category, make_model, status, notes)
+    INSERT INTO equipment (company_id, name, type, serial_number, status, notes)
     VALUES
       (1, 'Crew Truck #1',     'Vehicle',   '2021 Ford F-350',            'in_use',    'Assigned to Marcus crew'),
       (1, 'Crew Truck #2',     'Vehicle',   '2019 Chevy Silverado 2500', 'available',  ''),
