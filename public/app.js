@@ -132,17 +132,19 @@ function applyRoleNav(role) {
       { page: 'dashboard', icon: '🏠', label: 'Home' },
       { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
       { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'alerts',    icon: '🔔', label: 'Alerts',   dot: 'alertsNavDot' },
+      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
       { page: 'more',      icon: '☰',  label: 'More' },
     ],
     field: [
       { page: 'dashboard', icon: '🏠', label: 'Home' },
       { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'field',     icon: '📋', label: 'Field' },
       { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
       { page: 'more',      icon: '☰',  label: 'More' },
     ],
   };
+
+  // Build role-aware More menu
+  buildMoreMenu(role);
 
   const items = configs[role] || configs.owner;
   const curPage = document.querySelector('.page.active')?.id?.replace('page-','') || 'dashboard';
@@ -158,6 +160,67 @@ function applyRoleNav(role) {
       ${item.dot   ? `<span id="${item.dot}"   style="display:none;position:absolute;top:6px;right:12px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid var(--ink)"></span>` : ''}
     </button>
   `).join('');
+}
+
+function buildMoreMenu(role) {
+  const el = document.getElementById('moreMenuContent');
+  if (!el) return;
+
+  const btn = (page, icon, name, desc, extra) =>
+    `<button class="more-item" onclick="${extra || `navigate('${page}')`}"><div class="more-icon">${icon}</div><div class="more-name">${name}</div><div class="more-desc">${desc}</div></button>`;
+
+  const section = (title, items) =>
+    `<div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px">${title}</div>
+     <div class="more-grid" style="margin-bottom:20px">${items.join('')}</div>`;
+
+  let html = '';
+
+  if (role === 'owner') {
+    html += section('Daily Tools', [
+      btn('field', '📐', 'Job Estimate', 'Site visit form'),
+      btn('schedule', '🗓️', 'Schedule', 'Calendar sync'),
+      btn('tasks', '✅', 'Tasks', 'Action items'),
+      btn('team', '⏱️', 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
+    ]);
+    html += section('Manage', [
+      btn('team', '👥', 'Team', 'Members & rates'),
+      btn('clients', '🤝', 'Clients', 'Profiles & history'),
+      btn('conversations', '💬', 'Conversations', 'Email threads'),
+      btn('approvals', '✅', 'Approvals', 'Review queue'),
+      btn('marketing', '📢', 'Marketing', 'Campaigns'),
+      btn('inventory', '📦', 'Inventory', 'Materials & equipment'),
+    ]);
+    html += section('Insights', [
+      btn('analytics', '📊', 'Analytics', 'Revenue & insights'),
+      btn('agents', '🤖', 'AI Agents', 'Live activity'),
+    ]);
+    html += section('Admin', [
+      btn('settings', '⚙️', 'Settings', 'Company info'),
+      btn('recurring', '🔁', 'Recurring', 'Scheduled services'),
+    ]);
+
+  } else if (role === 'sales') {
+    html += section('Daily Tools', [
+      btn('field', '📐', 'Job Estimate', 'Site visit form'),
+      btn('schedule', '🗓️', 'Schedule', 'Calendar sync'),
+      btn('tasks', '✅', 'Tasks', 'My action items'),
+      btn('alerts', '🔔', 'Alerts', 'Notifications'),
+    ]);
+    html += section('Manage', [
+      btn('clients', '🤝', 'Clients', 'Profiles & history'),
+      btn('conversations', '💬', 'Conversations', 'Email threads'),
+      btn('approvals', '✅', 'Approvals', 'Review queue'),
+    ]);
+
+  } else if (role === 'field') {
+    html += section('Daily Tools', [
+      btn('tasks', '✅', 'Tasks', 'My tasks'),
+      btn('team', '⏱️', 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
+      btn('alerts', '🔔', 'Alerts', 'Notifications'),
+    ]);
+  }
+
+  el.innerHTML = html;
 }
 
 /* ─── TODAY'S SCHEDULE STRIP ────────────────────────────────────── */
@@ -408,7 +471,22 @@ const PAGE_TITLES = {
   tasks: 'Tasks',
 };
 
+// Pages each role is allowed to access
+const ROLE_PAGES = {
+  owner: null, // null = all pages
+  sales: new Set(['dashboard','leads','jobs','schedule','more','field','tasks','clients',
+    'conversations','approvals','alerts']),
+  field: new Set(['dashboard','jobs','schedule','more','tasks','alerts','team']),
+};
+
 function navigate(page) {
+  // Role-based page guard
+  const allowed = ROLE_PAGES[currentUser?.role];
+  if (allowed && !allowed.has(page)) {
+    toast('⚠️ You don\'t have access to that page');
+    return;
+  }
+
   // Update pages
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('page-' + page);
@@ -1190,7 +1268,7 @@ function renderJobs() {
           <div class="item-sub">${project}${jobId?' · '+jobId:''}</div>
         </div>
         <div class="item-right">
-          <div class="item-value">${value ? formatCurrency(value) : '—'}</div>
+          ${currentUser?.role !== 'field' ? `<div class="item-value">${value ? formatCurrency(value) : '—'}</div>` : ''}
           <div style="margin-top:4px">${statusBadge(status)}</div>
         </div>
         <span class="chevron">›</span>
@@ -1310,14 +1388,14 @@ async function showJobDetail(idx) {
       ${statusSwitcher}
     </div>
 
-    <div class="modal-section">
+    ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label">Financials</div>
       <div class="detail-row"><div class="detail-key">Contract Value</div><div class="detail-val fw800" style="color:var(--gold)">${estVal ? formatCurrency(estVal) : '—'}</div></div>
       ${matCost ? `<div class="detail-row"><div class="detail-key">Materials</div><div class="detail-val">${formatCurrency(matCost)}</div></div>` : ''}
       ${labCost ? `<div class="detail-row"><div class="detail-key">Labor</div><div class="detail-val">${formatCurrency(labCost)}</div></div>` : ''}
       ${(matCost || labCost) ? `<div class="detail-row"><div class="detail-key">Gross Profit</div><div class="detail-val" style="color:var(--green)">${formatCurrency(grossProfit)} <span style="font-size:11px;color:var(--text3)">(${marginPct}%)</span></div></div>` : ''}
       <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
-    </div>
+    </div>` : ''}
 
     <div class="modal-section">
       <div class="modal-section-label">Project Info</div>
@@ -1329,7 +1407,7 @@ async function showJobDetail(idx) {
       ${contStat ? `<div class="detail-row"><div class="detail-key">Contract</div><div class="detail-val">${statusBadge(contStat)}</div></div>` : ''}
     </div>
 
-    <div class="modal-section">
+    ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label">📋 Site Visit Notes</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Add details after walking the property — the AI uses these to build accurate estimates</div>
       <textarea id="jmSiteNotes" placeholder="Describe what you saw — existing conditions, specific materials client wants, access issues, anything relevant..." rows="3" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitNotes || ''}</textarea>
@@ -1349,24 +1427,24 @@ async function showJobDetail(idx) {
         <button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate(${_currentJobRow})">🤖 Save & Generate Estimate</button>
       </div>
       ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">Last site visit: ${j.siteVisitDate}</div>` : ''}
-    </div>
+    </div>` : ''}
 
-    <div class="modal-section">
+    ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label">Documents</div>
       ${[
         {name:'Estimate',    icon:'💰', link:'',       event:'estimate_ready'},
         {name:'Proposal',    icon:'📄', link:propLink, event:'generate_proposal'},
         {name:'Contract',    icon:'📝', link:contLink, event:'generate_contract'},
         {name:'Kickoff Doc', icon:'🚀', link:'',       event:'plan_project'},
-      ].map(d => `
+      ].map(d => \`
         <div class="doc-link">
-          <div class="doc-icon">${d.icon}</div>
-          <div class="doc-name">${d.name}</div>
-          ${d.link
-            ? `<a class="doc-btn" href="${d.link}" target="_blank">Open ↗</a>`
-            : `<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen('${d.event}',${_currentJobRow})">Generate</button>`}
-        </div>`).join('')}
-    </div>
+          <div class="doc-icon">\${d.icon}</div>
+          <div class="doc-name">\${d.name}</div>
+          \${d.link
+            ? \`<a class="doc-btn" href="\${d.link}" target="_blank">Open ↗</a>\`
+            : \`<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen('\${d.event}',${_currentJobRow})">Generate</button>\`}
+        </div>\`).join('')}
+    </div>` : ''}
 
     <div class="modal-section">
       <div class="modal-section-label">Phases</div>
@@ -1898,7 +1976,7 @@ function renderTeam() {
         <div class="team-body">
           <div class="team-name">${name}</div>
           <div class="team-role">${role}${g(m,'Trade','trade') ? ' · '+g(m,'Trade','trade') : ''}</div>
-          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${g(m,'Hourly Rate','hourlyRate') ? ' · <span style="color:var(--gold);font-weight:700">$'+g(m,'Hourly Rate','hourlyRate')+'/hr</span>' : ''}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
+          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${currentUser?.role === 'owner' && g(m,'Hourly Rate','hourlyRate') ? ' · <span style="color:var(--gold);font-weight:700">$'+g(m,'Hourly Rate','hourlyRate')+'/hr</span>' : ''}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
         </div>
         <div class="toggle ${isOn?'on':''}" onclick="event.stopPropagation();toggleTeamMember(${row}, this)"></div>
       </div>`;
