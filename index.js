@@ -267,7 +267,7 @@ function setSessionCookie(res, user) {
 const PUBLIC_PREFIXES = [
   '/login', '/ping',
   '/status.html', '/sub.html',
-  '/api/status/', '/api/sub/',
+  '/status/', '/api/status/', '/sub/', '/api/sub/',
   '/api/proposal/approve', '/api/proposal/decline',
   '/api/change-order/approve', '/api/change-order/decline',
   '/api/kickoff/select',
