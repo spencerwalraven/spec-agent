@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>CRM Dashboard</title>
+<title>SPEC CRM</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1013,11 +1013,14 @@
 
     <!-- ── LEADS ──────────────────────────────────────────────────── -->
     <section class="page" id="page-leads">
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="search" id="leadSearch" placeholder="Search leads…" oninput="filterLeads()">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div class="search-bar" style="flex:1;margin-bottom:0">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="leadSearch" placeholder="Search leads…" oninput="filterLeads()">
+        </div>
+        <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🗂️ Pipeline</button>
       </div>
-      <div class="filter-chips">
+      <div id="leadFilterChips" class="filter-chips">
         <button class="chip active" data-filter="all" onclick="setLeadFilter(this)">All</button>
         <button class="chip" data-filter="hot" onclick="setLeadFilter(this)">🔥 Hot</button>
         <button class="chip" data-filter="new" onclick="setLeadFilter(this)">New</button>

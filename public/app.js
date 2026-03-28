@@ -585,7 +585,7 @@ async function loadDashboard() {
 
   // Activity feed
   const feed = document.getElementById('activityFeed');
-  const items = data.activity || [];
+  const items = data.recentActivity || data.activity || [];
   if (items.length === 0) {
     feed.innerHTML = '<div class="empty-notes" style="color:var(--text3);font-size:13px">No recent activity</div>';
   } else {
@@ -690,6 +690,17 @@ function g(row, ...keys) {
 }
 
 /* ─── LEADS PAGE ────────────────────────────────────────────────── */
+let leadView = 'list'; // 'list' | 'pipeline'
+
+function toggleLeadView() {
+  leadView = leadView === 'list' ? 'pipeline' : 'list';
+  const btn    = document.getElementById('leadViewBtn');
+  const chips  = document.getElementById('leadFilterChips');
+  if (btn)   btn.textContent   = leadView === 'list' ? '🗂️ Pipeline' : '☰ List';
+  if (chips) chips.style.display = leadView === 'list' ? '' : 'none';
+  renderLeads();
+}
+
 async function loadLeads() {
   document.getElementById('leadsList').innerHTML = skeletonList(6);
   allLeads = await api('/api/leads') || [];
@@ -720,7 +731,79 @@ function setLeadFilter(btn) {
 
 function filterLeads() { renderLeads(); }
 
+function renderKanban() {
+  const el = document.getElementById('leadsList');
+  if (!el) return;
+  const search = (document.getElementById('leadSearch')?.value || '').toLowerCase();
+  const leads = allLeads.filter(l => {
+    if (!search) return true;
+    const name = (l.name || `${l.firstName||''} ${l.lastName||''}`).toLowerCase();
+    const svc  = (l.serviceRequested || l.service || '').toLowerCase();
+    return name.includes(search) || svc.includes(search);
+  }).filter(l => !/lost|converted/i.test(l.status || ''));
+
+  const stages = [
+    { key:'new',       label:'New',           color:'#3B82F6' },
+    { key:'contacted', label:'Contacted',      color:'#F59E0B' },
+    { key:'qualified', label:'Qualified',      color:'#8B5CF6' },
+    { key:'proposal',  label:'Proposal Sent',  color:'#EC4899' },
+    { key:'booked',    label:'Booked',         color:'#22C55E' },
+  ];
+
+  const buckets = {};
+  stages.forEach(s => { buckets[s.key] = []; });
+  leads.forEach(l => {
+    const st = (l.status || '').toLowerCase();
+    if      (st.includes('new'))                               buckets.new.push(l);
+    else if (st.includes('contacted'))                         buckets.contacted.push(l);
+    else if (st.includes('qualified'))                         buckets.qualified.push(l);
+    else if (st.includes('proposal'))                          buckets.proposal.push(l);
+    else if (st.includes('booked') || st.includes('consultat'))buckets.booked.push(l);
+    else                                                        buckets.new.push(l);
+  });
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;margin:0 -16px;padding:0 16px 20px">
+      <div style="display:flex;gap:10px;min-width:max-content;padding-bottom:4px">
+        ${stages.map(s => {
+          const cards = buckets[s.key];
+          return `
+            <div style="width:215px;flex-shrink:0;background:var(--card);border-radius:14px;border:1px solid var(--border);overflow:hidden">
+              <div style="padding:11px 13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;flex-shrink:0"></span>
+                  <span style="font-size:12px;font-weight:700;color:var(--text)">${s.label}</span>
+                </div>
+                <span style="font-size:11px;font-weight:700;background:var(--card2);border-radius:99px;padding:2px 8px;color:var(--text3)">${cards.length}</span>
+              </div>
+              <div style="padding:8px;display:flex;flex-direction:column;gap:7px;min-height:80px">
+                ${cards.length === 0
+                  ? `<div style="text-align:center;padding:18px 8px;color:var(--text3);font-size:12px">—</div>`
+                  : cards.map(l => {
+                      const idx   = allLeads.indexOf(l);
+                      const score = parseInt(l.score || l.leadScore || 0);
+                      const sc    = score >= 80 ? '#EF4444' : score >= 60 ? '#F59E0B' : '#6B7280';
+                      const name  = l.name || `${l.firstName||''} ${l.lastName||''}`.trim() || 'Unknown';
+                      const svc   = l.serviceRequested || l.service || '—';
+                      return `
+                        <div onclick="showLeadDetail(${idx})" style="background:var(--card2);border-radius:10px;padding:11px 12px;cursor:pointer;border:1px solid var(--border)">
+                          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
+                            <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.3">${name}</div>
+                            ${score ? `<div style="font-size:10px;font-weight:800;color:${sc};background:${sc}22;border-radius:5px;padding:2px 6px;flex-shrink:0">${score}</div>` : ''}
+                          </div>
+                          <div style="font-size:11px;color:var(--text3)">${svc}</div>
+                        </div>`;
+                    }).join('')
+                }
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 function renderLeads() {
+  if (leadView === 'pipeline') { renderKanban(); return; }
   const search = (document.getElementById('leadSearch')?.value || '').toLowerCase();
   let leads = allLeads.filter(l => {
     const name = `${g(l,'First Name','firstName','first_name')} ${g(l,'Last Name','lastName','last_name')}`.toLowerCase();
