@@ -78,7 +78,7 @@
     text-transform:uppercase;
   }
 
-  input[type=password]{
+  input[type=password], input[type=text]{
     width:100%;
     background:#0A0A0A;
     border:1.5px solid #2A2A2A;
@@ -89,11 +89,12 @@
     outline:none;
     transition:border-color .15s;
     -webkit-appearance:none;
+    box-sizing:border-box;
   }
-  input[type=password]:focus{
+  input[type=password]:focus, input[type=text]:focus{
     border-color:#BF9438;
   }
-  input[type=password]::placeholder{
+  input[type=password]::placeholder, input[type=text]::placeholder{
     color:#444;
   }
 
@@ -143,15 +144,26 @@
 <div class="wrap">
   <div class="brand">
     <div class="brand-icon">⚡</div>
-    <div class="brand-name">CRM Dashboard</div>
+    <div class="brand-name">SPEC Systems</div>
     <div class="brand-sub">Sign in to continue</div>
   </div>
 
   <div class="card">
     <div class="card-title">Welcome back</div>
-    <div class="card-sub">Enter your password to access the dashboard.</div>
+    <div class="card-sub">Enter your credentials to access the dashboard.</div>
 
     <form method="POST" action="/login" id="loginForm">
+      <label for="username">Username</label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="Your username"
+        autocomplete="username"
+        autofocus
+        required
+        style="margin-bottom:12px"
+      >
       <label for="password">Password</label>
       <input
         type="password"
@@ -159,7 +171,6 @@
         name="password"
         placeholder="••••••••••••"
         autocomplete="current-password"
-        autofocus
         required
       >
       <div class="error-msg" id="errorMsg">

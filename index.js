@@ -351,17 +351,20 @@ app.post('/login', async (req, res) => {
 
   let matchedUser = users.find(u => u.password === password);
 
-  // Also check team table for DB-managed logins
-  if (!matchedUser && process.env.DATABASE_URL) {
+  // Also check team table for DB-managed logins (bcrypt)
+  if (!matchedUser && process.env.DATABASE_URL && username) {
     try {
+      const bcrypt = require('bcryptjs');
       const { getOne } = require('./src/db');
-      const hash = crypto.createHmac('sha256', SESS_SECRET).update(password).digest('hex');
       const member = await getOne(
-        `SELECT * FROM team WHERE company_id = 1 AND login_username = $1 AND login_password_hash = $2 AND status = 'active'`,
-        [username ? username.toLowerCase() : '', hash]
+        `SELECT * FROM team WHERE company_id = 1 AND login_username = $1 AND status = 'active'`,
+        [username.toLowerCase()]
       );
-      if (member) {
-        matchedUser = { name: member.name, password, role: member.login_role || 'field' };
+      if (member && member.login_password_hash) {
+        const valid = await bcrypt.compare(password, member.login_password_hash);
+        if (valid) {
+          matchedUser = { name: member.name, password, role: member.login_role || 'field' };
+        }
       }
     } catch (_) {}
   }
