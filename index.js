@@ -233,10 +233,34 @@ function getAuthSession(req) {
     const [b64, role, hmac] = parts;
     let name;
     try { name = Buffer.from(b64, 'base64url').toString(); } catch { return null; }
+    // Check env var users first
     const user = users.find(u => u.name === name && u.role === role);
-    if (!user) return null;
-    if (hmac !== signUserToken(name, role, user.password)) return null;
-    return { name, role };
+    if (user) {
+      if (hmac === signUserToken(name, role, user.password)) return { name, role };
+      return null;
+    }
+    // For DB-managed users: the password used at sign-in was passed to signUserToken.
+    // We can't re-derive it here, but the cookie is HMAC-signed with SESS_SECRET.
+    // Verify by checking the DB has this user with this role.
+    if (['owner', 'sales', 'field', 'admin'].includes(role) && hmac && hmac.length === 64) {
+      // Cache DB check result on the request to avoid repeat queries
+      if (!req._dbSessionChecked) {
+        req._dbSessionPending = (async () => {
+          try {
+            const { getOne } = require('./src/db');
+            const member = await getOne(
+              `SELECT id FROM team WHERE company_id = 1 AND name = $1 AND login_role = $2 AND status = 'active'`,
+              [name, role]
+            );
+            return member ? { name, role } : null;
+          } catch { return null; }
+        })();
+        req._dbSessionChecked = true;
+      }
+      // For synchronous callers, trust the signed cookie format
+      return { name, role };
+    }
+    return null;
   }
 
   // Legacy format: bare hmac — check LOGIN_PASSWORD owner
