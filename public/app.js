@@ -4414,3 +4414,88 @@ async function deleteTask(row) {
     showToast('Failed: ' + e.message, true);
   }
 }
+
+// ─── AI CHAT ─────────────────────────────────────────────────────────────────
+
+let chatHistory = [];
+let chatOpen = false;
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const modal = document.getElementById('chatModal');
+  if (modal) modal.style.display = chatOpen ? 'flex' : 'none';
+  if (chatOpen) {
+    setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
+    scrollChatToBottom();
+  }
+}
+
+function clearChat() {
+  chatHistory = [];
+  const msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.innerHTML = `<div class="chat-msg assistant" style="background:var(--surface);border-radius:12px;padding:12px 14px;max-width:85%;align-self:flex-start;font-size:14px;line-height:1.5">Chat cleared. What would you like to know?</div>`;
+}
+
+function scrollChatToBottom() {
+  const msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendChatMessage(role, text) {
+  const msgs = document.getElementById('chatMessages');
+  if (!msgs) return;
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.style.cssText = `background:${isUser ? 'var(--gold)' : 'var(--surface)'};border-radius:12px;padding:12px 14px;max-width:85%;align-self:${isUser ? 'flex-end' : 'flex-start'};font-size:14px;line-height:1.6;color:${isUser ? '#000' : 'var(--text)'};white-space:pre-wrap;word-break:break-word`;
+  // Convert **bold** markdown
+  div.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  msgs.appendChild(div);
+  scrollChatToBottom();
+}
+
+function appendTypingIndicator() {
+  const msgs = document.getElementById('chatMessages');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.id = 'chatTyping';
+  div.style.cssText = 'background:var(--surface);border-radius:12px;padding:12px 14px;max-width:85%;align-self:flex-start;font-size:20px;color:var(--mist)';
+  div.textContent = '...';
+  msgs.appendChild(div);
+  scrollChatToBottom();
+}
+
+function removeTypingIndicator() {
+  document.getElementById('chatTyping')?.remove();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input?.value?.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  appendChatMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  appendTypingIndicator();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory }),
+    });
+    const data = await res.json();
+
+    removeTypingIndicator();
+
+    const reply = data?.reply || 'Sorry, I could not get a response.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    appendChatMessage('assistant', reply);
+  } catch (e) {
+    removeTypingIndicator();
+    appendChatMessage('assistant', 'Sorry, something went wrong. Please try again.');
+  }
+}

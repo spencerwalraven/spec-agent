@@ -3154,6 +3154,23 @@ app.get('/admin/seed', async (req, res) => {
   }
 });
 
+// ─── AI CHAT ─────────────────────────────────────────────────────────────────
+app.post('/api/chat', requireAuth, async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || !messages.length) {
+      return res.status(400).json({ error: 'messages array required' });
+    }
+    const chatAgent = require('./src/agents/chat-agent');
+    const settings = await dbSettings.readSettings();
+    const reply = await chatAgent.chat(messages, settings.companyName || 'your business');
+    res.json({ reply });
+  } catch (e) {
+    console.error('Chat error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
 app.listen(PORT, '0.0.0.0', () => {
