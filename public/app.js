@@ -125,7 +125,7 @@ function applyRoleNav(role) {
       { page: 'dashboard', icon: '🏠', label: 'Home' },
       { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
       { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
+      { page: 'clients',   icon: '🤝', label: 'Clients' },
       { page: 'more',      icon: '☰',  label: 'More' },
     ],
     sales: [
