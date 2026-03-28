@@ -27,7 +27,7 @@ function formatJob(r) {
     laborCost:         r.labor_cost       || 0,
     profitMargin:      r.profit_margin    || 0,
     depositAmount:     r.deposit_amount   || 0,
-    depositPaid:       r.deposit_paid     || false,
+    depositPaid:       r.deposit_paid ? 'Paid' : 'No',
     // Dates
     startDate:         r.start_date  ? new Date(r.start_date).toLocaleDateString()  : '',
     endDate:           r.end_date    ? new Date(r.end_date).toLocaleDateString()    : '',
