@@ -1,6 +1,6 @@
 require('dotenv').config();
 const OpenAI = require('openai');
-const { readLead, findLeadByEmail, updateLead } = require('./tools/sheets-compat');
+const { readLead, findLeadByEmail, updateLead } = require('./src/tools/sheets-compat');
 const { sendEmail, readEmailThread, markAsRead } = require('./tools/gmail');
 const fs = require('fs');
 

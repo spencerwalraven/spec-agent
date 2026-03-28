@@ -240,10 +240,10 @@ SMS FOLLOW-UP:
 - If score is below 70, skip the text — email only.
 
 EMAIL OPENING VARIETY — never start two emails the same way. Rotate through styles like:
-- Lead with a project-specific observation: "A ${project type} in [city] — that's one of our favorite projects to work on."
+- Lead with a project-specific observation: "A [project type] in [city] — that's one of our favorite projects to work on."
 - Reference their timeline or urgency: "Sounds like you're ready to move on this soon..."
-- Jump straight to value: "Quick question about your ${project type} — do you already have a design in mind, or are you starting from scratch?"
-- Compliment their project scope: "That's a solid budget for a ${project type} — you'll have real options."
+- Jump straight to value: "Quick question about your [project type] — do you already have a design in mind, or are you starting from scratch?"
+- Compliment their project scope: "That's a solid budget for a [project type] — you'll have real options."
 - Reference their referral/source: "Glad [source] sent you our way — [source] has great taste."
 
 IMPORTANT:
