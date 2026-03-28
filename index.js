@@ -1013,13 +1013,13 @@ app.get('/api/team', async (req, res) => {
 // POST /api/team — add a new team member
 app.post('/api/team', async (req, res) => {
   try {
-    const { name, role, email, phone, notes } = req.body;
+    const { name, role, email, phone, notes, trade, hourly_rate, employee_type } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     const { insertOne } = require('./src/db');
     const member = await insertOne(`
-      INSERT INTO team (company_id, name, role, email, phone, status, notes)
-      VALUES ($1,$2,$3,$4,$5,'active',$6)
-    `, [1, name, role || '', email || '', phone || '', notes || '']);
+      INSERT INTO team (company_id, name, role, email, phone, status, notes, trade, hourly_rate, employee_type)
+      VALUES ($1,$2,$3,$4,$5,'active',$6,$7,$8,$9)
+    `, [1, name, role || '', email || '', phone || '', notes || '', trade || '', hourly_rate || null, employee_type || 'w2']);
     res.json({ ok: true, id: member.id, ...member });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1261,6 +1261,40 @@ app.post('/api/jobs/:row/field-update', async (req, res) => {
       );
     }
     res.json({ ok: true, timestamp });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: SITE VISIT UPDATE (salesperson adds notes after walking property) ────
+app.post('/api/jobs/:row/site-visit', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { notes, measurements, squareFootage, qualityTier } = req.body;
+
+    const updates = {};
+    if (notes)         updates.site_visit_notes = notes;
+    if (measurements)  updates.site_visit_measurements = measurements;
+    if (squareFootage) updates.square_footage = parseInt(squareFootage);
+    if (qualityTier)   updates.quality_tier = qualityTier;
+    updates.site_visit_date = new Date().toISOString().split('T')[0];
+
+    for (const [field, value] of Object.entries(updates)) {
+      await dbJobs.updateJobField(id, field, value);
+    }
+    res.json({ ok: true, message: 'Site visit data saved' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: REGENERATE ESTIMATE (re-run pricing agent with updated data) ────────
+app.post('/api/jobs/:row/regenerate-estimate', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { route } = require('./src/agents/orchestrator');
+    route('estimate_ready', { rowNumber: id }).catch(err =>
+      logger.error('API', `Regenerate estimate failed: ${err.message}`)
+    );
+    res.json({ ok: true, message: 'Estimate generation started — check back in 1-2 minutes' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -1298,6 +1298,34 @@
         </div>
       </div>
 
+      <!-- ── ESTIMATE & PRICING SETTINGS ──────────────────────────── -->
+      <div class="settings-section">
+        <div class="settings-label">💰 Estimate & Pricing</div>
+        <div class="settings-row">
+          <div class="settings-field">
+            <span class="sfield-icon">📊</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Target Profit Margin (%) <span style="font-size:11px;color:var(--text3)">applied to all estimates</span></div>
+              <input type="number" id="sTargetMargin" placeholder="25" min="0" max="100" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
+            </div>
+          </div>
+          <div class="settings-field">
+            <span class="sfield-icon">🛡️</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Contingency Buffer (%) <span style="font-size:11px;color:var(--text3)">for unexpected costs</span></div>
+              <input type="number" id="sContingency" placeholder="10" min="0" max="50" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
+            </div>
+          </div>
+          <div class="settings-field">
+            <span class="sfield-icon">👷</span>
+            <div class="sfield-body">
+              <div class="sfield-label">Default Labor Rate ($/hr) <span style="font-size:11px;color:var(--text3)">when team member rate isn't set</span></div>
+              <input type="number" id="sDefaultLaborRate" placeholder="45" min="0" step="0.50" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── NOTIFICATION PREFERENCES ──────────────────────────────── -->
       <div class="settings-section">
         <div class="settings-label">Notification Preferences</div>
@@ -2266,6 +2294,23 @@
       <div>
         <label style="font-size:12px;color:var(--mist);display:block;margin-bottom:4px">Role / Title</label>
         <input id="newMemberRole" class="input" placeholder="Lead Carpenter" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--mist);display:block;margin-bottom:4px">Trade / Specialty</label>
+        <input id="newMemberTrade" class="input" placeholder="Tile, Plumbing, Electrical, General..." style="width:100%">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--mist);display:block;margin-bottom:4px">Hourly Rate ($)</label>
+          <input id="newMemberRate" class="input" type="number" step="0.50" placeholder="45.00" style="width:100%">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--mist);display:block;margin-bottom:4px">Type</label>
+          <select id="newMemberType" class="input" style="width:100%">
+            <option value="w2">W-2 Employee</option>
+            <option value="sub">Subcontractor</option>
+          </select>
+        </div>
       </div>
       <div>
         <label style="font-size:12px;color:var(--mist);display:block;margin-bottom:4px">Phone</label>

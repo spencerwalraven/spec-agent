@@ -525,7 +525,28 @@ async function migrate() {
   };
   await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_thread_id VARCHAR(255)`);
   await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(255)`);
-  console.log('✅ leads extra columns (email_thread_id, assigned_to)');
+  console.log('✅ leads extra columns');
+
+  // ── Team: hourly rate + trade specialty ──
+  await safeAlter(`ALTER TABLE team ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(8,2)`);
+  await safeAlter(`ALTER TABLE team ADD COLUMN IF NOT EXISTS trade VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE team ADD COLUMN IF NOT EXISTS employee_type VARCHAR(50) DEFAULT 'w2'`);
+  console.log('✅ team extra columns (hourly_rate, trade, employee_type)');
+
+  // ── Jobs: site visit notes + measurements ──
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS site_visit_notes TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS site_visit_measurements TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS site_visit_photos TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS site_visit_date DATE`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS quality_tier VARCHAR(50)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS square_footage INTEGER`);
+  console.log('✅ jobs extra columns (site visit, quality_tier, square_footage)');
+
+  // ── Settings: profit margin + labor markup ──
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS target_margin DECIMAL(5,2) DEFAULT 25`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS contingency_pct DECIMAL(5,2) DEFAULT 10`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_labor_rate DECIMAL(8,2) DEFAULT 45`);
+  console.log('✅ settings extra columns (target_margin, contingency_pct, default_labor_rate)');
 
   console.log('\n🎉 Migration complete — all tables created successfully.');
   await pool.end();

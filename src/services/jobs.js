@@ -45,6 +45,13 @@ function formatJob(r) {
     aiPlan:            r.ai_plan  || '',
     scopeOfWork:       r.scope_of_work || '',
     weatherRisk:       r.weather_risk  || '',
+    // Site Visit
+    siteVisitNotes:        r.site_visit_notes        || '',
+    siteVisitMeasurements: r.site_visit_measurements  || '',
+    siteVisitPhotos:       r.site_visit_photos        || '',
+    siteVisitDate:         r.site_visit_date ? new Date(r.site_visit_date).toLocaleDateString() : '',
+    qualityTier:           r.quality_tier              || '',
+    squareFootage:         r.square_footage            || null,
     // QB
     qbEstimateId:      r.qb_estimate_id || '',
     qbInvoiceId:       r.qb_invoice_id  || '',

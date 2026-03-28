@@ -17,15 +17,19 @@ async function readSettings() {
     calendlyLink:     row.calendly_link || '',
     googleReviewLink: row.google_review_link || '',
     emailSignature:   row.email_signature   || '',
-    emailTone:        row.email_tone   || 'professional',
+    emailTone:        row.email_tone        || 'professional',
+    targetMargin:     parseFloat(row.target_margin)      || 25,
+    contingencyPct:   parseFloat(row.contingency_pct)    || 10,
+    defaultLaborRate: parseFloat(row.default_labor_rate)  || 45,
   };
 }
 
 async function writeSettings(data) {
   await query(`
     INSERT INTO settings (company_id, company_name, phone, email, address, owner_name,
-      calendly_link, google_review_link, email_signature, email_tone, updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+      calendly_link, google_review_link, email_signature, email_tone,
+      target_margin, contingency_pct, default_labor_rate, updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
     ON CONFLICT (company_id) DO UPDATE SET
       company_name       = EXCLUDED.company_name,
       phone              = EXCLUDED.phone,
@@ -36,6 +40,9 @@ async function writeSettings(data) {
       google_review_link = EXCLUDED.google_review_link,
       email_signature    = EXCLUDED.email_signature,
       email_tone         = EXCLUDED.email_tone,
+      target_margin      = EXCLUDED.target_margin,
+      contingency_pct    = EXCLUDED.contingency_pct,
+      default_labor_rate = EXCLUDED.default_labor_rate,
       updated_at         = NOW()
   `, [
     COMPANY_ID,
@@ -48,6 +55,9 @@ async function writeSettings(data) {
     data.googleReviewLink || data['Google Review Link']|| '',
     data.emailSignature   || data['Email Signature']   || '',
     data.emailTone        || data['Email Tone']        || 'professional',
+    data.targetMargin     || data['Target Margin']     || 25,
+    data.contingencyPct   || data['Contingency %']     || 10,
+    data.defaultLaborRate || data['Default Labor Rate'] || 45,
   ]);
 }
 

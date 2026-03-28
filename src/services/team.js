@@ -20,15 +20,24 @@ function formatMember(r) {
     hasLogin:         !!(r.login_username),
     loginUsername:    r.login_username   || '',
     loginRole:        r.login_role       || 'field',
+    hourlyRate:       r.hourly_rate       || null,
+    trade:            r.trade             || '',
+    employeeType:     r.employee_type     || 'w2',
     // Compatibility aliases
     'Name':           r.name             || '',
     'Team Member':    r.name             || '',
     'Role':           r.role             || '',
     'Position':       r.role             || '',
+    'Trade / Specialty': r.trade         || '',
+    'Specialty':      r.trade            || '',
+    'Trade':          r.trade            || '',
+    'Hourly Rate':    r.hourly_rate      || null,
     'Active':         r.status === 'active' ? 'Yes' : 'No',
     'Is Active':      r.status === 'active' ? 'Yes' : 'No',
     'Email':          r.email            || '',
     'Phone':          r.phone            || '',
+    'Type':           r.employee_type    || 'w2',
+    'Employee Type':  r.employee_type    || 'w2',
   };
 }
 

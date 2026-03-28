@@ -1330,8 +1330,31 @@ async function showJobDetail(idx) {
     </div>
 
     <div class="modal-section">
+      <div class="modal-section-label">📋 Site Visit Notes</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Add details after walking the property — the AI uses these to build accurate estimates</div>
+      <textarea id="jmSiteNotes" placeholder="Describe what you saw — existing conditions, specific materials client wants, access issues, anything relevant..." rows="3" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitNotes || ''}</textarea>
+      <textarea id="jmSiteMeasurements" placeholder="Measurements: kitchen 12x14, island 4x8, backsplash 35 sq ft..." rows="2" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitMeasurements || ''}</textarea>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="jmSqft" type="number" placeholder="Sq ft" class="form-input" style="flex:1;font-size:13px" value="${j.squareFootage || ''}">
+        <select id="jmQuality" class="form-input" style="flex:1;font-size:13px">
+          <option value="">Quality tier...</option>
+          <option value="budget" ${j.qualityTier==='budget'?'selected':''}>Budget</option>
+          <option value="mid-range" ${j.qualityTier==='mid-range'?'selected':''}>Mid-Range</option>
+          <option value="high-end" ${j.qualityTier==='high-end'?'selected':''}>High-End</option>
+          <option value="luxury" ${j.qualityTier==='luxury'?'selected':''}>Luxury</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save Notes</button>
+        <button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate(${_currentJobRow})">🤖 Save & Generate Estimate</button>
+      </div>
+      ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">Last site visit: ${j.siteVisitDate}</div>` : ''}
+    </div>
+
+    <div class="modal-section">
       <div class="modal-section-label">Documents</div>
       ${[
+        {name:'Estimate',    icon:'💰', link:'',       event:'estimate_ready'},
         {name:'Proposal',    icon:'📄', link:propLink, event:'generate_proposal'},
         {name:'Contract',    icon:'📝', link:contLink, event:'generate_contract'},
         {name:'Kickoff Doc', icon:'🚀', link:'',       event:'plan_project'},
@@ -1368,6 +1391,35 @@ async function showJobDetail(idx) {
   `;
 
   openModal('jobModal');
+}
+
+async function saveSiteVisit(jobRow) {
+  const notes = document.getElementById('jmSiteNotes')?.value?.trim();
+  const measurements = document.getElementById('jmSiteMeasurements')?.value?.trim();
+  const sqft = document.getElementById('jmSqft')?.value?.trim();
+  const quality = document.getElementById('jmQuality')?.value;
+  try {
+    const res = await fetch(`/api/jobs/${jobRow}/site-visit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes, measurements, squareFootage: sqft, qualityTier: quality }),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    toast('✅ Site visit notes saved!');
+  } catch (e) {
+    toast('❌ ' + e.message, 3000);
+  }
+}
+
+async function saveSiteVisitAndEstimate(jobRow) {
+  await saveSiteVisit(jobRow);
+  try {
+    const res = await fetch(`/api/jobs/${jobRow}/regenerate-estimate`, { method: 'POST' });
+    if (!res.ok) throw new Error('Estimate generation failed');
+    toast('🤖 Estimate generating — the AI is crunching numbers. Check back in 1-2 minutes!', 5000);
+  } catch (e) {
+    toast('❌ ' + e.message, 3000);
+  }
 }
 
 function copyStatusLink(jobId) {
@@ -1879,9 +1931,12 @@ async function saveNewTeamMember() {
 
   const data = {
     name,
-    role:  document.getElementById('newMemberRole')?.value?.trim()  || '',
-    phone: document.getElementById('newMemberPhone')?.value?.trim() || '',
-    email: document.getElementById('newMemberEmail')?.value?.trim() || '',
+    role:          document.getElementById('newMemberRole')?.value?.trim()  || '',
+    trade:         document.getElementById('newMemberTrade')?.value?.trim() || '',
+    hourly_rate:   parseFloat(document.getElementById('newMemberRate')?.value) || null,
+    employee_type: document.getElementById('newMemberType')?.value || 'w2',
+    phone:         document.getElementById('newMemberPhone')?.value?.trim() || '',
+    email:         document.getElementById('newMemberEmail')?.value?.trim() || '',
   };
 
   try {
@@ -2529,6 +2584,10 @@ async function loadSettings() {
   set('sEmailTone',   s.emailTone);
   set('sAboutUs',     s.aboutUs);
   set('sKeyPoints',   s.keySellingPoints);
+  // Estimate settings
+  set('sTargetMargin',    s.targetMargin || 25);
+  set('sContingency',     s.contingencyPct || 10);
+  set('sDefaultLaborRate', s.defaultLaborRate || 45);
   // Cache calendly link globally for use in lead modal
   _calendlyLink = s.calendlyLink || s.calendly_link || '';
 
@@ -2653,6 +2712,9 @@ async function saveSettings() {
     emailTone:        get('sEmailTone'),
     aboutUs:          get('sAboutUs'),
     keySellingPoints: get('sKeyPoints'),
+    targetMargin:     parseFloat(get('sTargetMargin')) || 25,
+    contingencyPct:   parseFloat(get('sContingency'))  || 10,
+    defaultLaborRate: parseFloat(get('sDefaultLaborRate')) || 45,
     notifyPrefs,
   };
   try {
