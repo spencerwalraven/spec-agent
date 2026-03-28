@@ -3254,6 +3254,16 @@ app.get('/admin/seed', async (req, res) => {
 });
 
 // ─── SGC ADMIN ASSISTANT ─────────────────────────────────────────────────────
+app.post('/api/sgc/briefing', async (req, res) => {
+  try {
+    const { runSGCMorningBriefing } = require('./src/jobs/sgc-briefing');
+    const result = await runSGCMorningBriefing();
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/sgc/chat', async (req, res) => {
   try {
     const { message, history } = req.body;

@@ -18,9 +18,10 @@ const { route }  = require('../agents/orchestrator');
 const { readTab, g } = require('../tools/sheets-compat');
 const { logger } = require('../utils/logger');
 const { notifyOwner } = require('../tools/notify');
-let gmailWatch, weatherTool;
+let gmailWatch, weatherTool, sgcBriefing;
 try { gmailWatch  = require('../tools/gmail-watch'); } catch (_) {}
 try { weatherTool = require('../tools/weather');     } catch (_) {}
+try { sgcBriefing = require('../jobs/sgc-briefing'); } catch (_) {}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -446,6 +447,13 @@ function startScheduler() {
 
   // Sub confirmation follow-ups — daily at 8:30am
   cron.schedule('30 8 * * *', runSubConfirmations, { timezone: tz });
+
+  // SGC Monday morning briefing — every Monday at 7:00am (Arizona time)
+  cron.schedule('0 7 * * 1', async () => {
+    if (!sgcBriefing) return;
+    try { await sgcBriefing.runSGCMorningBriefing(); }
+    catch (e) { logger.error('Scheduler', `SGC briefing failed: ${e.message}`); }
+  }, { timezone: 'America/Phoenix' });
 
   // Gmail watch renewal — every day at 6:00am (watch expires after 7 days)
   cron.schedule('0 6 * * *', async () => {
