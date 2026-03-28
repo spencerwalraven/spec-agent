@@ -1897,8 +1897,8 @@ function renderTeam() {
         <div class="team-avatar" style="color:${isOn?'var(--gold)':'var(--text3)'}">${ini}</div>
         <div class="team-body">
           <div class="team-name">${name}</div>
-          <div class="team-role">${role}</div>
-          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
+          <div class="team-role">${role}${g(m,'Trade','trade') ? ' · '+g(m,'Trade','trade') : ''}</div>
+          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${g(m,'Hourly Rate','hourlyRate') ? ' · <span style="color:var(--gold);font-weight:700">$'+g(m,'Hourly Rate','hourlyRate')+'/hr</span>' : ''}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
         </div>
         <div class="toggle ${isOn?'on':''}" onclick="event.stopPropagation();toggleTeamMember(${row}, this)"></div>
       </div>`;
@@ -2009,15 +2009,17 @@ function showTeamDetail(idx) {
   document.getElementById('tmCall').href  = phone ? 'tel:' + phone.replace(/\D/g,'') : '#';
   document.getElementById('tmEmail').href = email ? 'mailto:' + email : '#';
 
+  const memberId = m._row || m.id;
   document.getElementById('tmBody').innerHTML = `
     <div class="modal-section">
       <div class="modal-section-label">Details</div>
-      <div class="detail-row"><div class="detail-key">Type</div><div class="detail-val">${type}</div></div>
-      <div class="detail-row"><div class="detail-key">Trade</div><div class="detail-val">${trade}</div></div>
-      <div class="detail-row"><div class="detail-key">Rate</div><div class="detail-val">${rate}</div></div>
-      <div class="detail-row"><div class="detail-key">Status</div><div class="detail-val">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}</div></div>
-      <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val">${phone||'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val" style="word-break:break-all">${email||'—'}</div></div>
+      <div class="detail-row"><div class="detail-key">Role</div><div class="detail-val"><input id="tmEditRole" class="form-input" style="font-size:14px;padding:6px 10px" value="${role}"></div></div>
+      <div class="detail-row"><div class="detail-key">Trade</div><div class="detail-val"><input id="tmEditTrade" class="form-input" style="font-size:14px;padding:6px 10px" value="${trade === '—' ? '' : trade}" placeholder="Tile, Plumbing, General..."></div></div>
+      <div class="detail-row"><div class="detail-key">Rate ($/hr)</div><div class="detail-val"><input id="tmEditRate" class="form-input" type="number" step="0.50" style="font-size:14px;padding:6px 10px" value="${rate === '—' ? '' : rate}" placeholder="45.00"></div></div>
+      <div class="detail-row"><div class="detail-key">Type</div><div class="detail-val"><select id="tmEditType" class="form-input" style="font-size:14px;padding:6px 10px"><option value="w2" ${type.includes('w2')||type.includes('Crew')?'selected':''}>W-2 Employee</option><option value="sub" ${type.toLowerCase().includes('sub')?'selected':''}>Subcontractor</option></select></div></div>
+      <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val"><input id="tmEditPhone" class="form-input" style="font-size:14px;padding:6px 10px" value="${phone||''}" placeholder="(303) 555-0000"></div></div>
+      <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val"><input id="tmEditEmail" class="form-input" style="font-size:14px;padding:6px 10px" value="${email||''}" placeholder="name@company.com"></div></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveTeamEdit(${memberId})">💾 Save Changes</button>
     </div>
     <div class="modal-section">
       <div class="modal-section-label">Current Assignment</div>
@@ -2037,6 +2039,30 @@ function showTeamDetail(idx) {
     </div>
   `;
   openModal('teamModal');
+}
+
+async function saveTeamEdit(memberId) {
+  const data = {
+    role:          document.getElementById('tmEditRole')?.value?.trim() || '',
+    trade:         document.getElementById('tmEditTrade')?.value?.trim() || '',
+    hourly_rate:   parseFloat(document.getElementById('tmEditRate')?.value) || null,
+    employee_type: document.getElementById('tmEditType')?.value || 'w2',
+    phone:         document.getElementById('tmEditPhone')?.value?.trim() || '',
+    email:         document.getElementById('tmEditEmail')?.value?.trim() || '',
+  };
+  try {
+    const res = await fetch(`/api/team/${memberId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    toast('✅ Team member updated!');
+    closeModal('teamModal');
+    await loadTeam();
+  } catch (e) {
+    toast('❌ ' + e.message, 3000);
+  }
 }
 
 function copySubLink(encodedName) {

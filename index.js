@@ -1024,6 +1024,32 @@ app.post('/api/team', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /api/team/:id — edit an existing team member
+app.put('/api/team/:id', requireOwner, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { name, role, trade, hourly_rate, employee_type, phone, email, notes } = req.body;
+    const { query: dbQuery } = require('./src/db');
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    if (name !== undefined)          { sets.push(`name = $${idx++}`);          vals.push(name); }
+    if (role !== undefined)          { sets.push(`role = $${idx++}`);          vals.push(role); }
+    if (trade !== undefined)         { sets.push(`trade = $${idx++}`);         vals.push(trade); }
+    if (hourly_rate !== undefined)   { sets.push(`hourly_rate = $${idx++}`);   vals.push(hourly_rate); }
+    if (employee_type !== undefined) { sets.push(`employee_type = $${idx++}`); vals.push(employee_type); }
+    if (phone !== undefined)         { sets.push(`phone = $${idx++}`);         vals.push(phone); }
+    if (email !== undefined)         { sets.push(`email = $${idx++}`);         vals.push(email); }
+    if (notes !== undefined)         { sets.push(`notes = $${idx++}`);         vals.push(notes); }
+    if (sets.length === 0) return res.status(400).json({ error: 'No fields to update' });
+    sets.push(`updated_at = NOW()`);
+    vals.push(id);
+    await dbQuery(`UPDATE team SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/team/:id/set-login — set login credentials for a team member
 // This stores hashed credentials in the team table so owner can manage logins from UI
 app.post('/api/team/:id/set-login', requireOwner, async (req, res) => {

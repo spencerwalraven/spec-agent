@@ -75,6 +75,26 @@ const TAB_MAP = {
       priority: r.priority || 'medium', status: r.status || 'pending',
     }));
   },
+  // Job Materials — populated by Pricing Agent
+  'Job Materials': async () => {
+    const rows = await getAll(
+      `SELECT jm.*, j.job_ref FROM job_materials jm LEFT JOIN jobs j ON jm.job_id = j.id WHERE jm.company_id = $1 ORDER BY jm.created_at DESC`,
+      [COMPANY_ID]
+    );
+    return rows.map(r => ({
+      _row: r.id, id: r.id, jobId: r.job_ref || '', jobRow: r.job_id,
+      clientName: r.client_name || '', category: r.category || '',
+      item: r.item || '', quantity: r.quantity || '', unitCost: r.unit_cost || '',
+      totalCost: r.total_cost || '', bestSource: r.best_source || '',
+      status: r.status || 'needed', updatedAt: r.updated_at,
+      // Sheets-era aliases
+      'Job ID': r.job_ref || '', 'Job Row': r.job_id, 'Client Name': r.client_name || '',
+      'Category': r.category || '', 'Item': r.item || '',
+      'Quantity': r.quantity || '', 'Unit Cost': r.unit_cost || '',
+      'Total Cost': r.total_cost || '', 'Best Source': r.best_source || '',
+      'Last Updated': r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '',
+    }));
+  },
   // Change Orders — use actual change_orders table
   'Change Orders': async () => {
     const rows = await getAll(
@@ -308,6 +328,27 @@ async function appendRow(tabName, data) {
       [COMPANY_ID, jobId, data.title||'', data.description||'',
        parseFloat(data.amount||0)||0, data.status||'pending',
        data.token || require('crypto').randomBytes(16).toString('hex')]
+    );
+  }
+  if (tabName === 'Job Materials') {
+    const jobRef = data['Job ID'] || data.jobId || data.job_ref || '';
+    // Try to resolve job_id from job_ref
+    let jobId = parseInt(data['Job Row'] || data.jobRow || data.job_id || 0) || null;
+    if (!jobId && jobRef) {
+      const job = await getOne(`SELECT id FROM jobs WHERE job_ref = $1 AND company_id = $2`, [jobRef, COMPANY_ID]);
+      if (job) jobId = job.id;
+    }
+    return await insertOne(
+      `INSERT INTO job_materials (company_id, job_id, job_ref, client_name, category, item, quantity, unit_cost, total_cost, best_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [COMPANY_ID, jobId, jobRef,
+       data['Client Name'] || data.clientName || '',
+       data['Category'] || data.category || '',
+       data['Item'] || data.item || '',
+       data['Quantity'] || data.quantity || '',
+       data['Unit Cost'] || data.unitCost || '',
+       data['Total Cost'] || data.totalCost || '',
+       data['Best Source'] || data.bestSource || '']
     );
   }
   if (tabName === 'Learnings') {

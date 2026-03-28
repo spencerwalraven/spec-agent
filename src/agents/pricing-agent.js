@@ -205,64 +205,29 @@ const EXECUTORS = {
   write_materials: async ({ jobId, jobRow, clientName, items }, ctx) => {
     if (!items?.length) return 'No items to write';
     try {
-      const { google } = require('googleapis');
-      const SHEET_ID = process.env.SHEET_ID;
-
-      const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-      auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-      const sheets = google.sheets({ version: 'v4', auth });
-
-      // Ensure "Job Materials" tab exists — create it if missing
-      try {
-        await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Job Materials!A1:A1' });
-      } catch (_) {
-        // Tab doesn't exist — create it with addSheet, then write headers
-        try {
-          await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: SHEET_ID,
-            requestBody: {
-              requests: [{ addSheet: { properties: { title: 'Job Materials' } } }],
-            },
-          });
-        } catch (addErr) {
-          logger.warn('PricingAgent', `Could not add Job Materials tab: ${addErr.message}`);
-        }
-        // Write header row
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SHEET_ID,
-          range: 'Job Materials!A1:J1',
-          valueInputOption: 'RAW',
-          requestBody: { values: [['Job ID','Job Row','Client Name','Category','Item','Quantity','Unit Cost','Total Cost','Best Source','Last Updated']] },
-        }).catch(() => {});
-      }
-
-      // Delete existing rows for this job (read all, filter, then overwrite — simpler: just append fresh)
-      const today = new Date().toLocaleDateString('en-US');
-      const effectiveJobId = jobId || (ctx?.rowNumber ? `ROW${ctx.rowNumber}` : '');
+      const { appendRow } = require('../tools/sheets-compat');
+      const effectiveJobId = jobId || '';
       const effectiveRow   = jobRow || ctx?.rowNumber || '';
       const effectiveName  = clientName || '';
 
       let written = 0;
       for (const it of items) {
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: SHEET_ID,
-          range: 'Job Materials!A:J',
-          valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
-          requestBody: {
-            values: [[
-              effectiveJobId, effectiveRow, effectiveName,
-              it.category || '', it.item || '',
-              it.quantity || '', it.unitCost || '', it.totalCost || '',
-              it.bestSource || '', today,
-            ]],
-          },
+        await appendRow('Job Materials', {
+          'Job ID': effectiveJobId,
+          'Job Row': effectiveRow,
+          'Client Name': effectiveName,
+          category: it.category || '',
+          item: it.item || '',
+          quantity: it.quantity || '',
+          unitCost: it.unitCost || '',
+          totalCost: it.totalCost || '',
+          bestSource: it.bestSource || '',
         });
         written++;
       }
 
-      logger.success('PricingAgent', `Wrote ${written} material items to Job Materials tab`);
-      return `Saved ${written} material line items to Job Materials tab`;
+      logger.success('PricingAgent', `Wrote ${written} material items to database`);
+      return `Saved ${written} material line items to inventory`;
     } catch (err) {
       logger.warn('PricingAgent', `write_materials failed: ${err.message}`);
       return `Could not write materials: ${err.message}`;

@@ -519,6 +519,31 @@ async function migrate() {
   `);
   console.log('✅ activity_log');
 
+  await query(`
+    -- ─────────────────────────────────────────────
+    -- JOB MATERIALS  (populated by Pricing Agent)
+    -- ─────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS job_materials (
+      id              SERIAL PRIMARY KEY,
+      company_id      INTEGER NOT NULL DEFAULT 1,
+      job_id          INTEGER REFERENCES jobs(id),
+      job_ref         VARCHAR(100),
+      client_name     VARCHAR(255),
+      category        VARCHAR(100),
+      item            VARCHAR(500),
+      quantity        VARCHAR(100),
+      unit_cost       VARCHAR(100),
+      total_cost      VARCHAR(100),
+      best_source     VARCHAR(255),
+      status          VARCHAR(50) DEFAULT 'needed',  -- needed | ordered | received
+      created_at      TIMESTAMPTZ DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_materials_company ON job_materials(company_id);
+    CREATE INDEX IF NOT EXISTS idx_materials_job     ON job_materials(job_id);
+  `);
+  console.log('✅ job_materials');
+
   // ── Safe ALTER TABLEs for agent compatibility ────────────────────────────
   const safeAlter = async (sql) => {
     try { await query(sql); } catch (e) { if (!e.message.includes('already exists')) console.warn('  ⚠ ', e.message); }
