@@ -4499,3 +4499,14 @@ async function sendChat() {
     appendChatMessage('assistant', 'Sorry, something went wrong. Please try again.');
   }
 }
+
+// Expose chat functions globally so onclick attributes can find them
+window.toggleChat = toggleChat;
+window.clearChat = clearChat;
+window.sendChat = sendChat;
+
+// Wire up chat button after DOM loads
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('chatBtn');
+  if (btn) btn.addEventListener('click', toggleChat);
+});
