@@ -690,6 +690,73 @@ function g(row, ...keys) {
 }
 
 /* ─── LEADS PAGE ────────────────────────────────────────────────── */
+/* ─── ADD LEAD ──────────────────────────────────────────────────── */
+function showAddLead() {
+  ['newLeadName','newLeadPhone','newLeadEmail','newLeadService','newLeadAddress','newLeadMessage'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  openModal('addLeadModal');
+}
+
+async function saveNewLead() {
+  const name = document.getElementById('newLeadName')?.value?.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+  const data = {
+    name,
+    phone:   document.getElementById('newLeadPhone')?.value?.trim() || '',
+    email:   document.getElementById('newLeadEmail')?.value?.trim() || '',
+    service: document.getElementById('newLeadService')?.value?.trim() || '',
+    address: document.getElementById('newLeadAddress')?.value?.trim() || '',
+    message: document.getElementById('newLeadMessage')?.value?.trim() || '',
+    source:  document.getElementById('newLeadSource')?.value || 'Manual Entry',
+  };
+  try {
+    const result = await api('/api/leads', { method: 'POST', body: data });
+    if (!result?.ok) throw new Error(result?.error || 'Failed');
+    closeModal('addLeadModal');
+    showToast(`${name} added as a lead!`);
+    delete loaded['leads'];
+    await loadLeads();
+  } catch (e) { showToast(e.message || 'Error adding lead', 'error'); }
+}
+
+/* ─── CREATE JOB ───────────────────────────────────────────────── */
+async function showCreateJob() {
+  // Populate client dropdown
+  const sel = document.getElementById('newJobClient');
+  if (sel) {
+    const clients = await api('/api/clients').catch(() => []) || [];
+    sel.innerHTML = '<option value="">— Select client —</option>' +
+      clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+  ['newJobTitle','newJobDesc','newJobAddress','newJobValue','newJobStart'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  openModal('createJobModal');
+}
+
+async function saveNewJob() {
+  const title = document.getElementById('newJobTitle')?.value?.trim();
+  if (!title) { showToast('Job title is required', 'error'); return; }
+  const data = {
+    clientId:       document.getElementById('newJobClient')?.value || null,
+    title,
+    service:        title,
+    description:    document.getElementById('newJobDesc')?.value?.trim() || '',
+    address:        document.getElementById('newJobAddress')?.value?.trim() || '',
+    estimatedValue: document.getElementById('newJobValue')?.value || null,
+    startDate:      document.getElementById('newJobStart')?.value || null,
+  };
+  try {
+    const result = await api('/api/jobs', { method: 'POST', body: data });
+    if (!result?.ok) throw new Error(result?.error || 'Failed');
+    closeModal('createJobModal');
+    showToast(`Job "${title}" created!`);
+    delete loaded['jobs'];
+    await loadJobs();
+  } catch (e) { showToast(e.message || 'Error creating job', 'error'); }
+}
+
 let leadView = 'list'; // 'list' | 'pipeline'
 
 function toggleLeadView() {

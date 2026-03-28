@@ -772,6 +772,21 @@ app.get('/api/leads', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/leads — create a new lead manually
+app.post('/api/leads', requireAuth, async (req, res) => {
+  try {
+    const { name, email, phone, service, message, address, source } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const lead = await dbLeads.createLead({
+      name, email: email || '', phone: phone || '',
+      service: service || '', message: message || '',
+      address: address || '', source: source || 'Manual Entry',
+      status: 'new',
+    });
+    res.json({ ok: true, id: lead.id, ...lead });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/leads/:row/convert', async (req, res) => {
   try {
     await dbLeads.updateLeadStatus(parseInt(req.params.row), 'Converted');
@@ -798,6 +813,23 @@ app.post('/api/jobs/:row/status', async (req, res) => {
   try {
     await dbJobs.updateJobStatus(parseInt(req.params.row), req.body.status || '');
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/jobs — create a new job manually
+app.post('/api/jobs', requireAuth, async (req, res) => {
+  try {
+    const { clientId, title, service, description, address, status, estimatedValue, startDate, endDate } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    const job = await dbJobs.createJob({
+      clientId: clientId || null,
+      title, service: service || title,
+      description: description || '', address: address || '',
+      status: status || 'pending',
+      estimatedValue: estimatedValue || null,
+      startDate: startDate || null, endDate: endDate || null,
+    });
+    res.json({ ok: true, id: job.id, ...job });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -1020,6 +1020,7 @@
         </div>
         <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🗂️ Pipeline</button>
       </div>
+      <button onclick="showAddLead()" class="btn-primary" style="width:100%;margin-bottom:10px">+ Add Lead</button>
       <div id="leadFilterChips" class="filter-chips">
         <button class="chip active" data-filter="all" onclick="setLeadFilter(this)">All</button>
         <button class="chip" data-filter="hot" onclick="setLeadFilter(this)">🔥 Hot</button>
@@ -1042,6 +1043,7 @@
         <span class="search-icon">🔍</span>
         <input type="search" id="jobSearch" placeholder="Search jobs…" oninput="filterJobs()">
       </div>
+      <button onclick="showCreateJob()" class="btn-primary" style="width:100%;margin-bottom:10px">+ Create Job</button>
       <div class="filter-chips">
         <button class="chip active" data-filter="all" onclick="setJobFilter(this)">All</button>
         <button class="chip" data-filter="active" onclick="setJobFilter(this)">Active</button>
@@ -1332,7 +1334,7 @@
       <div class="settings-section" style="margin-top:8px">
         <div class="settings-label">About</div>
         <div class="settings-row">
-          <div class="settings-field"><span class="sfield-icon">⚡</span><div class="sfield-body"><div class="sfield-label">Powered by</div><div style="font-size:15px;font-weight:700">AI CRM</div></div></div>
+          <div class="settings-field"><span class="sfield-icon">⚡</span><div class="sfield-body"><div class="sfield-label">Powered by</div><div style="font-size:15px;font-weight:700">SPEC Systems</div></div></div>
           <div class="settings-field"><span class="sfield-icon">🔖</span><div class="sfield-body"><div class="sfield-label">Version</div><div style="font-size:15px">1.0.0</div></div></div>
         </div>
       </div>
@@ -2304,7 +2306,98 @@
   </div>
 </div>
 
-<script src="app.js?v=15"></script>
+<!-- ── ADD LEAD MODAL ─────────────────────────────────────────── -->
+<div class="modal" id="addLeadModal" style="display:none">
+  <div class="modal-backdrop" onclick="closeModal('addLeadModal')"></div>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Add Lead</span>
+      <button class="modal-close" onclick="closeModal('addLeadModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Full Name *</label>
+        <input id="newLeadName" class="input" placeholder="Amanda Torres" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Phone</label>
+        <input id="newLeadPhone" class="input" type="tel" placeholder="(720) 555-0384" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Email</label>
+        <input id="newLeadEmail" class="input" type="email" placeholder="amanda@gmail.com" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Service Needed</label>
+        <input id="newLeadService" class="input" placeholder="Kitchen Remodel" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Address</label>
+        <input id="newLeadAddress" class="input" placeholder="123 Main St, Denver, CO" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Notes / Description</label>
+        <textarea id="newLeadMessage" class="input" rows="2" placeholder="Looking to gut their kitchen..." style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Source</label>
+        <select id="newLeadSource" class="input" style="width:100%">
+          <option value="Phone Call">Phone Call</option>
+          <option value="Walk-in">Walk-in</option>
+          <option value="Referral">Referral</option>
+          <option value="Google">Google</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="saveNewLead()" style="margin-top:4px">Add Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATE JOB MODAL ──────────────────────────────────────── -->
+<div class="modal" id="createJobModal" style="display:none">
+  <div class="modal-backdrop" onclick="closeModal('createJobModal')"></div>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Create Job</span>
+      <button class="modal-close" onclick="closeModal('createJobModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Client</label>
+        <select id="newJobClient" class="input" style="width:100%">
+          <option value="">— Select client —</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Job Title / Service *</label>
+        <input id="newJobTitle" class="input" placeholder="Kitchen Remodel" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Description</label>
+        <textarea id="newJobDesc" class="input" rows="2" placeholder="Full gut and remodel..." style="width:100%;resize:vertical"></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Address</label>
+        <input id="newJobAddress" class="input" placeholder="4521 Pine Blvd, Denver, CO" style="width:100%">
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Estimated Value</label>
+          <input id="newJobValue" class="input" type="number" placeholder="18500" style="width:100%">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Start Date</label>
+          <input id="newJobStart" class="input" type="date" style="width:100%">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="saveNewJob()" style="margin-top:4px">Create Job</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=16"></script>
 <script>
   // Register service worker for PWA install + offline support
   if ('serviceWorker' in navigator) {
