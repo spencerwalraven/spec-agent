@@ -20,7 +20,7 @@ const FROM = () => process.env.TWILIO_PHONE;
  * Send a text to the owner.
  */
 async function textOwner(message) {
-  const { readSettings } = require('./sheets');
+  const { readSettings } = require('./sheets-compat');
   const settings = await readSettings();
   const to = settings.phone?.replace(/\D/g, '');
   if (!to) { logger.warn('SMS', 'No owner phone in settings'); return 'No owner phone configured'; }

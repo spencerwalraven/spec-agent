@@ -9,7 +9,7 @@
 
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
 const { toolReadLead, toolUpdateLead, toolReadSettings } = require('../tools/db-tools');
-const { updateCell, appendRow, readRow, getNextRep } = require('../tools/sheets');
+const { updateCell, appendRow, readRow, getNextRep } = require('../tools/sheets-compat');
 const { toolSendEmail, toolReadThread, sendEmail }                                         = require('../tools/gmail');
 const { toolNotifyOwner, toolTextClient }                                                   = require('../tools/notify');
 const { logger }                                                                            = require('../utils/logger');

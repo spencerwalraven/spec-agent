@@ -519,6 +519,14 @@ async function migrate() {
   `);
   console.log('✅ activity_log');
 
+  // ── Safe ALTER TABLEs for agent compatibility ────────────────────────────
+  const safeAlter = async (sql) => {
+    try { await query(sql); } catch (e) { if (!e.message.includes('already exists')) console.warn('  ⚠ ', e.message); }
+  };
+  await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_thread_id VARCHAR(255)`);
+  await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(255)`);
+  console.log('✅ leads extra columns (email_thread_id, assigned_to)');
+
   console.log('\n🎉 Migration complete — all tables created successfully.');
   await pool.end();
 }

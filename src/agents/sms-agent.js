@@ -17,7 +17,7 @@
 
 require('dotenv').config();
 const Anthropic = require('@anthropic-ai/sdk');
-const { readTab, updateCell, appendRow, readSettings, g } = require('../tools/sheets');
+const { readTab, updateCell, appendRow, readSettings, g } = require('../tools/sheets-compat');
 const { logger } = require('../utils/logger');
 
 const SHEET_ID   = process.env.SHEET_ID;

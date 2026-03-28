@@ -54,7 +54,7 @@ const welcomeAgent           = require('./welcome-agent');
 const paymentAgent           = require('./payment-agent');
 const subConfirmationAgent   = require('./sub-confirmation-agent');
 const { logger }             = require('../utils/logger');
-const { findRowByEmail, updateCell, readSettings, readTab } = require('../tools/sheets');
+const { findRowByEmail, updateCell, readSettings, readTab } = require('../tools/sheets-compat');
 const { createJobFromLead }  = require('../tools/jobs');
 
 /**
@@ -78,7 +78,7 @@ async function route(type, payload = {}) {
         const email = fromStr.match(/<(.+)>/)?.[1] || fromStr || payload.email;
         if (!email) { logger.warn('Orchestrator', 'No sender email in email_reply event'); return; }
 
-        const { readTab: _rt, g: _g } = require('../tools/sheets');
+        const { readTab: _rt, g: _g } = require('../tools/sheets-compat');
 
         // Check active Jobs FIRST — active clients take priority over leads
         const jobs = await _rt('Jobs');

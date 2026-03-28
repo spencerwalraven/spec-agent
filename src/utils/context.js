@@ -3,7 +3,7 @@
  * so agents always have complete context without redundant sheet reads.
  */
 
-const { readSettings, readRow, findRowByEmail } = require('../tools/sheets');
+const { readSettings, readRow, findRowByEmail } = require('../tools/sheets-compat');
 
 async function buildLeadContext(rowNumber) {
   const [settings, lead] = await Promise.all([

@@ -12,7 +12,7 @@ const express = require('express');
 const router  = express.Router();
 const { route } = require('../agents/orchestrator');
 const { logger } = require('../utils/logger');
-const { appendRow, getLastRow, findRowByEmail } = require('../tools/sheets');
+const { appendRow, getLastRow, findRowByEmail } = require('../tools/sheets-compat');
 const { getNewMessages, parseMessage } = require('../tools/gmail-watch');
 const dbLeads = require('../services/leads');
 
@@ -60,7 +60,7 @@ function isDuplicate(messageId) {
 // Read reply delay settings (minutes) from Settings tab, with defaults
 async function getReplyDelays() {
   try {
-    const { readSettings } = require('../tools/sheets');
+    const { readSettings } = require('../tools/sheets-compat');
     const s = await readSettings();
     return {
       lead:   (parseFloat(s['Lead Reply Delay'] || s.leadReplyDelay)   || 3) * 60 * 1000,
@@ -273,7 +273,7 @@ router.post('/gmail-push', async (req, res) => {
         // Determine if this is a lead or active client to set the right delay
         let delayMs = delays.lead; // default to lead delay
         try {
-          const { findRowByEmail, readTab } = require('../tools/sheets');
+          const { findRowByEmail, readTab } = require('../tools/sheets-compat');
           const jobs = await readTab('Jobs');
           const isClient = jobs.some(j =>
             (j['Email'] || '').toLowerCase() === fromEmail.toLowerCase() &&

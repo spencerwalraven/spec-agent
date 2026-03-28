@@ -15,7 +15,7 @@
  */
 
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
-const { readTab, readSettings, toolReadSettings, updateCell } = require('../tools/sheets');
+const { readTab, readSettings, toolReadSettings, updateCell } = require('../tools/sheets-compat');
 const { toolNotifyOwner, toolTextClient } = require('../tools/notify');
 const { logger } = require('../utils/logger');
 

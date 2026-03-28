@@ -24,7 +24,7 @@ const SCOPE      = 'com.intuit.quickbooks.accounting';
 
 async function getTokens() {
   try {
-    const { readSettings } = require('./sheets');
+    const { readSettings } = require('./sheets-compat');
     const s = await readSettings();
     return {
       accessToken:  s['QB Access Token']  || '',
@@ -40,7 +40,7 @@ async function getTokens() {
 
 async function saveTokens(tokens) {
   try {
-    const { writeSettings } = require('./sheets');
+    const { writeSettings } = require('./sheets-compat');
     await writeSettings({
       'QB Access Token':  tokens.accessToken  || '',
       'QB Refresh Token': tokens.refreshToken || '',

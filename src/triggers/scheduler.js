@@ -15,7 +15,7 @@
 
 const cron   = require('node-cron');
 const { route }  = require('../agents/orchestrator');
-const { readTab, g } = require('../tools/sheets');
+const { readTab, g } = require('../tools/sheets-compat');
 const { logger } = require('../utils/logger');
 const { notifyOwner } = require('../tools/notify');
 let gmailWatch, weatherTool;

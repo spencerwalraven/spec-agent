@@ -10,7 +10,7 @@
  */
 
 const { sendEmail }          = require('./gmail');
-const { readSettings }       = require('./sheets');
+const { readSettings }       = require('./sheets-compat');
 const { textOwner, sendSms } = require('./sms');
 
 // Map camelCase eventType keys to Settings tab label prefixes

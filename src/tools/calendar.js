@@ -176,7 +176,7 @@ async function createPhaseEvent(phase, job) {
  * Returns a summary of what was created.
  */
 async function syncAllJobs() {
-  const { readTab, g } = require('./sheets');
+  const { readTab, g } = require('./sheets-compat');
   const [jobs, phases] = await Promise.all([readTab('Jobs'), readTab('Job Phases')]);
 
   let created = 0;

@@ -11,7 +11,7 @@
  */
 
 const { BaseAgent, DEFAULT_MODEL } = require('./base-agent');
-const { toolReadJob, toolUpdateJob, toolReadClient, toolUpdateClient, toolReadSettings, readRow, updateCell } = require('../tools/sheets');
+const { toolReadJob, toolUpdateJob, toolReadClient, toolUpdateClient, toolReadSettings, readRow, updateCell } = require('../tools/sheets-compat');
 const { toolSendEmail, toolReadThread } = require('../tools/gmail');
 const { toolCreateDoc }                 = require('../tools/docs');
 const { toolNotifyOwner, toolTextClient } = require('../tools/notify');

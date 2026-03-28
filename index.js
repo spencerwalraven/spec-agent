@@ -583,7 +583,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '2.0.0' }
 // Writes a new job to the Jobs tab, then fires the Pricing Agent.
 app.post('/api/estimate', requireAuth, async (req, res) => {
   try {
-    const { appendRow, getLastRow } = require('./src/tools/sheets');
+    const { appendRow, getLastRow } = require('./src/tools/sheets-compat');
     const { route } = require('./src/agents/orchestrator');
 
     const {
@@ -1839,7 +1839,7 @@ app.post('/api/jobs/:row/photos', async (req, res) => {
     if (!imageData) return res.status(400).json({ error: 'imageData required' });
 
     // Read job to get jobId
-    const { readRow } = require('./src/tools/sheets');
+    const { readRow } = require('./src/tools/sheets-compat');
     const job    = await readRow('Jobs', row);
     const jobId  = job?.['Job ID'] || `ROW${row}`;
     const clientName = `${job?.['First Name'] || ''} ${job?.['Last Name'] || ''}`.trim();
@@ -2207,7 +2207,7 @@ app.post('/api/jobs/:row/kickoff-schedule', async (req, res) => {
     const row = parseInt(req.params.row);
     if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
 
-    const { readRow } = require('./src/tools/sheets');
+    const { readRow } = require('./src/tools/sheets-compat');
     const job = await readRow('Jobs', row);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -2625,7 +2625,7 @@ app.post('/api/jobs/:row/sync-calendar', async (req, res) => {
     const row = parseInt(req.params.row);
     if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
 
-    const { readRow } = require('./src/tools/sheets');
+    const { readRow } = require('./src/tools/sheets-compat');
     const job = await readRow('Jobs', row);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -2708,7 +2708,7 @@ app.get('/api/quickbooks/callback', async (req, res) => {
 // Disconnect QuickBooks
 app.post('/api/quickbooks/disconnect', async (req, res) => {
   try {
-    const { writeSettings } = require('./src/tools/sheets');
+    const { writeSettings } = require('./src/tools/sheets-compat');
     await writeSettings({ 'QB Access Token': '', 'QB Refresh Token': '', 'QB Realm ID': '', 'QB Token Expiry': '', 'QB Company Name': '' });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2721,7 +2721,7 @@ app.post('/api/jobs/:row/sync-quickbooks', async (req, res) => {
     const row = parseInt(req.params.row);
     if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
 
-    const { readRow } = require('./src/tools/sheets');
+    const { readRow } = require('./src/tools/sheets-compat');
     const job = await readRow('Jobs', row);
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
@@ -2908,7 +2908,7 @@ async function validateSheetSchema() {
     return;
   }
   try {
-    const { readTab } = require('./src/tools/sheets');
+    const { readTab } = require('./src/tools/sheets-compat');
 
     const REQUIRED = {
       Leads: ['First Name', 'Last Name', 'Email', 'Phone Number', 'Status', 'Lead Score', 'Last Contact', 'Nurture Step'],

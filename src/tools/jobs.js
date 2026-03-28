@@ -1,50 +1,64 @@
 /**
- * Job creation helper — converts a lead row into a new Jobs tab row.
+ * Job creation helper — converts a lead into a new job.
  * Called by the orchestrator when a lead is converted.
+ * Now backed by PostgreSQL (was Google Sheets).
  */
 
-const { readRow, appendRow, updateCell, getLastRow } = require('./sheets');
+const dbLeads   = require('../services/leads');
+const dbJobs    = require('../services/jobs');
+const dbClients = require('../services/clients');
+const { getOne } = require('../db');
+
+const COMPANY_ID = 1;
 
 /**
  * Create a new job from a converted lead.
- * @param {number} leadRow  - Row number in Leads tab
- * @returns {number}        - New row number in Jobs tab
+ * @param {number} leadRow  - Lead ID (was row number in Sheets era)
+ * @returns {{ jobId: string, rowNumber: number }}
  */
 async function createJobFromLead(leadRow) {
-  const lead = await readRow('Leads', leadRow);
+  const lead = await dbLeads.getLead(leadRow);
+  if (!lead) throw new Error(`Lead ${leadRow} not found`);
 
-  // Generate a Job ID: JOB-XXX based on current Jobs count
-  const lastRow  = await getLastRow('Jobs');
-  const jobNum   = String(lastRow).padStart(3, '0');
-  const jobId    = `JOB-${jobNum}`;
+  // Find or create client record
+  let client;
+  if (lead.email) {
+    const existing = await getOne(
+      `SELECT * FROM clients WHERE LOWER(email) = LOWER($1) AND company_id = $2`,
+      [lead.email, COMPANY_ID]
+    );
+    if (existing) {
+      client = existing;
+    }
+  }
+  if (!client) {
+    client = await dbClients.createClient({
+      name:    lead.name,
+      email:   lead.email,
+      phone:   lead.phone,
+      address: lead.address,
+      source:  lead.source,
+      lead_id: lead.id,
+    });
+  }
 
-  const today    = new Date().toLocaleDateString('en-US');
+  // Create the job
+  const job = await dbJobs.createJob({
+    clientId:       client.id,
+    title:          lead.projectType || 'New Project',
+    service:        lead.projectType || '',
+    description:    lead.description || '',
+    address:        lead.address || '',
+    status:         'pending',
+    estimatedValue: 0,
+  });
 
-  const jobData  = {
-    'Job ID':             jobId,
-    'First Name':         lead['First Name']          || '',
-    'Last Name':          lead['Last Name']            || '',
-    'Email':              lead['Email']                || '',
-    'Phone Number':       lead['Phone Number']         || '',
-    'Street Address':     lead['Street Address']       || '',
-    'City':               lead['City']                 || '',
-    'State':              lead['State']                || '',
-    'Zip Code':           lead['Zip Code']             || '',
-    'Service Type':       lead['Service Requested']    || '',
-    'Project Description':lead['Tell us about your project'] || '',
-    'Budget':             lead['Budget']               || '',
-    'Timeline':           lead['Timeline']             || '',
-    'Job Status':         'New Job',
-    'Lead Source':        lead['How did you hear about us?'] || '',
-    'Date Created':       today,
-    'Salesperson':        lead['Assigned Salesmen']    || '',
-  };
+  // job comes back as the raw insertOne result — get the formatted version
+  const created = await dbJobs.getJob(job.id);
+  const jobId   = created ? created.jobId : `JOB-${job.id}`;
 
-  await appendRow('Jobs', jobData);
-  const newRow = await getLastRow('Jobs');
-
-  console.log(`[Jobs] Created ${jobId} at row ${newRow} from lead row ${leadRow}`);
-  return { jobId, rowNumber: newRow };
+  console.log(`[Jobs] Created ${jobId} (id ${job.id}) from lead ${leadRow}`);
+  return { jobId, rowNumber: job.id };
 }
 
 module.exports = { createJobFromLead };
