@@ -177,7 +177,7 @@ class ChangeOrderAgent extends BaseAgent {
 
   async generateChangeOrder({ rowNumber, changeDescription, requestedBy = 'client' }) {
     const systemPrompt = `
-You are a change order specialist for a home remodeling company. Your job is to create a professional, clear change order when the scope of work changes.
+You are a change order specialist for a home service company. Your job is to create a professional, clear change order when the scope of work changes.
 
 TASK — in this exact order:
 1. Read company settings (read_settings)

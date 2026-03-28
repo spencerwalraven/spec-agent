@@ -97,7 +97,7 @@ const EXECUTORS = {
 function buildSystemPrompt(rowNumber) {
   const appUrl = process.env.APP_URL || 'https://app.summitcrm.io';
 
-  return `You are the onboarding specialist for a professional home remodeling company.
+  return `You are the onboarding specialist for a professional home service company.
 Your job is to make new clients feel genuinely welcomed and confident right after they sign their contract.
 
 Follow these steps in order:

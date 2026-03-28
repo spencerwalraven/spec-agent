@@ -262,7 +262,7 @@ class PlanningAgent extends BaseAgent {
 
   async planProject({ rowNumber }) {
     const systemPrompt = `
-You are an expert home remodeling project manager with 20 years of experience planning and executing remodeling projects. Your job is to create a comprehensive, realistic project plan.
+You are an expert home service project manager with 20 years of experience planning and executing service projects. Your job is to create a comprehensive, realistic project plan.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings)
@@ -334,6 +334,55 @@ Basement Finish (6-10 weeks):
   10. Electrical Fixtures (1-2 days)
   11. Bathroom Tile (if applicable) (3-4 days)
   12. Punch List (1-2 days)
+
+LANDSCAPING — Patio / Hardscape Install (2-4 weeks):
+  1. Site Survey & Utility Marking (1 day)
+  2. Excavation & Grading (2-3 days)
+  3. Base Material & Compaction (1-2 days)
+  4. Edge Restraint Installation (1 day)
+  5. Paver / Stone Installation (3-5 days)
+  6. Polymeric Sand & Sealing (1 day)
+  7. Cleanup & Final Inspection (1 day)
+
+LANDSCAPING — Full Landscape Design & Install (3-6 weeks):
+  1. Site Prep & Demo (1-3 days) — remove old plants, structures
+  2. Rough Grading & Drainage (2-3 days)
+  3. Irrigation Install (2-3 days) — zones, heads, controller
+  4. Hardscape (patios, walkways, walls) (3-7 days)
+  5. Landscape Lighting (1-2 days) — low voltage
+  6. Soil Prep & Amendment (1-2 days)
+  7. Planting — Trees & Shrubs (1-3 days)
+  8. Planting — Perennials & Ground Cover (1-2 days)
+  9. Mulch & Top Dressing (1-2 days)
+  10. Sod / Seed (1-2 days)
+  11. Cleanup & Client Walkthrough (1 day)
+
+LANDSCAPING — Retaining Wall (1-3 weeks):
+  1. Excavation & Footer (1-2 days)
+  2. Base Course & Leveling (1 day)
+  3. Wall Block / Stone Build (2-5 days)
+  4. Backfill & Drainage Gravel (1 day)
+  5. Cap Stones & Finishing (1 day)
+  6. Landscape Restoration (1-2 days)
+
+LANDSCAPING — Lawn Renovation (1-2 weeks):
+  1. Kill / Remove Existing Lawn (1-2 days)
+  2. Soil Test & Amendment (1 day)
+  3. Grading & Leveling (1-2 days)
+  4. Sod Install or Seeding (1-2 days)
+  5. Starter Fertilizer & Watering Schedule (1 day)
+  6. Follow-up Inspection (scheduled 2 weeks out)
+
+LANDSCAPING — Outdoor Living (fire pit, kitchen, pergola) (3-5 weeks):
+  1. Site Prep & Excavation (2-3 days)
+  2. Utility Rough-In (gas, electric, water) (2-3 days)
+  3. Foundation / Footings (1-2 days)
+  4. Structure Build (pergola, kitchen frame) (3-5 days)
+  5. Hardscape / Patio Surface (2-4 days)
+  6. Fire Pit / Grill Install (1-2 days)
+  7. Electrical Finish (lighting, outlets) (1-2 days)
+  8. Planting & Landscape (2-3 days)
+  9. Cleanup & Client Walkthrough (1 day)
 
 For other project types, apply similar logic based on what trades are involved.
 

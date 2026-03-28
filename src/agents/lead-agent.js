@@ -215,7 +215,7 @@ ASSIGNED SALES REP (use this for the email — NOT the owner's info):
       : `Sign the email with the owner's name from settings.`;
 
     const systemPrompt = `
-You are an expert sales AI for a home remodeling company. Your job is to qualify new leads and send warm, personal outreach emails.
+You are an expert sales AI for a home service company. Your job is to qualify new leads and send warm, personal outreach emails.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings)
@@ -264,7 +264,7 @@ IMPORTANT:
   async handleEmailReply({ rowNumber, leadId, threadId, senderEmail, senderName }) {
     const id = leadId || rowNumber;
     const systemPrompt = `
-You are the friendly, knowledgeable assistant for a home remodeling company. A lead just replied to one of your emails.
+You are the friendly, knowledgeable assistant for a home service company. A lead just replied to one of your emails.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings)
@@ -310,7 +310,7 @@ Read the thread, understand what they need, and respond like a real person would
   async handleNurtureStep({ rowNumber, leadId }) {
     const id = leadId || rowNumber;
     const systemPrompt = `
-You are a real person following up with a potential remodeling client who hasn't responded yet. Your job is to stay on their radar without being annoying.
+You are a real person following up with a potential service client who hasn't responded yet. Your job is to stay on their radar without being annoying.
 
 TASK:
 1. Read the business settings
@@ -341,7 +341,7 @@ WRITING STYLE:
   async handleCalendlyBooking({ rowNumber, leadId, appointmentDate, appointmentTime, meetingType, inviteeName, inviteeEmail }) {
     const id = leadId || rowNumber;
     const systemPrompt = `
-You are managing appointment bookings for a home remodeling company.
+You are managing appointment bookings for a home service company.
 
 TASK:
 1. Read the lead data (leadId: ${id})
@@ -371,7 +371,7 @@ Lead: ${inviteeName || 'the lead'} (${inviteeEmail || ''})
   async handleConversion({ rowNumber, leadId }) {
     const id = leadId || rowNumber;
     const systemPrompt = `
-You are processing a lead conversion for a home remodeling company.
+You are processing a lead conversion for a home service company.
 
 TASK:
 1. Read the lead data (leadId: ${id})

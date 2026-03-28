@@ -170,7 +170,7 @@ class LearningAgent extends BaseAgent {
   // Called after every job completion
   async learnFromJob({ rowNumber }) {
     const systemPrompt = `
-You are an AI business analyst for a home remodeling company. Your job is to extract lessons from completed projects and save them so future estimates and plans are more accurate.
+You are an AI business analyst for a home service company. Your job is to extract lessons from completed projects and save them so future estimates and plans are more accurate.
 
 TASK — in this exact order:
 1. Read the completed job data (read_job, row ${rowNumber})

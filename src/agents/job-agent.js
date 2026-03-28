@@ -267,7 +267,7 @@ class JobAgent extends BaseAgent {
 
   async generateEstimate({ rowNumber }) {
     const systemPrompt = `
-You are an expert estimating AI for a home remodeling company.
+You are an expert estimating AI for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -294,7 +294,7 @@ Row: ${rowNumber}
 
   async generateProposal({ rowNumber }) {
     const systemPrompt = `
-You are an expert proposal writer for a home remodeling company.
+You are an expert proposal writer for a home service company.
 
 TASK:
 1. Read settings and job data (row ${rowNumber})
@@ -330,7 +330,7 @@ Write the proposal in professional language. Be specific about scope of work. Th
       : (process.env.APP_URL || 'https://your-app.railway.app');
 
     const systemPrompt = `
-You are following up on a proposal sent to a client for a home remodeling company.
+You are following up on a proposal sent to a client for a home service company.
 
 TASK:
 1. Read settings and job data (row ${rowNumber})
@@ -358,7 +358,7 @@ Row: ${rowNumber}
 
   async handleProposalDecision({ rowNumber, threadId }) {
     const systemPrompt = `
-You are handling a client's response to a proposal for a home remodeling company.
+You are handling a client's response to a proposal for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -381,7 +381,7 @@ Row: ${rowNumber} | Thread: ${threadId}
 
   async generateContract({ rowNumber }) {
     const systemPrompt = `
-You are a contract writer for a home remodeling company.
+You are a contract writer for a home service company.
 
 TASK:
 1. Read settings and job data (row ${rowNumber})
@@ -407,7 +407,7 @@ TASK:
 
   async generateJobTemplate({ rowNumber }) {
     const systemPrompt = `
-You are a job planning AI for a home remodeling company.
+You are a job planning AI for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -436,7 +436,7 @@ Row: ${rowNumber}
 
   async notifySubs({ rowNumber }) {
     const systemPrompt = `
-You are coordinating subcontractors for a home remodeling job.
+You are coordinating subcontractors for a home service job.
 
 TASK:
 1. Read settings and job data

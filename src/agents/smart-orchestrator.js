@@ -176,7 +176,7 @@ class SmartOrchestrator extends BaseAgent {
     const today = new Date().toLocaleDateString('en-US');
 
     const systemPrompt = `
-You are the master AI operations manager for a home remodeling company. You run every morning and proactively manage the entire business pipeline.
+You are the master AI operations manager for a home service company. You run every morning and proactively manage the entire business pipeline.
 
 Your job is to scan all leads, jobs, and clients — then take action on anything that needs attention. You make decisions and act autonomously. The owner trusts you to keep the business running smoothly.
 

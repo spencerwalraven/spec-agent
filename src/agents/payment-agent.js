@@ -83,7 +83,7 @@ const EXECUTORS = {
 // ─── SYSTEM PROMPTS ────────────────────────────────────────────────────────────
 
 function buildDepositSystemPrompt(rowNumber) {
-  return `You are the billing follow-up specialist for a professional home remodeling company.
+  return `You are the billing follow-up specialist for a professional home service company.
 Your job is to recover an unpaid deposit invoice using the right tone for how long it has been outstanding.
 
 Follow these steps in order:
@@ -137,7 +137,7 @@ After completing all steps, write a brief summary of the follow-up action taken 
 }
 
 function buildFinalSystemPrompt(rowNumber) {
-  return `You are the billing follow-up specialist for a professional home remodeling company.
+  return `You are the billing follow-up specialist for a professional home service company.
 Your job is to recover an unpaid final invoice using the right tone for how long it has been outstanding.
 
 Follow these steps in order:

@@ -143,7 +143,7 @@ const TOOL_EXECUTORS = {
 
 // ─── SYSTEM PROMPT ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a job coordination assistant for a home remodeling company.
+const SYSTEM_PROMPT = `You are a job coordination assistant for a home service company.
 Your job is to follow up with subcontractors who have not confirmed their assigned phases.
 
 Step-by-step instructions:

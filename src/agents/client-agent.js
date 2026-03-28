@@ -163,7 +163,7 @@ class ClientAgent extends BaseAgent {
 
   async sendWeeklyUpdate({ rowNumber }) {
     const prompt = `
-You manage client relations for a home remodeling company.
+You manage client relations for a home service company.
 
 TASK:
 1. Read settings and job data (row ${rowNumber})
@@ -182,7 +182,7 @@ TASK:
 
   async handleClientMessage({ rowNumber, threadId }) {
     const prompt = `
-You are the friendly point of contact for an active home remodeling project. A client just sent a message and you need to respond.
+You are the friendly point of contact for an active home service project. A client just sent a message and you need to respond.
 
 TASK:
 1. Read settings and job data (row ${rowNumber})
@@ -212,7 +212,7 @@ ESCALATE to owner (urgent text + email) if: complaint, change request, anything 
 
   async midJobSatisfactionCheck({ rowNumber }) {
     const prompt = `
-You do mid-job satisfaction checks for a home remodeling company.
+You do mid-job satisfaction checks for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -244,7 +244,7 @@ TASK:
 
   async generateDepositInvoice({ rowNumber }) {
     const prompt = `
-You generate invoices for a home remodeling company.
+You generate invoices for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -279,7 +279,7 @@ TASK:
 
   async generateFinalInvoice({ rowNumber }) {
     const prompt = `
-You generate final invoices for a completed home remodeling job.
+You generate final invoices for a completed home service job.
 
 TASK:
 1. Read settings and job data
@@ -315,7 +315,7 @@ TASK:
 
   async handleJobCompletion({ rowNumber }) {
     const prompt = `
-You handle job completions for a home remodeling company.
+You handle job completions for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -336,7 +336,7 @@ Row: ${rowNumber}
 
   async sendReviewFollowUp({ rowNumber }) {
     const prompt = `
-You follow up on Google review requests for a home remodeling company.
+You follow up on Google review requests for a home service company.
 
 TASK:
 1. Read settings and job data
@@ -352,7 +352,7 @@ TASK:
 
   async thirtyDayCheckIn({ rowNumber }) {
     const prompt = `
-You do 30-day post-job check-ins for a home remodeling company.
+You do 30-day post-job check-ins for a home service company.
 
 TASK:
 1. Read settings and job data

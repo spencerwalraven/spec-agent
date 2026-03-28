@@ -66,7 +66,7 @@ class MarketingAgent extends BaseAgent {
   async sendReEngagementCampaign({ leads }) {
     // leads = array of { email, firstName, projectType, _row }
     const prompt = `
-You run re-engagement campaigns for a home remodeling company.
+You run re-engagement campaigns for a home service company.
 
 TASK:
 1. Read business settings
@@ -85,7 +85,7 @@ Leads to contact: ${JSON.stringify(leads)}
 
   async sendReferralCampaign({ clients }) {
     const prompt = `
-You run referral campaigns for a home remodeling company.
+You run referral campaigns for a home service company.
 
 TASK:
 1. Read settings
@@ -103,7 +103,7 @@ Clients: ${JSON.stringify(clients)}
 
   async generateMonthlyReport({ month, year }) {
     const prompt = `
-You generate monthly performance reports for a home remodeling business.
+You generate monthly performance reports for a home service business.
 
 TASK:
 1. Read settings

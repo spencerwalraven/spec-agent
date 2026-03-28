@@ -1,7 +1,7 @@
 /**
  * Pricing & Estimation Agent
  *
- * Generates accurate line-item estimates for remodeling projects by:
+ * Generates accurate line-item estimates for service projects by:
  *  - Analyzing project scope and square footage
  *  - Fetching real material costs from supplier sites
  *  - Applying local labor rates by trade
@@ -263,7 +263,7 @@ class PricingAgent extends BaseAgent {
 
   async generateEstimate({ rowNumber }) {
     const systemPrompt = `
-You are an expert home remodeling estimator with 20 years of experience. You generate accurate, professional line-item estimates for remodeling projects.
+You are an expert home remodeling estimator with 20 years of experience. You generate accurate, professional line-item estimates for service projects.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings) — get company name, location, TARGET PROFIT MARGIN, contingency %, and default labor rate
