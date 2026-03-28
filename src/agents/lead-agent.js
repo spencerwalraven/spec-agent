@@ -19,26 +19,26 @@ const { logger }                                                                
 const TOOLS = [
   {
     name:        'read_lead',
-    description: 'Read all data for a lead from the Leads tab by row number',
+    description: 'Read all data for a lead by ID',
     input_schema: {
       type: 'object',
       properties: {
-        rowNumber: { type: 'number', description: 'Row number of the lead (header = row 1)' },
+        leadId: { type: 'number', description: 'The lead ID' },
       },
-      required: ['rowNumber'],
+      required: ['leadId'],
     },
   },
   {
     name:        'update_lead',
-    description: 'Update a single field in the Leads tab for this lead. Use exact column header names from the sheet.',
+    description: 'Update a single field on a lead. Fields: leadStatus, leadScore, notes, nurtureStep, lastContact, assignedTo, emailThread, source, projectType, budget, address, phone, email, name',
     input_schema: {
       type: 'object',
       properties: {
-        rowNumber: { type: 'number' },
-        field:     { type: 'string', description: 'Exact column header name, e.g. "Status", "Lead Score", "Notes"' },
-        value:     { type: 'string' },
+        leadId: { type: 'number' },
+        field:  { type: 'string', description: 'Field name, e.g. "leadStatus", "leadScore", "notes"' },
+        value:  { type: 'string' },
       },
-      required: ['rowNumber', 'field', 'value'],
+      required: ['leadId', 'field', 'value'],
     },
   },
   {
@@ -152,12 +152,12 @@ const EXECUTORS = {
       body:     args.body,
       threadId: args.threadId || ctx.threadId || null,
     });
-    // Auto-store thread ID back to sheet + context
-    if (result.threadId && ctx.rowNumber) {
+    // Auto-store thread ID back to DB + context
+    if (result.threadId && ctx.leadId) {
       ctx.threadId = result.threadId;
       try {
-        await updateCell('Leads', ctx.rowNumber, ['Email Thread ID', 'emailThread'], result.threadId);
-        await updateCell('Leads', ctx.rowNumber, ['Last Contact', 'Last Contacted'], new Date().toLocaleDateString('en-US'));
+        await toolUpdateLead({ leadId: ctx.leadId, field: 'emailThread', value: result.threadId });
+        await toolUpdateLead({ leadId: ctx.leadId, field: 'lastContact', value: new Date().toLocaleDateString('en-US') });
       } catch (_) {}
     }
     return `Email sent to ${args.to}. Thread ID: ${result.threadId}`;
@@ -190,7 +190,8 @@ class LeadAgent extends BaseAgent {
 
   // ── Handle a brand-new lead ──────────────────────────────────────────────
 
-  async handleNewLead({ rowNumber }) {
+  async handleNewLead({ rowNumber, leadId }) {
+    const id = leadId || rowNumber;
     // Get next rep in round-robin rotation BEFORE running the agent
     const rep = await getNextRep();
     const repName      = rep?.name        || null;
@@ -198,10 +199,10 @@ class LeadAgent extends BaseAgent {
     const repEmail     = rep?.email        || null;
 
     // If a rep was assigned, store it in the lead record immediately
-    if (repName && rowNumber) {
+    if (repName && id) {
       try {
-        await updateCell('Leads', rowNumber, ['Assigned To', 'Sales Rep', 'Assigned Rep'], repName);
-      } catch (_) {} // column may not exist — not critical
+        await toolUpdateLead({ leadId: id, field: 'assignedTo', value: repName });
+      } catch (_) {} // not critical
     }
 
     const repBlock = repName
@@ -218,12 +219,12 @@ You are an expert sales AI for a home remodeling company. Your job is to qualify
 
 TASK — in this exact order:
 1. Read the business settings (read_settings)
-2. Read the lead data (read_lead, row ${rowNumber})
+2. Read the lead data (read_lead, leadId ${id})
 3. Analyze the lead and assign a score:
    - Hot (80–100): clear project, realistic budget, urgent timeline, good location
    - Warm (50–79): interested but vague on budget/timeline or smaller project
    - Cold (0–49): unclear project, very low/no budget, no urgency, or unqualified
-4. Update the lead's score field in the sheet
+4. Update the lead's score (update_lead with leadId ${id})
 5. Write and send a personalized outreach email:
    - Reference their specific project description by name
    - Feel like it's personally written — warm, conversational, NOT salesy
@@ -254,19 +255,20 @@ IMPORTANT:
 - If the Calendly link is missing from both the rep and settings, ask the lead to call or text directly
     `.trim();
 
-    const userMessage = `New lead arrived at row ${rowNumber}. Score them, send personalized outreach, and update the sheet.`;
-    return await this.run(systemPrompt, userMessage, { rowNumber });
+    const userMessage = `New lead arrived (leadId: ${id}). Score them, send personalized outreach, and update the database.`;
+    return await this.run(systemPrompt, userMessage, { leadId: id });
   }
 
   // ── Handle a lead replying to an email ──────────────────────────────────
 
-  async handleEmailReply({ rowNumber, threadId, senderEmail, senderName }) {
+  async handleEmailReply({ rowNumber, leadId, threadId, senderEmail, senderName }) {
+    const id = leadId || rowNumber;
     const systemPrompt = `
 You are the friendly, knowledgeable assistant for a home remodeling company. A lead just replied to one of your emails.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings)
-2. Read the lead data (read_lead, row ${rowNumber})
+2. Read the lead data (read_lead, leadId: ${id})
 3. Read the full email thread (read_email_thread) — never skip this
 4. Understand what they're asking, then respond:
    - Wants to book → send the Calendly link, update status to "Appointment Scheduled"
@@ -293,25 +295,26 @@ RULES:
     `.trim();
 
     const userMessage = `
-${senderName || 'The lead'} at row ${rowNumber} just replied to an email.
+${senderName || 'The lead'} at leadId: ${id} just replied to an email.
 Their email: ${senderEmail}
 Thread ID: ${threadId}
 
 Read the thread, understand what they need, and respond like a real person would.
     `.trim();
 
-    return await this.run(systemPrompt, userMessage, { rowNumber, threadId });
+    return await this.run(systemPrompt, userMessage, { leadId: id, threadId });
   }
 
   // ── Send a nurture sequence step ─────────────────────────────────────────
 
-  async handleNurtureStep({ rowNumber }) {
+  async handleNurtureStep({ rowNumber, leadId }) {
+    const id = leadId || rowNumber;
     const systemPrompt = `
 You are a real person following up with a potential remodeling client who hasn't responded yet. Your job is to stay on their radar without being annoying.
 
 TASK:
 1. Read the business settings
-2. Read the lead data (row ${rowNumber}) — note their project type, budget, status, and notes
+2. Read the lead data (leadId: ${id}) — note their project type, budget, status, and notes
 3. STOP immediately if their status is anything other than "New" or "Contacted" — if they've booked, replied, converted, or gone dead, just update the nurture step and return without sending any email
 4. Check their current nurture step
 5. Send the right follow-up for this step:
@@ -329,18 +332,19 @@ WRITING STYLE:
 - One ask per email — usually just "would you like to grab 15 minutes?"
     `.trim();
 
-    const userMessage = `Send the next nurture follow-up to the lead at row ${rowNumber}.`;
-    return await this.run(systemPrompt, userMessage, { rowNumber });
+    const userMessage = `Send the next nurture follow-up to the lead (leadId: ${id}).`;
+    return await this.run(systemPrompt, userMessage, { leadId: id });
   }
 
   // ── Handle a Calendly booking ────────────────────────────────────────────
 
-  async handleCalendlyBooking({ rowNumber, appointmentDate, appointmentTime, meetingType, inviteeName, inviteeEmail }) {
+  async handleCalendlyBooking({ rowNumber, leadId, appointmentDate, appointmentTime, meetingType, inviteeName, inviteeEmail }) {
+    const id = leadId || rowNumber;
     const systemPrompt = `
 You are managing appointment bookings for a home remodeling company.
 
 TASK:
-1. Read the lead data (row ${rowNumber})
+1. Read the lead data (leadId: ${id})
 2. Update their record:
    - Status → "Appointment Scheduled"
    - Appointment Date → the provided date/time
@@ -358,18 +362,19 @@ Date/time: ${appointmentDate} ${appointmentTime || ''}
 Lead: ${inviteeName || 'the lead'} (${inviteeEmail || ''})
     `.trim();
 
-    const userMessage = `A lead at row ${rowNumber} just booked an appointment on Calendly. Confirm with them and notify the owner.`;
-    return await this.run(systemPrompt, userMessage, { rowNumber });
+    const userMessage = `A lead (leadId: ${id}) just booked an appointment on Calendly. Confirm with them and notify the owner.`;
+    return await this.run(systemPrompt, userMessage, { leadId: id });
   }
 
   // ── Convert lead to client ───────────────────────────────────────────────
 
-  async handleConversion({ rowNumber }) {
+  async handleConversion({ rowNumber, leadId }) {
+    const id = leadId || rowNumber;
     const systemPrompt = `
 You are processing a lead conversion for a home remodeling company.
 
 TASK:
-1. Read the lead data (row ${rowNumber})
+1. Read the lead data (leadId: ${id})
 2. Update lead status to "Converted"
 3. Create a new client record in the Clients tab by reading the lead data and copying relevant fields
 4. Notify the owner that a new client has been added
@@ -377,8 +382,8 @@ TASK:
 When creating the client record, include: First Name, Last Name, Email, Phone, Address, City, State, Zip.
     `.trim();
 
-    const userMessage = `Convert the lead at row ${rowNumber} to a client.`;
-    return await this.run(systemPrompt, userMessage, { rowNumber });
+    const userMessage = `Convert the lead (leadId: ${id}) to a client.`;
+    return await this.run(systemPrompt, userMessage, { leadId: id });
   }
 }
 

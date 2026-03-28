@@ -28,6 +28,28 @@ function formatLead(r) {
     nurtureStep:  r.follow_up_count || 0,
     timestamp:    r.created_at   ? new Date(r.created_at).toLocaleDateString() : '',
     createdAt:    r.created_at,
+    emailThread:  r.email_thread_id || '',
+    assignedTo:   r.assigned_to    || '',
+    // Compatibility aliases (scheduler, analytics, agents use Sheets-era names via g())
+    'First Name':               (r.name || '').split(' ')[0] || '',
+    'Last Name':                (r.name || '').split(' ').slice(1).join(' ') || '',
+    'Email':                    r.email        || '',
+    'Phone Number':             r.phone        || '',
+    'Status':                   r.status       || 'new',
+    'Lead Status':              r.status       || 'new',
+    'Lead Score':               r.score        || 0,
+    'Last Contact':             r.last_contact_at ? new Date(r.last_contact_at).toLocaleDateString() : '',
+    'Last Contacted':           r.last_contact_at ? new Date(r.last_contact_at).toLocaleDateString() : '',
+    'Nurture Step':             r.follow_up_count || 0,
+    'Nurture Day':              r.follow_up_count || 0,
+    'How did you hear about us?': r.source     || '',
+    'Lead Source':              r.source       || '',
+    'Source':                   r.source       || '',
+    'Referral Source':          r.source       || '',
+    'Email Thread ID':          r.email_thread_id || '',
+    'Assigned To':              r.assigned_to  || '',
+    'Service Requested':        r.service      || '',
+    'Notes':                    r.notes        || '',
   };
 }
 

@@ -78,6 +78,13 @@ async function route(type, payload = {}) {
         const email = fromStr.match(/<(.+)>/)?.[1] || fromStr || payload.email;
         if (!email) { logger.warn('Orchestrator', 'No sender email in email_reply event'); return; }
 
+        // Ignore bounce/system emails
+        const IGNORE_SENDERS = ['mailer-daemon@', 'postmaster@', 'noreply@', 'no-reply@', 'notifications@'];
+        if (IGNORE_SENDERS.some(s => email.toLowerCase().includes(s))) {
+          logger.info('Orchestrator', `Ignoring system email from ${email}`);
+          return;
+        }
+
         const { readTab: _rt, g: _g } = require('../tools/sheets-compat');
 
         // Check active Jobs FIRST — active clients take priority over leads

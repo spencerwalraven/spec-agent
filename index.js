@@ -2946,8 +2946,8 @@ async function validateSheetSchema() {
     const { readTab } = require('./src/tools/sheets-compat');
 
     const REQUIRED = {
-      Leads: ['First Name', 'Last Name', 'Email', 'Phone Number', 'Status', 'Lead Score', 'Last Contact', 'Nurture Step'],
-      Jobs:  ['Job ID', 'Client Name', 'Project Type', 'Status', 'Job Value', 'Start Date', 'Deposit Status'],
+      Leads: ['name', 'email', 'phone', 'leadStatus', 'leadScore'],
+      Jobs:  ['title', 'clientName', 'status', 'estimatedValue'],
       Settings: [], // settings is key-value, not columnar — just check it's readable
     };
 

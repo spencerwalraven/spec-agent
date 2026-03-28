@@ -62,6 +62,8 @@ const TAB_MAP = {
       // Sheet-compatible aliases
       'Job ID': r.job_ref, 'Phase': r.name, 'Status': r.status,
       'Assigned To': r.assigned_to,
+      'Estimated Cost': r.estimated_cost || 0, 'Est Cost': r.estimated_cost || 0,
+      'Actual Cost': r.actual_cost || 0, 'Actual': r.actual_cost || 0,
     }));
   },
   // Tasks

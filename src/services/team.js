@@ -20,6 +20,15 @@ function formatMember(r) {
     hasLogin:         !!(r.login_username),
     loginUsername:    r.login_username   || '',
     loginRole:        r.login_role       || 'field',
+    // Compatibility aliases
+    'Name':           r.name             || '',
+    'Team Member':    r.name             || '',
+    'Role':           r.role             || '',
+    'Position':       r.role             || '',
+    'Active':         r.status === 'active' ? 'Yes' : 'No',
+    'Is Active':      r.status === 'active' ? 'Yes' : 'No',
+    'Email':          r.email            || '',
+    'Phone':          r.phone            || '',
   };
 }
 
