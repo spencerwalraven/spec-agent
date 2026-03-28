@@ -1698,7 +1698,16 @@
   </main>
 
   <!-- AI Chat Button -->
-  <button id="chatBtn" onclick="toggleChat()" style="position:fixed;bottom:80px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:8000;display:flex;align-items:center;justify-content:center;pointer-events:all">🤖</button>
+  <button id="chatBtn" style="position:fixed;bottom:80px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:8000;display:flex;align-items:center;justify-content:center;pointer-events:all">🤖</button>
+  <script>
+    document.getElementById('chatBtn').addEventListener('click', function() {
+      var modal = document.getElementById('chatModal');
+      if (!modal) return;
+      var isOpen = modal.style.display === 'flex';
+      modal.style.display = isOpen ? 'none' : 'flex';
+      if (!isOpen) { setTimeout(function(){ var i=document.getElementById('chatInput'); if(i) i.focus(); }, 100); }
+    });
+  </script>
 
   <!-- AI Chat Modal -->
   <div id="chatModal" style="display:none;position:fixed;bottom:0;left:0;right:0;top:0;z-index:1000;flex-direction:column;background:var(--bg)">
