@@ -17,6 +17,9 @@ function formatMember(r) {
     performanceScore: r.performance_score || null,
     jobsCompleted:    r.jobs_completed    || 0,
     qbEmployeeId:     r.qb_employee_id   || '',
+    hasLogin:         !!(r.login_username),
+    loginUsername:    r.login_username   || '',
+    loginRole:        r.login_role       || 'field',
   };
 }
 

@@ -1521,6 +1521,64 @@ async function loadClientTimeline(name) {
   }
 }
 
+/* ─── NOTIFICATIONS PANEL ───────────────────────────────────────── */
+let _notifOpen = false;
+
+function toggleNotifPanel() {
+  _notifOpen = !_notifOpen;
+  const panel   = document.getElementById('notifPanel');
+  const overlay = document.getElementById('notifOverlay');
+  if (panel)   panel.style.display   = _notifOpen ? 'block' : 'none';
+  if (overlay) overlay.style.display = _notifOpen ? 'block' : 'none';
+  if (_notifOpen) loadNotifPanel();
+}
+
+async function loadNotifPanel() {
+  const el = document.getElementById('notifPanelContent');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:24px;text-align:center;color:#666;font-size:14px">Loading…</div>';
+
+  const alerts = await api('/api/alerts').catch(() => []) || [];
+
+  // Sync badge
+  const urgentCount = alerts.filter(a => a.type === 'urgent').length;
+  const badge = document.getElementById('alertBadge');
+  const navDot = document.getElementById('alertsNavDot');
+  if (badge)  badge.style.display  = urgentCount > 0 ? 'block' : 'none';
+  if (navDot) navDot.style.display = urgentCount > 0 ? 'block' : 'none';
+
+  if (alerts.length === 0) {
+    el.innerHTML = `
+      <div style="padding:36px 16px;text-align:center">
+        <div style="font-size:36px;margin-bottom:10px">✅</div>
+        <div style="font-size:15px;font-weight:700;color:#F0F0F0;margin-bottom:4px">All clear!</div>
+        <div style="font-size:13px;color:#666">No alerts right now. Great work.</div>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-item ${a.type||'info'}" style="margin:6px 12px;border-radius:12px">
+      <div class="alert-icon">${a.icon||'ℹ️'}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.title||'Alert'}</div>
+        <div class="alert-desc">${a.desc||''}</div>
+        ${a.tag ? `<div class="alert-tag">${a.tag}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Wire bell button and close after DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+  const bell    = document.getElementById('notifBellBtn');
+  const close   = document.getElementById('notifCloseBtn');
+  const overlay = document.getElementById('notifOverlay');
+  if (bell)    bell.addEventListener('click', toggleNotifPanel);
+  if (close)   close.addEventListener('click', toggleNotifPanel);
+  if (overlay) overlay.addEventListener('click', toggleNotifPanel);
+});
+
 /* ─── ALERTS PAGE ───────────────────────────────────────────────── */
 async function loadAlerts() {
   const alerts = await api('/api/alerts') || [];
@@ -1662,6 +1720,32 @@ async function saveNewTeamMember() {
     await loadTeam();
   } catch (e) {
     showToast(e.message || 'Error adding team member', 'error');
+  }
+}
+
+let _setLoginMemberId = null;
+function showSetLoginModal(memberId, memberName, currentRole) {
+  _setLoginMemberId = memberId;
+  document.getElementById('setLoginMemberName').textContent = memberName;
+  document.getElementById('setLoginUsername').value  = '';
+  document.getElementById('setLoginPassword').value  = '';
+  document.getElementById('setLoginRole').value      = currentRole || 'field';
+  openModal('setLoginModal');
+}
+
+async function saveSetLogin() {
+  const id       = _setLoginMemberId;
+  const username = document.getElementById('setLoginUsername')?.value?.trim();
+  const password = document.getElementById('setLoginPassword')?.value?.trim();
+  const role     = document.getElementById('setLoginRole')?.value || 'field';
+  if (!username || !password) { showToast('Username and password required', 'error'); return; }
+  try {
+    await api(`/api/team/${id}/set-login`, { method: 'POST', body: { username, password, role } });
+    closeModal('setLoginModal');
+    showToast('Login credentials saved!');
+    loadSettings(); // Refresh team list
+  } catch(e) {
+    showToast(e.message || 'Error saving login', 'error');
   }
 }
 
@@ -2289,6 +2373,36 @@ async function loadSettings() {
   if (me) {
     const el = document.getElementById('currentUserDisplay');
     if (el) el.textContent = `${me.name} (${me.role})`;
+  }
+
+  // Team access list — show who has a login set
+  const teamListEl = document.getElementById('settingsTeamList');
+  if (teamListEl) {
+    const team = await api('/api/team').catch(() => []) || [];
+    if (team.length === 0) {
+      teamListEl.innerHTML = `<div style="padding:12px 16px;font-size:13px;color:var(--text3)">No team members yet.</div>`;
+    } else {
+      const roleColors = { owner: '#f0c94a', sales: '#3B82F6', field: '#22C55E' };
+      teamListEl.innerHTML = team.map(m => {
+        const roleColor = roleColors[m.loginRole] || '#9A9A9A';
+        const hasLogin = m.hasLogin;
+        return `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text2);flex-shrink:0">${initials(m.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${m.name}</div>
+            <div style="font-size:12px;color:var(--text3)">${m.role || '—'}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${hasLogin
+              ? `<div style="font-size:11px;font-weight:700;color:${roleColor};background:rgba(255,255,255,0.05);border:1px solid ${roleColor}44;border-radius:6px;padding:3px 8px;margin-bottom:4px">${m.loginRole.toUpperCase()}</div>
+                 <div style="font-size:11px;color:var(--text3)">@${m.loginUsername}</div>`
+              : `<button onclick="showSetLoginModal(${m.id},'${m.name.replace(/'/g,"\\'")}','field')" style="font-size:11px;color:var(--text3);border:1px solid var(--border);background:var(--card2);border-radius:6px;padding:4px 10px;cursor:pointer">Set Login</button>`
+            }
+          </div>
+        </div>`;
+      }).join('');
+    }
   }
 
   // Hide settings write for non-owner

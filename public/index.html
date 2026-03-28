@@ -902,10 +902,22 @@
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div class="conn-dot" id="connDot" title="Checking connection…"></div>
     <button class="icon-btn refresh-btn" id="refreshBtn" onclick="refreshAll()" aria-label="Refresh">↻</button>
-    <button class="icon-btn" style="position:relative" onclick="navigate('alerts')" aria-label="Alerts">
+    <button class="icon-btn" style="position:relative" id="notifBellBtn" aria-label="Alerts">
       🔔<span class="alert-badge" id="alertBadge" style="display:none"></span>
     </button>
   </header>
+
+  <!-- ── NOTIFICATIONS PANEL ──────────────────────────────────────── -->
+  <div id="notifOverlay" style="display:none;position:fixed;inset:0;z-index:490;background:rgba(0,0,0,0.5)" id="notifOverlay"></div>
+  <div id="notifPanel" style="display:none;position:fixed;top:0;left:0;right:0;z-index:491;background:#141414;border-bottom:1px solid #2A2A2A;max-height:72vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.7);border-radius:0 0 20px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;border-bottom:1px solid #222">
+      <div style="font-size:16px;font-weight:800;color:#F0F0F0">Notifications</div>
+      <button id="notifCloseBtn" style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;border:1px solid #2A2A2A;color:#9A9A9A;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <div id="notifPanelContent" style="padding:8px 0 16px">
+      <div style="padding:24px;text-align:center;color:#666;font-size:14px">Loading…</div>
+    </div>
+  </div>
 
   <!-- PAGES CONTAINER -->
   <main class="pages">
@@ -1296,15 +1308,14 @@
 
       <!-- ── USERS / TEAM ACCESS ────────────────────────────────────── -->
       <div class="settings-section" style="margin-top:8px">
-        <div class="settings-label">Team Access</div>
-        <div class="settings-row">
-          <div class="settings-field">
-            <span class="sfield-icon">👥</span>
-            <div class="sfield-body">
-              <div class="sfield-label">Multi-User Setup</div>
-              <div style="font-size:13px;color:var(--text3);line-height:1.5;padding:4px 0">Set <strong style="color:var(--text)">LOGIN_USERS</strong> in your Railway environment:<br><code style="background:var(--card2);padding:2px 6px;border-radius:4px;font-size:12px">name:password:role,name2:pass2:sales</code><br>Roles: <strong style="color:var(--text)">owner</strong> · <strong style="color:var(--text)">sales</strong> · <strong style="color:var(--text)">field</strong></div>
-            </div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="settings-label" style="margin-bottom:0">Team Access</div>
+          <button onclick="showAddTeamMember()" style="font-size:12px;color:var(--gold);background:transparent;border:1px solid var(--gold);border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:600">+ Add Member</button>
+        </div>
+        <div id="settingsTeamList" style="margin-bottom:8px">
+          <div style="padding:12px 16px;font-size:13px;color:var(--text3)">Loading…</div>
+        </div>
+        <div class="settings-row" style="margin-top:8px">
           <div class="settings-field" id="currentUserField">
             <span class="sfield-icon">🔑</span>
             <div class="sfield-body">
@@ -2260,7 +2271,37 @@
   </div>
 </div>
 
-<script src="app.js?v=12"></script>
+<!-- ── SET LOGIN MODAL ─────────────────────────────────────────── -->
+<div class="modal" id="setLoginModal" style="display:none">
+  <div class="modal-backdrop" onclick="closeModal('setLoginModal')"></div>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title">Set Login — <span id="setLoginMemberName"></span></span>
+      <button class="modal-close" onclick="closeModal('setLoginModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Username</label>
+        <input id="setLoginUsername" class="input" placeholder="jake" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Password</label>
+        <input id="setLoginPassword" class="input" type="password" placeholder="Set a password" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:4px">Access Level</label>
+        <select id="setLoginRole" class="input" style="width:100%">
+          <option value="field">Field (jobs &amp; time clock only)</option>
+          <option value="sales">Sales (leads &amp; pipeline)</option>
+          <option value="owner">Owner (full access)</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="saveSetLogin()" style="margin-top:4px">Save Login</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=13"></script>
 <script>
   // Register service worker for PWA install + offline support
   if ('serviceWorker' in navigator) {
