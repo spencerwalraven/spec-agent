@@ -3083,6 +3083,22 @@ app.get('/api/analytics', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── ADMIN: ONE-TIME SEED ENDPOINT ───────────────────────────────────────────
+// Visit /admin/seed in browser to load demo data. Protected by SEED_SECRET env var.
+app.get('/admin/seed', async (req, res) => {
+  const secret = process.env.SEED_SECRET || 'spec-seed-2024';
+  if (req.query.key !== secret) {
+    return res.status(403).send('Forbidden — add ?key=YOUR_SEED_SECRET to the URL');
+  }
+  try {
+    const { execSync } = require('child_process');
+    execSync('node src/seed.js', { stdio: 'pipe', cwd: __dirname });
+    res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see Summit Remodeling data.</p><a href="/">Go to Dashboard</a>');
+  } catch (e) {
+    res.status(500).send(`<h2>❌ Seed failed</h2><pre>${e.message}</pre>`);
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
 app.listen(PORT, '0.0.0.0', () => {
