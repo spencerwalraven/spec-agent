@@ -182,6 +182,7 @@
       <div class="top-bar-title">SGC Admin Assistant</div>
       <div class="top-bar-sub">Swartz General Contracting</div>
     </div>
+    <div id="qbStatus" style="margin-right:10px"></div>
     <div class="online-dot"></div>
   </div>
 
@@ -214,6 +215,26 @@
   const sendBtn = document.getElementById('sendBtn');
   let history   = [];
   let busy      = false;
+
+  // ── QuickBooks status ──────────────────────────────────────────────────────
+  async function checkQBStatus() {
+    try {
+      const res  = await fetch('/api/sgc/quickbooks/status');
+      const data = await res.json();
+      const el   = document.getElementById('qbStatus');
+      if (data.connected) {
+        el.innerHTML = `<span style="font-size:12px;color:#4ade80;display:flex;align-items:center;gap:5px">
+          <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block"></span>
+          QB Connected
+        </span>`;
+      } else {
+        el.innerHTML = `<a href="/api/sgc/quickbooks/connect" target="_blank"
+          style="font-size:12px;background:#2a7a2a;color:#fff;padding:5px 12px;border-radius:8px;text-decoration:none;font-weight:600"
+          onclick="setTimeout(checkQBStatus, 5000)">Connect QB</a>`;
+      }
+    } catch (_) {}
+  }
+  checkQBStatus();
 
   // Welcome message
   addMsg('assistant', "Hi Serene! I'm your SGC admin assistant. I have access to your job tracker, subcontractor list, bank transactions, insurance tasks, and payroll records.\n\nWhat do you need help with today?");

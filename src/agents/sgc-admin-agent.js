@@ -151,6 +151,37 @@ const TOOLS = [
     description: 'Pull together all data needed for the Monday Dashboard Meeting — jobs, cash notes, compliance gaps, and outstanding items.',
     input_schema: { type: 'object', properties: {}, required: [] },
   },
+  {
+    name: 'create_invoice',
+    description: 'Create a QuickBooks invoice for a customer. Ask for customer name, amount, and what the invoice is for. Optionally a due date.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        customerName:  { type: 'string', description: 'Full name of the customer as it should appear on the invoice' },
+        customerEmail: { type: 'string', description: 'Customer email address (optional but helpful for QB match)' },
+        amount:        { type: 'number', description: 'Invoice amount in dollars' },
+        description:   { type: 'string', description: 'What the invoice is for (e.g. "Kitchen remodel deposit")' },
+        dueDate:       { type: 'string', description: 'Due date in YYYY-MM-DD format (optional, defaults to Net 30)' },
+      },
+      required: ['customerName', 'amount', 'description'],
+    },
+  },
+  {
+    name: 'list_open_invoices',
+    description: 'List all open (unpaid) invoices in QuickBooks, including overdue ones.',
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'get_invoice_status',
+    description: 'Check the status of a specific invoice by invoice number.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        invoiceNumber: { type: 'string', description: 'The QuickBooks invoice number' },
+      },
+      required: ['invoiceNumber'],
+    },
+  },
 ];
 
 // ─── TOOL EXECUTORS ───────────────────────────────────────────────────────────
@@ -158,7 +189,15 @@ const TOOLS = [
 const EXECUTORS = {
   read_jobs: async () => {
     const rows = await sgcReadTab('SGC');
-    return JSON.stringify(rows, null, 2);
+    // Normalize trailing-space column names from the sheet
+    const clean = rows.map(r => ({
+      jobNumber:  r['#'],
+      customer:   r['Customer'],
+      dates:      r['Thru'],
+      status:     (r['Job Status '] || r['Job Status'] || '').trim(),
+      notes:      (r['NOTES_1'] || r['NOTES'] || '').trim(),
+    })).filter(r => r.customer);
+    return JSON.stringify(clean, null, 2);
   },
 
   read_subcontractors: async () => {
@@ -227,9 +266,10 @@ const EXECUTORS = {
       sgcReadTab('Insurance Tasks'),
     ]);
 
-    const activeJobs = jobs.filter(j => (j['Job Status'] || '').toLowerCase() === 'in progress');
-    const needsQB    = jobs.filter(j => (j['NOTES'] || '').toLowerCase().includes('add'));
-    const missingW9  = subs.filter(s => (s['W9 Received'] || '').toLowerCase() !== 'true');
+    const jobStatus  = j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase();
+    const activeJobs = jobs.filter(j => jobStatus(j) === 'in progress');
+    const needsQB    = jobs.filter(j => (j['NOTES'] || j['NOTES_1'] || '').toLowerCase().includes('add'));
+    const missingW9  = subs.filter(s => !s['W9 Received '] && !s['W9 Received'] || String(s['W9 Received '] ?? s['W9 Received'] ?? '').toLowerCase() === 'false');
     const notOnboarded = subs.filter(s => (s['BT Onboarding'] || '').toLowerCase() !== 'yes');
     const incompleteInsurance = insurance.filter(i => (i['Status'] || '').toLowerCase() === 'not started');
 
@@ -242,6 +282,40 @@ const EXECUTORS = {
       incompleteInsuranceTasks: incompleteInsurance.map(i => i['Task']),
       uncategorizedTransactionCount: transactions.length,
     }, null, 2);
+  },
+
+  create_invoice: async ({ customerName, customerEmail, amount, description, dueDate }) => {
+    const qb = require('../tools/sgc-quickbooks');
+    if (!qb.isConnected()) return JSON.stringify({ error: 'QuickBooks is not connected. Click "Connect QuickBooks" in the top bar first.' });
+    try {
+      const result = await qb.createInvoice({ customerName, customerEmail, amount, description, dueDate });
+      return JSON.stringify(result, null, 2);
+    } catch (err) {
+      return JSON.stringify({ error: err.message });
+    }
+  },
+
+  list_open_invoices: async () => {
+    const qb = require('../tools/sgc-quickbooks');
+    if (!qb.isConnected()) return JSON.stringify({ error: 'QuickBooks is not connected.' });
+    try {
+      const invoices = await qb.listOpenInvoices();
+      return JSON.stringify({ openInvoices: invoices, total: invoices.length }, null, 2);
+    } catch (err) {
+      return JSON.stringify({ error: err.message });
+    }
+  },
+
+  get_invoice_status: async ({ invoiceNumber }) => {
+    const qb = require('../tools/sgc-quickbooks');
+    if (!qb.isConnected()) return JSON.stringify({ error: 'QuickBooks is not connected.' });
+    try {
+      const result = await qb.getInvoiceStatus(invoiceNumber);
+      if (!result) return JSON.stringify({ error: `Invoice #${invoiceNumber} not found.` });
+      return JSON.stringify(result, null, 2);
+    } catch (err) {
+      return JSON.stringify({ error: err.message });
+    }
   },
 };
 
