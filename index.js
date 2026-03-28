@@ -258,8 +258,9 @@ function setSessionCookie(res, user) {
   const b64  = Buffer.from(user.name).toString('base64url');
   const hmac = signUserToken(user.name, user.role, user.password);
   const val  = `${b64}.${user.role}.${hmac}`;
+  const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
   res.setHeader('Set-Cookie',
-    `${COOKIE_NAME}=${val}; HttpOnly; Path=/; Max-Age=${7 * 24 * 3600}; SameSite=Strict`
+    `${COOKIE_NAME}=${val}; HttpOnly; Path=/; Max-Age=${7 * 24 * 3600}; SameSite=Lax${isProduction ? '; Secure' : ''}`
   );
 }
 
@@ -378,7 +379,8 @@ app.post('/login', async (req, res) => {
 
 // Logout
 app.get('/logout', (req, res) => {
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`);
+  const isP = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${isP ? '; Secure' : ''}`);
   res.redirect('/login');
 });
 
