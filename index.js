@@ -278,6 +278,8 @@ const PUBLIC_PREFIXES = [
   '/pay',
   '/paid',
   '/api/pay/',
+  '/sgc',
+  '/api/sgc/',
 ];
 
 app.use((req, res, next) => {
@@ -2951,6 +2953,9 @@ async function handleQBPayment(realmId, paymentId) {
   }
 }
 
+// ─── SGC STANDALONE PAGE ─────────────────────────────────────────────────────
+app.get('/sgc', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc.html')));
+
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -3245,6 +3250,20 @@ app.get('/admin/seed', async (req, res) => {
     res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see Summit Remodeling data.</p><a href="/">Go to Dashboard</a>');
   } catch (e) {
     res.status(500).send(`<h2>❌ Seed failed</h2><pre>${e.message}</pre>`);
+  }
+});
+
+// ─── SGC ADMIN ASSISTANT ─────────────────────────────────────────────────────
+app.post('/api/sgc/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const sgcAgent = require('./src/agents/sgc-admin-agent');
+    const reply = await sgcAgent.chat(message, history || []);
+    res.json({ reply });
+  } catch (e) {
+    console.error('SGC chat error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

@@ -1,0 +1,37 @@
+{
+  "clientId": "sgc",
+  "businessName": "Scottsdale General Contracting",
+  "ownerName": "Daniel",
+  "adminName": "Serene Swartz",
+  "adminEmail": "serene@sgcaz.com",
+  "location": "Scottsdale, AZ",
+  "services": "remodeling, roofing, handyman, flat roofing coatings",
+  "divisions": ["Remodel", "Roofing", "Handyman"],
+  "marginFloor": 15,
+  "marginTarget": 35,
+  "expenseAccounts": [
+    "Chase SHC Checking 5289",
+    "SHC INK Credit Card 1607",
+    "AMEX 1001",
+    "Chase 7755",
+    "Amazon AMEX 1000/1018"
+  ],
+  "complianceRequirements": ["W9", "COI", "Hold Harmless Agreement", "Rate Sheet", "Buildertrend Onboarding", "CompanyCam Onboarding"],
+  "expenseDecisionTree": [
+    "1. Is this expense tied to a specific job? → Job Cost (assign job number)",
+    "2. Is this a recurring business subscription? → Overhead / Software",
+    "3. Is this a vehicle/fuel expense? → Vehicle Expense (assign vehicle)",
+    "4. Is this a tool or equipment purchase? → Equipment / Tools",
+    "5. Is this a material purchase? → Materials (assign job, apply 20% markup for client billing)",
+    "6. None of the above? → General Overhead (note the vendor and purpose)"
+  ],
+  "mondayDashboardItems": [
+    "Cash position across all accounts",
+    "Active jobs with budget vs actual",
+    "Jobs completed this week",
+    "Outstanding invoices",
+    "Unallocated expenses (target: zero)",
+    "Sub compliance gaps",
+    "Upcoming insurance/document expirations"
+  ]
+}
