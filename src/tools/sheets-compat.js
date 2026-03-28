@@ -73,18 +73,50 @@ const TAB_MAP = {
       priority: r.priority || 'medium', status: r.status || 'pending',
     }));
   },
-  // Change Orders — mapped to tasks with type context
+  // Change Orders — use actual change_orders table
   'Change Orders': async () => {
     const rows = await getAll(
-      `SELECT * FROM tasks WHERE company_id = $1 AND title LIKE '%Change Order%' ORDER BY created_at DESC`,
+      `SELECT co.*, j.job_ref FROM change_orders co LEFT JOIN jobs j ON co.job_id = j.id WHERE co.company_id = $1 ORDER BY co.created_at DESC`,
       [COMPANY_ID]
     );
-    return rows.map(r => ({ _row: r.id, ...r }));
+    return rows.map(r => ({
+      _row: r.id, id: r.id, jobId: r.job_id, jobRef: r.job_ref,
+      title: r.title || '', description: r.description || '',
+      amount: r.amount || 0, status: r.status || 'pending',
+      token: r.token || '', clientResponse: r.client_response || '',
+      'Job ID': r.job_ref, 'Status': r.status, 'Amount': r.amount,
+    }));
   },
-  // Settings (returns array of one row for compat)
+  // Learnings — map to activity_log entries for AI learning
+  'Learnings': async () => {
+    const rows = await getAll(
+      `SELECT * FROM activity_log WHERE company_id = $1 AND agent = 'LearningAgent' ORDER BY created_at DESC`,
+      [COMPANY_ID]
+    );
+    return rows.map(r => ({
+      _row: r.id, id: r.id, action: r.action || '', detail: r.detail || '',
+      entityType: r.entity_type || '', entityId: r.entity_id,
+      createdAt: r.created_at,
+      'Lesson': r.action, 'Detail': r.detail, 'Job ID': r.entity_id,
+    }));
+  },
+  // Settings — return Label/Value format for scheduler compatibility
   'Settings': async () => {
     const s = await dbSettings.readSettings();
-    return s ? [s] : [];
+    if (!s) return [];
+    return [
+      { Label: 'Company Name', Value: s.companyName || '' },
+      { Label: 'Company Email', Value: s.email || '' },
+      { Label: 'Gmail Send-From Address', Value: s.email || '' },
+      { Label: 'Company Phone', Value: s.phone || '' },
+      { Label: 'Company Address', Value: s.address || '' },
+      { Label: 'Owner / Salesperson Name', Value: s.ownerName || '' },
+      { Label: 'Owner Name', Value: s.ownerName || '' },
+      { Label: 'Calendly Link', Value: s.calendlyLink || '' },
+      { Label: 'Google Review Link', Value: s.googleReviewLink || '' },
+      { Label: 'Email Signature', Value: s.emailSignature || '' },
+      { Label: 'Email Tone', Value: s.emailTone || '' },
+    ];
   },
 };
 
@@ -217,7 +249,9 @@ async function updateCell(tabName, id, fieldOrFields, value) {
     col = resolveField(fieldOrFields, PHASE_FIELD_MAP);
     table = 'job_phases';
   } else if (tabName === 'Team') {
+    const TEAM_ALLOWED = ['name','role','email','phone','status','notes','performance_score','jobs_completed'];
     col = (Array.isArray(fieldOrFields) ? fieldOrFields[0] : fieldOrFields).replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (!TEAM_ALLOWED.includes(col)) { console.warn(`sheets-compat: updateCell Team — blocked field "${col}"`); return; }
     table = 'team';
   } else {
     console.warn(`sheets-compat: updateCell("${tabName}") — unknown tab`);
@@ -263,6 +297,25 @@ async function appendRow(tabName, data) {
   }
   if (tabName === 'Equipment') {
     return await dbEquipment.createEquipment(data);
+  }
+  if (tabName === 'Change Orders') {
+    const jobId = data.jobId || data.job_id || null;
+    return await insertOne(
+      `INSERT INTO change_orders (company_id, job_id, title, description, amount, status, token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [COMPANY_ID, jobId, data.title||'', data.description||'',
+       parseFloat(data.amount||0)||0, data.status||'pending',
+       data.token || require('crypto').randomBytes(16).toString('hex')]
+    );
+  }
+  if (tabName === 'Learnings') {
+    return await insertOne(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id)
+       VALUES ($1, 'LearningAgent', $2, $3, $4, $5)`,
+      [COMPANY_ID, data.lesson||data.action||data.Lesson||'',
+       data.detail||data.Detail||'', data.entityType||data.entity_type||'job',
+       parseInt(data.entityId||data.entity_id||data.jobId||0)||null]
+    );
   }
   console.warn(`sheets-compat: appendRow("${tabName}") — unknown tab`);
   return null;
@@ -360,6 +413,11 @@ module.exports = {
   getNextRep,
   findRowByEmail,
   createJobFromLead,
+
+  // Legacy aliases (used by agent.js)
+  readLead:        (id) => readRow('Leads', id),
+  findLeadByEmail: findRowByEmail,
+  updateLead:      (id, field, value) => updateCell('Leads', id, field, value),
 
   // db-tools re-exports (agents use these directly)
   toolReadLead,

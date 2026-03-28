@@ -613,35 +613,34 @@ app.post('/api/estimate', requireAuth, async (req, res) => {
     const firstName = nameParts[0] || '';
     const lastName  = nameParts.slice(1).join(' ') || '';
 
-    // Get next job number
-    const lastRow = await getLastRow('Jobs');
-    const jobNum  = String(lastRow).padStart(3, '0');
-    const jobId   = `JOB-${jobNum}`;
-    const today   = new Date().toLocaleDateString('en-US');
+    // Create job using DB-native field names
+    const dbJobs = require('./src/services/jobs');
+    const dbClients = require('./src/services/clients');
 
-    const materialGrade = rooms.length
-      ? (rooms[0].grade || 'standard')
-      : 'standard';
+    // Find or create client
+    let client = null;
+    if (firstName || lastName) {
+      const fullName = `${firstName} ${lastName}`.trim();
+      client = await dbClients.getClientByName(fullName);
+      if (!client) {
+        client = await dbClients.createClient({ name: fullName, phone: clientPhone, address: jobAddress });
+      }
+    }
 
-    const jobData = {
-      'Job ID':              jobId,
-      'First Name':          firstName,
-      'Last Name':           lastName,
-      'Phone Number':        clientPhone,
-      'Street Address':      jobAddress,
-      'Service Type':        projectType || 'Home Improvement',
-      'Project Description': description,
-      'Material Grade':      materialGrade,
-      'Job Status':          'New Job',
-      'Lead Source':         'Job Site Form',
-      'Date Created':        today,
-      'Site Visit Date':     today,
-    };
+    const job = await dbJobs.createJob({
+      clientId:    client?.id || null,
+      title:       projectType || 'Home Improvement',
+      service:     projectType || 'Home Improvement',
+      description: description,
+      address:     jobAddress,
+      status:      'pending',
+    });
 
-    await appendRow('Jobs', jobData);
-    const newRow = await getLastRow('Jobs');
+    const created = await dbJobs.getJob(job.id);
+    const jobId   = created?.jobId || `JOB-${job.id}`;
+    const newRow  = job.id;
 
-    console.log(`[Estimate API] Created ${jobId} at row ${newRow} — firing Pricing Agent`);
+    console.log(`[Estimate API] Created ${jobId} (id ${newRow}) — firing Pricing Agent`);
 
     // Fire the Pricing Agent asynchronously (don't await — respond immediately)
     route('estimate_ready', { rowNumber: newRow }).catch(err =>

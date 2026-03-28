@@ -260,7 +260,7 @@ function renderDashPills(urgentCount, approvalCount, role) {
     return;
   }
   if (urgentCount > 0) {
-    pills.push(`<button class="dash-pill red" onclick="navigate('alerts')">🔥 ${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
+    pills.push(`<button class="dash-pill red" onclick="toggleNotifPanel()">🔥 ${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
   } else {
     pills.push(`<div class="dash-pill green" style="cursor:default">✅ No urgent alerts</div>`);
   }
