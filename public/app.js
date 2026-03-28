@@ -1047,114 +1047,154 @@ function renderJobs() {
   }).join('');
 }
 
+// DB status value → display label mapping
+const JOB_STATUS_LABELS = {
+  pending:   'Planning',
+  proposal:  'Proposal',
+  active:    'In Progress',
+  completed: 'Complete',
+  invoiced:  'Invoiced',
+};
+// Display label → DB value mapping
+const JOB_STATUS_DB = {
+  'Planning':     'pending',
+  'Proposal':     'proposal',
+  'In Progress':  'active',
+  'Complete':     'completed',
+  'Invoiced':     'invoiced',
+};
+
 async function showJobDetail(idx) {
   const j = allJobs[idx];
   if (!j) return;
-  _currentJobRow = j.__row || j._row;
-  const client  = g(j,'clientName','Client Name','Client') || `${g(j,'firstName','First Name')} ${g(j,'lastName','Last Name')}`.trim() || 'Unknown';
-  const project = g(j,'serviceType','Service Type','Project Type') || '—';
-  const jobId   = g(j,'jobId','Job ID');
-  const value   = g(j,'totalJobValue','Total Job Value','Job Value','Contract Value');
-  const status  = g(j,'jobStatus','Job Status','Status');
-  const start   = g(j,'startDate','Site Visit Date','Kickoff Date','Start Date');
-  const end     = g(j,'endDate','Est. Completion','Estimated End','End Date');
-  const crew    = g(j,'salesperson','Salesperson','Assigned Crew','Crew');
-  const notes   = g(j,'jobNotes','Job Notes','Notes');
-  const deposit = g(j,'depositPaid','Deposit Paid','Deposit Invoice Paid');
-  const invoice = g(j,'finalPaid','Final Invoice Paid','Final Paid');
-  const proposalLink  = g(j,'proposalLink','Proposal Doc Link','Proposal Link');
-  const contractLink  = g(j,'contractLink','Contract Doc Link','Contract Link');
-  const kickoffLink   = g(j,'kickoffDocLink','Kickoff Doc Link','Kickoff Link');
-  const estimateLink  = g(j,'estimateDocLink','Estimate Doc Link','Estimate Link');
+  _currentJobRow = j._row || j.id;
+
+  // Field extraction — uses direct formatJob field names with g() fallback
+  const client   = j.clientName  || g(j,'Client Name','Client') || 'Unknown';
+  const project  = j.serviceType || j['Project Type'] || j.service || j.title || '—';
+  const jobId    = j.jobId       || j['Job ID'] || '';
+  const numericId= j.id;                          // ← numeric DB id for phases
+  const status   = j.status      || j.jobStatus  || '';
+  const address  = j.address     || '';
+  const start    = j.startDate   || '';
+  const end      = j.endDate     || '';
+  const notes    = j.notes       || '';
+  const estVal   = j.estimatedValue || j.totalJobValue || 0;
+  const actVal   = j.actualValue    || 0;
+  const matCost  = j.materialCost   || 0;
+  const labCost  = j.laborCost      || 0;
+  const margin   = j.profitMargin   || 0;
+  const depAmt   = j.depositAmount  || 0;
+  const depPaid  = j.depositPaid    || 'No';
+  const propStat = j.proposalStatus  || '';
+  const contStat = j.contractStatus  || '';
+  const propLink = j.proposalToken ? `/proposal/${j.proposalToken}` : '';
+  const contLink = '';
 
   window._openJobRow    = _currentJobRow;
   window._openJobId     = jobId;
   window._openJobClient = client;
 
   document.getElementById('jmTitle').textContent = client;
-  document.getElementById('jmSub').textContent   = `${project}${jobId?' · '+jobId:''}`;
+  document.getElementById('jmSub').textContent   = `${project}${jobId ? ' · ' + jobId : ''}`;
 
-  // Load phases
-  let phasesHTML = '<div class="text-dim fs13">No phases found</div>';
-  let phaseData = [];
-  try {
-    phaseData = await api('/api/phases?jobId=' + encodeURIComponent(jobId)) || [];
-    if (phaseData.length > 0) {
-      phasesHTML = phaseData.map((p, pi) => {
-        const pName   = g(p,'Phase','Phase Name','name','phaseName');
-        const pStatus = g(p,'Status','Phase Status','phase_status','phaseStatus');
-        const pDate   = g(p,'Completed Date','Completion Date','completionDate','date');
-        const pRow    = p.__row || p._row || (pi + 2);
-        const done    = pStatus && (pStatus.toLowerCase().includes('complete') || pStatus.toLowerCase().includes('done'));
-        return `
-          <div class="phase-item" id="phase-row-${pRow}">
-            <div class="phase-check ${done?'done':''}" onclick="togglePhase(${pRow}, this)">${done?'✓':''}</div>
-            <div class="phase-name">${pName||'—'}</div>
-            <div class="phase-date">${pDate||(done?'Complete':pStatus||'Pending')}</div>
+  // ── Load phases using numeric job id ─────────────────────────────
+  let phasesHTML = '<div style="color:var(--text3);font-size:13px;padding:4px 0">No phases yet</div>';
+  if (numericId) {
+    try {
+      const phaseData = await api('/api/phases?jobId=' + numericId) || [];
+      if (phaseData.length > 0) {
+        const total    = phaseData.length;
+        const done_ct  = phaseData.filter(p => p.status === 'completed').length;
+        const pct      = Math.round((done_ct / total) * 100);
+        const barColor = pct === 100 ? 'var(--green)' : 'var(--gold)';
+        phasesHTML = `
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px">
+              <span>${done_ct} of ${total} phases complete</span><span style="font-weight:700;color:${barColor}">${pct}%</span>
+            </div>
+            <div style="height:6px;background:var(--card2);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+            </div>
           </div>
-        `;
-      }).join('');
-    }
-  } catch(e) {}
+          ${phaseData.map(p => {
+            const isDone   = p.status === 'completed';
+            const isActive = p.status === 'in_progress';
+            const pRow     = p._row || p.id;
+            const dateLabel = isDone && p.completedAt
+              ? new Date(p.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+              : isActive ? 'In progress' : 'Pending';
+            return `
+              <div class="phase-item" id="phase-row-${pRow}">
+                <div class="phase-check ${isDone?'done':''}" onclick="togglePhase(${pRow}, this)">${isDone?'✓':isActive?'…':''}</div>
+                <div class="phase-name" style="${isActive?'font-weight:700;color:var(--text)':''}">${p.name||'—'}${p.assignedTo?`<span style="font-weight:400;color:var(--text3);font-size:11px;margin-left:6px">· ${p.assignedTo}</span>`:''}</div>
+                <div class="phase-date" style="${isActive?'color:var(--blue)':''}">${dateLabel}</div>
+              </div>`;
+          }).join('')}`;
+      }
+    } catch(e) { console.warn('phases error', e); }
+  }
 
-  const jobStatuses = ['Planning','In Progress','Complete','Invoiced'];
+  // ── Status switcher ───────────────────────────────────────────────
+  const statusLabels = ['Planning','Proposal','In Progress','Complete','Invoiced'];
   const statusSwitcher = `
     <div class="status-switcher">
-      ${jobStatuses.map(s => {
-        const isActive = (status||'').toLowerCase() === s.toLowerCase() ||
-                         (status||'').toLowerCase().includes(s.toLowerCase().split(' ')[0]);
-        return `<button class="status-pill ${isActive?'active-pill':''}" onclick="changeJobStatus('${s}', this)">${s}</button>`;
+      ${statusLabels.map(label => {
+        const dbVal   = JOB_STATUS_DB[label] || label.toLowerCase();
+        const isActive = status === dbVal ||
+                         (label === 'In Progress' && status === 'active') ||
+                         (label === 'Planning'    && status === 'pending');
+        return `<button class="status-pill ${isActive?'active-pill':''}" onclick="changeJobStatus('${dbVal}', this, '${label}')">${label}</button>`;
       }).join('')}
-    </div>
-  `;
+    </div>`;
+
+  // ── Financial summary ─────────────────────────────────────────────
+  const grossProfit = estVal - matCost - labCost;
+  const marginPct   = estVal > 0 ? Math.round((grossProfit / estVal) * 100) : (margin || 0);
 
   document.getElementById('jmBody').innerHTML = `
     <div class="modal-section">
-      <div class="modal-section-label">Job Status</div>
+      <div class="modal-section-label">Status</div>
       ${statusSwitcher}
-    </div>
-    <div class="modal-section">
-      <div class="modal-section-label">Job Details</div>
-      <div class="detail-row"><div class="detail-key">Status</div><div class="detail-val" id="jmStatusBadge">${statusBadge(status)}</div></div>
-      <div class="detail-row"><div class="detail-key">Contract Value</div><div class="detail-val text-gold fw800">${value?formatCurrency(value):'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${start||'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">End Date</div><div class="detail-val">${end||'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">Crew</div><div class="detail-val">${crew||'—'}</div></div>
     </div>
 
     <div class="modal-section">
-      <div class="modal-section-label">Invoices</div>
-      <div class="inv-row">
-        <div class="inv-label">Deposit</div>
-        <div>${statusBadge(deposit||'Pending')}</div>
-      </div>
-      <div class="inv-row">
-        <div class="inv-label">Final Invoice</div>
-        <div>${statusBadge(invoice||'Pending')}</div>
-      </div>
+      <div class="modal-section-label">Financials</div>
+      <div class="detail-row"><div class="detail-key">Contract Value</div><div class="detail-val fw800" style="color:var(--gold)">${estVal ? formatCurrency(estVal) : '—'}</div></div>
+      ${matCost ? `<div class="detail-row"><div class="detail-key">Materials</div><div class="detail-val">${formatCurrency(matCost)}</div></div>` : ''}
+      ${labCost ? `<div class="detail-row"><div class="detail-key">Labor</div><div class="detail-val">${formatCurrency(labCost)}</div></div>` : ''}
+      ${(matCost || labCost) ? `<div class="detail-row"><div class="detail-key">Gross Profit</div><div class="detail-val" style="color:var(--green)">${formatCurrency(grossProfit)} <span style="font-size:11px;color:var(--text3)">(${marginPct}%)</span></div></div>` : ''}
+      <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Project Info</div>
+      <div class="detail-row" id="jmStatusBadge"><div class="detail-key">Status</div><div class="detail-val">${statusBadge(JOB_STATUS_LABELS[status] || status)}</div></div>
+      ${start    ? `<div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${start}</div></div>` : ''}
+      ${end      ? `<div class="detail-row"><div class="detail-key">End Date</div><div class="detail-val">${end}</div></div>` : ''}
+      ${address  ? `<div class="detail-row"><div class="detail-key">Address</div><div class="detail-val" style="font-size:13px">${address}</div></div>` : ''}
+      ${propStat ? `<div class="detail-row"><div class="detail-key">Proposal</div><div class="detail-val">${statusBadge(propStat)}</div></div>` : ''}
+      ${contStat ? `<div class="detail-row"><div class="detail-key">Contract</div><div class="detail-val">${statusBadge(contStat)}</div></div>` : ''}
     </div>
 
     <div class="modal-section">
       <div class="modal-section-label">Documents</div>
       ${[
-        {name:'Estimate',    icon:'💰', link:estimateLink, event:'generate_estimate'},
-        {name:'Proposal',    icon:'📄', link:proposalLink, event:'generate_proposal'},
-        {name:'Contract',    icon:'📝', link:contractLink, event:'generate_contract'},
-        {name:'Kickoff Doc', icon:'🚀', link:kickoffLink,  event:'plan_project'},
+        {name:'Proposal',    icon:'📄', link:propLink, event:'generate_proposal'},
+        {name:'Contract',    icon:'📝', link:contLink, event:'generate_contract'},
+        {name:'Kickoff Doc', icon:'🚀', link:'',       event:'plan_project'},
       ].map(d => `
         <div class="doc-link">
           <div class="doc-icon">${d.icon}</div>
           <div class="doc-name">${d.name}</div>
           ${d.link
             ? `<a class="doc-btn" href="${d.link}" target="_blank">Open ↗</a>`
-            : `<button class="doc-btn" style="color:var(--gold);cursor:pointer"
-                 onclick="triggerDocGen('${d.event}',${_currentJobRow})">Generate</button>`}
-        </div>
-      `).join('')}
+            : `<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen('${d.event}',${_currentJobRow})">Generate</button>`}
+        </div>`).join('')}
     </div>
 
     <div class="modal-section">
-      <div class="modal-section-label">Job Phases</div>
+      <div class="modal-section-label">Phases</div>
       ${phasesHTML}
     </div>
 
@@ -1168,9 +1208,9 @@ async function showJobDetail(idx) {
     <div class="modal-section">
       <div class="modal-section-label">Client Status Page</div>
       <div style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px">
-        <div style="flex:1;font-size:13px;color:var(--text2);word-break:break-all">${location.origin}/status/${jobId}</div>
-        <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0" onclick="copyStatusLink('${jobId}')">Copy</button>
-        <a href="/status/${jobId}" target="_blank" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0;text-decoration:none">Open ↗</a>
+        <div style="flex:1;font-size:12px;color:var(--text2);word-break:break-all">${location.origin}/status/${jobId}</div>
+        <button class="btn btn-secondary" style="padding:7px 12px;font-size:12px;flex-shrink:0" onclick="copyStatusLink('${jobId}')">Copy</button>
+        <a href="/status/${jobId}" target="_blank" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;flex-shrink:0;text-decoration:none">Open ↗</a>
       </div>
     </div>` : ''}
   `;
@@ -1266,28 +1306,22 @@ async function submitChangeOrder() {
 }
 
 /* ─── CHANGE JOB STATUS ─────────────────────────────────────────── */
-async function changeJobStatus(newStatus, btn) {
+async function changeJobStatus(dbStatus, btn, displayLabel) {
   if (!_currentJobRow) return;
-  // Update pill UI immediately
+  const label = displayLabel || JOB_STATUS_LABELS[dbStatus] || dbStatus;
   document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('active-pill'));
   btn.classList.add('active-pill');
-  // Update the badge in detail rows
   const badgeEl = document.getElementById('jmStatusBadge');
-  if (badgeEl) badgeEl.innerHTML = statusBadge(newStatus);
-  // Update local state
-  const job = allJobs.find(j => (j.__row||j._row) === _currentJobRow);
-  if (job) {
-    if (job['Status'] !== undefined)     job['Status'] = newStatus;
-    if (job['Job Status'] !== undefined) job['Job Status'] = newStatus;
-    if (job['jobStatus'] !== undefined)  job['jobStatus'] = newStatus;
-  }
+  if (badgeEl) badgeEl.innerHTML = `<div class="detail-key">Status</div><div class="detail-val">${statusBadge(label)}</div>`;
+  const job = allJobs.find(j => (j._row || j.id) === _currentJobRow);
+  if (job) { job.status = dbStatus; job.jobStatus = dbStatus; job.Status = dbStatus; }
   try {
     if (!usingDemo) {
       await fetch(`/api/jobs/${_currentJobRow}/status`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus })
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: dbStatus })
       });
     }
-    toast(`✓ Job moved to ${newStatus}`);
+    toast(`✓ Job moved to ${label}`);
     renderJobs();
   } catch {
     toast('⚠️ Could not update status');
@@ -1329,21 +1363,19 @@ async function triggerDocGen(eventType, rowNumber) {
 /* ─── TOGGLE PHASE COMPLETE ─────────────────────────────────────── */
 async function togglePhase(row, checkEl) {
   const isDone    = checkEl.classList.contains('done');
-  const newStatus = isDone ? 'Pending' : 'Complete';
-  // Update UI immediately
+  const newStatus = isDone ? 'pending' : 'completed';  // DB values
   checkEl.classList.toggle('done', !isDone);
   checkEl.textContent = isDone ? '' : '✓';
   const dateEl = checkEl.closest('.phase-item')?.querySelector('.phase-date');
-  if (dateEl) dateEl.textContent = isDone ? 'Pending' : new Date().toLocaleDateString('en-US');
+  if (dateEl) dateEl.textContent = isDone ? 'Pending' : new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
   try {
     if (!usingDemo) {
       await fetch(`/api/phases/${row}/status`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus })
       });
     }
-    toast(isDone ? 'Phase marked Pending' : '✓ Phase complete!');
+    toast(isDone ? 'Phase marked pending' : '✓ Phase complete!');
   } catch {
-    // Revert UI
     checkEl.classList.toggle('done', isDone);
     checkEl.textContent = isDone ? '✓' : '';
     toast('⚠️ Could not update phase');
