@@ -207,8 +207,8 @@ function getUsers() {
   return users;
 }
 
-function signUserToken(name, role, password) {
-  return crypto.createHmac('sha256', SESS_SECRET).update(`${name}|${role}|${password}`).digest('hex');
+function signUserToken(name, role) {
+  return crypto.createHmac('sha256', SESS_SECRET).update(`${name}|${role}`).digest('hex');
 }
 
 function parseCookies(req) {
@@ -220,46 +220,19 @@ function parseCookies(req) {
   return out;
 }
 
-/** Returns { name, role } or null. Supports legacy single-password cookies. */
+/** Returns { name, role } or null. */
 function getAuthSession(req) {
   const cookie = parseCookies(req)[COOKIE_NAME] || '';
   if (!cookie) return null;
-  const users = getUsers();
-  if (!users.length) return { name: 'Owner', role: 'owner' }; // no auth configured
 
-  // New cookie format: base64url(name).role.hmac
+  // Cookie format: base64url(name).role.hmac
   const parts = cookie.split('.');
   if (parts.length === 3) {
     const [b64, role, hmac] = parts;
     let name;
     try { name = Buffer.from(b64, 'base64url').toString(); } catch { return null; }
-    // Check env var users first
-    const user = users.find(u => u.name === name && u.role === role);
-    if (user) {
-      if (hmac === signUserToken(name, role, user.password)) return { name, role };
-      return null;
-    }
-    // For DB-managed users: the password used at sign-in was passed to signUserToken.
-    // We can't re-derive it here, but the cookie is HMAC-signed with SESS_SECRET.
-    // Verify by checking the DB has this user with this role.
-    if (['owner', 'sales', 'field', 'admin'].includes(role) && hmac && hmac.length === 64) {
-      // Cache DB check result on the request to avoid repeat queries
-      if (!req._dbSessionChecked) {
-        req._dbSessionPending = (async () => {
-          try {
-            const { getOne } = require('./src/db');
-            const member = await getOne(
-              `SELECT id FROM team WHERE company_id = 1 AND name = $1 AND login_role = $2 AND status = 'active'`,
-              [name, role]
-            );
-            return member ? { name, role } : null;
-          } catch { return null; }
-        })();
-        req._dbSessionChecked = true;
-      }
-      // For synchronous callers, trust the signed cookie format
-      return { name, role };
-    }
+    // Verify HMAC — signed with server secret, no password needed
+    if (hmac === signUserToken(name, role)) return { name, role };
     return null;
   }
 
@@ -273,14 +246,12 @@ function getAuthSession(req) {
 }
 
 function isAuthenticated(req) {
-  const users = getUsers();
-  if (!users.length) return true; // dev mode — no auth configured
   return getAuthSession(req) !== null;
 }
 
 function setSessionCookie(res, user) {
   const b64  = Buffer.from(user.name).toString('base64url');
-  const hmac = signUserToken(user.name, user.role, user.password);
+  const hmac = signUserToken(user.name, user.role);
   const val  = `${b64}.${user.role}.${hmac}`;
   const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
   res.setHeader('Set-Cookie',
@@ -368,13 +339,12 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const users = getUsers();
 
-  if (!users.length) {
-    // No auth configured — set open owner session
-    setSessionCookie(res, { name: 'Owner', role: 'owner', password: '' });
-    return res.redirect('/');
-  }
+  // If no env var users, skip straight to DB check below
 
-  let matchedUser = users.find(u => u.password === password);
+  // Check env var users — match by username (case-insensitive) or name, plus password
+  let matchedUser = users.find(u =>
+    (u.name.toLowerCase() === (username || '').toLowerCase() || !username) && u.password === password
+  );
 
   // Also check team table for DB-managed logins (bcrypt)
   if (!matchedUser && process.env.DATABASE_URL && username) {
