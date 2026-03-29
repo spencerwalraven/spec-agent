@@ -3011,35 +3011,33 @@ async function triggerAgent(type) {
 
 /* ─── INIT ──────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  // Load user role FIRST, then render
+  // Render immediately — never block on async calls
+  currentUser = { name: '', role: 'owner' }; // safe default
+  applyRoleNav(currentUser.role);
+  navigate('dashboard');
+  initPullToRefresh();
+  connectActivityStream();
+
+  // Then load actual role and update if different
   fetch('/api/me')
     .then(r => r.ok ? r.json() : null)
     .catch(() => null)
     .then(me => {
-      console.log('[Auth] /api/me returned:', JSON.stringify(me));
       if (me?.role) {
         currentUser = { name: me.name || '', role: me.role };
-      } else {
-        currentUser = { name: '', role: 'owner' }; // fallback
+        applyRoleNav(me.role);
+        // Update greeting
+        if (me.name && me.name !== 'Owner') {
+          const greetEl = document.getElementById('greetSub');
+          if (greetEl) greetEl.textContent = greet() + `, ${me.name}`;
+        }
       }
-
-      // NOW render with the correct role
-      applyRoleNav(currentUser.role);
-      navigate('dashboard');
-      initPullToRefresh();
-      connectActivityStream();
-
-      // Update greeting name
-      if (me?.name && me.name !== 'Owner') {
-        const greetEl = document.getElementById('greetSub');
-        if (greetEl) greetEl.textContent = greet() + `, ${me.name}`;
-      }
-
-      // Pre-load settings for Calendly link
-      api('/api/settings').then(s => {
-        if (s) _calendlyLink = s.calendlyLink || s.calendly_link || '';
-      });
     });
+
+  // Pre-load settings
+  api('/api/settings').then(s => {
+    if (s) _calendlyLink = s.calendlyLink || s.calendly_link || '';
+  });
 });
 
 /* ─── FIELD UPDATE PAGE (now Job Site Estimate) ─────────────────── */
