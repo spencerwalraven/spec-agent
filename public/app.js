@@ -429,6 +429,9 @@ function btnDone(btn, label, ms = 2000) {
 /* ─── API FETCH W/ DEMO FALLBACK ────────────────────────────────── */
 async function api(path, options = {}) {
   try {
+    if (options.body && typeof options.body === 'object') {
+      options.body = JSON.stringify(options.body);
+    }
     const res = await fetch(path, {
       credentials: 'same-origin',
       ...options,
