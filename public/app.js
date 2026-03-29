@@ -1465,11 +1465,13 @@ async function showJobDetail(idx) {
       ${phasesHTML}
     </div>
 
-    ${notes ? `
     <div class="modal-section">
-      <div class="modal-section-label">Notes</div>
-      <div class="notes-box">${notes}</div>
-    </div>` : ''}
+      <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📝 Notes</span>
+        <button style="font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-weight:700" onclick="saveJobNotes(${_currentJobRow})">Save</button>
+      </div>
+      <textarea id="jmJobNotes" rows="3" class="form-input" style="font-size:13px;line-height:1.5;resize:vertical" placeholder="Add notes about this job...">${(notes || '').replace(/</g,'&lt;')}</textarea>
+    </div>
 
     ${jobId ? `
     <div class="modal-section">
@@ -1488,6 +1490,18 @@ async function showJobDetail(idx) {
   if (currentUser?.role !== 'field') {
     loadJobMaterials(_currentJobRow);
   }
+}
+
+async function saveJobNotes(jobRow) {
+  const notes = document.getElementById('jmJobNotes')?.value?.trim();
+  try {
+    await api('/api/jobs/' + jobRow + '/field-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field: 'notes', value: notes }),
+    });
+    toast('✅ Notes saved');
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveSiteVisit(jobRow) {
