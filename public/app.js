@@ -14,25 +14,25 @@ const DEMO = {
   leads: [
     { __row: 2, 'First Name': 'Marcus', 'Last Name': 'Johnson', Email: 'marcus@email.com', Phone: '555-0101', 'Project Type': 'Landscape Renovation', Budget: '$45,000', Status: 'New', 'AI Score': '88', 'Score Label': 'Hot', 'Last Contact': '', Notes: 'Wants to start ASAP. Has kids — prefers weekend work.', 'Assigned Rep': 'Chase', 'Timestamp': '2026-03-21' },
     { __row: 3, 'First Name': 'Diana', 'Last Name': 'Rivera', Email: 'diana@email.com', Phone: '555-0202', 'Project Type': 'Patio Installation', Budget: '$28,000', Status: 'Proposal Sent', 'AI Score': '74', 'Score Label': 'Warm', 'Last Contact': '2026-03-20', Notes: 'Comparing 3 contractors. Liked our online reviews.', 'Assigned Rep': 'Spencer', 'Timestamp': '2026-03-19' },
-    { __row: 4, 'First Name': 'Kevin', 'Last Name': 'Park', Email: 'kevin@email.com', Phone: '555-0303', 'Project Type': 'Retaining Wall', Budget: '$18,000', Status: 'Contacted', 'AI Score': '61', 'Score Label': 'Warm', 'Last Contact': '2026-03-18', Notes: 'Budget flexible. Wants composite decking.', 'Assigned Rep': 'Chase', 'Timestamp': '2026-03-17' },
+    { __row: 4, 'First Name': 'Kevin', 'Last Name': 'Park', Email: 'kevin@email.com', Phone: '555-0303', 'Project Type': 'Retaining Wall', Budget: '$18,000', Status: 'Contacted', 'AI Score': '61', 'Score Label': 'Warm', 'Last Contact': '2026-03-18', Notes: 'Budget flexible. Wants natural stone. Budget flexible.', 'Assigned Rep': 'Chase', 'Timestamp': '2026-03-17' },
     { __row: 5, 'First Name': 'Priya', 'Last Name': 'Mehta', Email: 'priya@email.com', Phone: '555-0404', 'Project Type': 'Irrigation System', Budget: '$55,000', Status: 'Consultation Booked', 'AI Score': '92', 'Score Label': 'Hot', 'Last Contact': '2026-03-22', Notes: 'High budget, motivated. Consultation on March 25.', 'Assigned Rep': 'Spencer', 'Timestamp': '2026-03-22' },
     { __row: 6, 'First Name': 'Tom', 'Last Name': 'Bradley', Email: 'tom@email.com', Phone: '555-0505', 'Project Type': 'Sod Installation', Budget: '$12,000', Status: 'Lost', 'AI Score': '42', 'Score Label': 'Cold', 'Last Contact': '2026-03-10', Notes: 'Went with another contractor. Price was the deciding factor.', 'Assigned Rep': '', 'Timestamp': '2026-03-05' },
-    { __row: 7, 'First Name': 'Linda', 'Last Name': 'Foster', Email: 'linda@email.com', Phone: '555-0606', 'Project Type': 'Full Kitchen + Bath', Budget: '$80,000', Status: 'New', 'AI Score': '85', 'Score Label': 'Hot', 'Last Contact': '', Notes: 'Large project. Referred by Sarah Chen.', 'Assigned Rep': '', 'Timestamp': '2026-03-23' },
+    { __row: 7, 'First Name': 'Linda', 'Last Name': 'Foster', Email: 'linda@email.com', Phone: '555-0606', 'Project Type': 'Full Landscape Redesign', Budget: '$80,000', Status: 'New', 'AI Score': '85', 'Score Label': 'Hot', 'Last Contact': '', Notes: 'Large project. Referred by Sarah Chen.', 'Assigned Rep': '', 'Timestamp': '2026-03-23' },
   ],
   jobs: [
-    { __row: 2, 'Job ID': 'JOB-001', 'Client Name': 'Sarah Chen', 'Project Type': 'Patio Installation', 'Job Value': '$28,500', Status: 'In Progress', 'Start Date': '2026-03-01', 'End Date': '2026-03-30', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Mike T., Carlos R.', 'Job Notes': 'Demo complete. Tile work starts Monday.' },
-    { __row: 3, 'Job ID': 'JOB-002', 'Client Name': 'The Hendersons', 'Project Type': 'Landscape Renovation', 'Job Value': '$62,000', Status: 'In Progress', 'Start Date': '2026-02-15', 'End Date': '2026-04-10', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': 'Spencer, Chase', 'Job Notes': 'Cabinets installed. Countertops arriving Friday.' },
+    { __row: 2, 'Job ID': 'JOB-001', 'Client Name': 'Sarah Chen', 'Project Type': 'Patio Installation', 'Job Value': '$28,500', Status: 'In Progress', 'Start Date': '2026-03-01', 'End Date': '2026-03-30', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Mike T., Carlos R.', 'Job Notes': 'Grading complete. Paver base going in Monday.' },
+    { __row: 3, 'Job ID': 'JOB-002', 'Client Name': 'The Hendersons', 'Project Type': 'Landscape Renovation', 'Job Value': '$62,000', Status: 'In Progress', 'Start Date': '2026-02-15', 'End Date': '2026-04-10', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': 'Spencer, Chase', 'Job Notes': 'Planting beds shaped. Irrigation install starts Friday.' },
     { __row: 4, 'Job ID': 'JOB-003', 'Client Name': 'Raj Patel', 'Project Type': 'Irrigation System', 'Job Value': '$48,000', Status: 'Planning', 'Start Date': '2026-04-01', 'End Date': '2026-05-20', 'Deposit Status': 'Invoiced', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': '', 'Job Notes': 'Contract signed. Awaiting deposit.' },
     { __row: 5, 'Job ID': 'JOB-004', 'Client Name': 'Tom Bradley', 'Project Type': 'Retaining Wall', 'Job Value': '$22,000', Status: 'Complete', 'Start Date': '2026-01-10', 'End Date': '2026-02-28', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Paid', 'Proposal Link': '', 'Contract Link': '', 'Kickoff Doc Link': '', 'Assigned Crew': 'Mike T.', 'Job Notes': 'Completed on time. Great feedback from client.' },
-    { __row: 6, 'Job ID': 'JOB-005', 'Client Name': 'Garcia Family', 'Project Type': 'Sod Installation', 'Job Value': '$16,500', Status: 'In Progress', 'Start Date': '2026-03-18', 'End Date': '2026-03-25', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Carlos R.', 'Job Notes': '12 of 14 windows complete.' },
+    { __row: 6, 'Job ID': 'JOB-005', 'Client Name': 'Garcia Family', 'Project Type': 'Sod Installation', 'Job Value': '$16,500', Status: 'In Progress', 'Start Date': '2026-03-18', 'End Date': '2026-03-25', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Carlos R.', 'Job Notes': '4 of 5 zones sodded. Final zone tomorrow.' },
   ],
   phases: {
     'JOB-001': [
-      { __row: 10, 'Job ID': 'JOB-001', Phase: 'Demo', Status: 'Complete', 'Completed Date': '2026-03-05' },
-      { __row: 11, 'Job ID': 'JOB-001', Phase: 'Rough Plumbing', Status: 'Complete', 'Completed Date': '2026-03-10' },
-      { __row: 12, 'Job ID': 'JOB-001', Phase: 'Tile Work', Status: 'In Progress', 'Completed Date': '' },
-      { __row: 13, 'Job ID': 'JOB-001', Phase: 'Fixtures', Status: 'Pending', 'Completed Date': '' },
-      { __row: 14, 'Job ID': 'JOB-001', Phase: 'Final Inspection', Status: 'Pending', 'Completed Date': '' },
+      { __row: 10, 'Job ID': 'JOB-001', Phase: 'Site Prep & Grading', Status: 'Complete', 'Completed Date': '2026-03-05' },
+      { __row: 11, 'Job ID': 'JOB-001', Phase: 'Base & Drainage', Status: 'Complete', 'Completed Date': '2026-03-10' },
+      { __row: 12, 'Job ID': 'JOB-001', Phase: 'Paver Install', Status: 'In Progress', 'Completed Date': '' },
+      { __row: 13, 'Job ID': 'JOB-001', Phase: 'Planting & Mulch', Status: 'Pending', 'Completed Date': '' },
+      { __row: 14, 'Job ID': 'JOB-001', Phase: 'Final Walkthrough', Status: 'Pending', 'Completed Date': '' },
     ]
   },
   clients: [
@@ -44,8 +44,8 @@ const DEMO = {
   team: [
     { __row: 2, Name: 'Coach Harris', Role: 'Owner / Project Manager', Email: 'spencer@landcareunlimited.com', Phone: '555-2001', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
     { __row: 3, Name: 'Marcus Reed', Role: 'Sales Rep', Email: 'chase@landcareunlimited.com', Phone: '555-2002', Type: 'Crew', Active: 'Yes', 'Active Jobs': 1 },
-    { __row: 4, Name: 'Mike Torres', Role: 'Lead Carpenter', Email: 'mike@email.com', Phone: '555-2003', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
-    { __row: 5, Name: 'Carlos Rivera', Role: 'Tile & Flooring', Email: 'carlos@email.com', Phone: '555-2004', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
+    { __row: 4, Name: 'Mike Torres', Role: 'Crew Lead', Email: 'mike@email.com', Phone: '555-2003', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
+    { __row: 5, Name: 'Carlos Rivera', Role: 'Hardscape Specialist', Email: 'carlos@email.com', Phone: '555-2004', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
     { __row: 6, Name: 'A1 Irrigation', Role: 'Irrigation Subcontractor', Email: 'a1irrigation@gmail.com', Phone: '555-3001', Type: 'Subcontractor', Active: 'Yes', 'Active Jobs': 1 },
     { __row: 7, Name: 'Elite Electric', Role: 'Electrical Subcontractor', Email: 'info@eliteelectric.com', Phone: '555-3002', Type: 'Subcontractor', Active: 'No', 'Active Jobs': 0 },
   ],
@@ -56,18 +56,18 @@ const DEMO = {
     { type: 'info', icon: '📋', title: 'Consultation tomorrow', desc: 'Priya Mehta consultation scheduled for March 25. Prep estimate before meeting.', tag: 'Lead: Priya Mehta' },
   ],
   marketing: [
-    { __row: 2, 'Campaign Name': 'Spring Remodel Promo', Type: 'seasonal', Description: 'Seasonal promotion targeting past clients for spring projects.', 'Target Audience': 'Past clients + leads', Status: 'Ready', 'Send Now': '' },
+    { __row: 2, 'Campaign Name': 'Spring Landscaping Promo', Type: 'seasonal', Description: 'Seasonal promotion targeting past clients for spring projects.', 'Target Audience': 'Past clients + leads', Status: 'Ready', 'Send Now': '' },
     { __row: 3, 'Campaign Name': 'Referral Thank You', Type: 'referral', Description: 'Reward clients who refer new leads with a thank-you and gift card offer.', 'Target Audience': 'Current clients', Status: 'Ready', 'Send Now': '' },
     { __row: 4, 'Campaign Name': 'We Miss You', Type: 're-engagement', Description: 'Re-engage leads who went cold in the last 60–90 days.', 'Target Audience': 'Cold leads', Status: 'Ready', 'Send Now': '' },
-    { __row: 5, 'Campaign Name': 'Summer Deck Special', Type: 'seasonal', Description: '10% off deck projects booked before June 1.', 'Target Audience': 'All leads', Status: 'Sent', 'Send Now': 'Yes' },
+    { __row: 5, 'Campaign Name': 'Summer Patio Special', Type: 'seasonal', Description: '10% off patio projects booked before June 1.', 'Target Audience': 'All leads', Status: 'Sent', 'Send Now': 'Yes' },
   ],
   settings: {
     companyName: 'Landcare Unlimited',
     phone: '(555) 555-0100',
     email: 'info@landcareunlimited.com',
-    address: '123 Builder Lane, Nashville, TN 37201',
+    address: '4820 E Thunderbird Rd, Phoenix, AZ 85032',
     ownerName: 'Coach Harris',
-    calendlyLink: 'https://calendly.com/summit/30min',
+    calendlyLink: 'https://calendly.com/landcareunlimited/consultation',
     googleReviewLink: 'https://g.page/r/review',
     emailSignature: 'Coach Harris | Landcare Unlimited | (555) 555-0100',
   },
@@ -94,9 +94,9 @@ const DEMO = {
   equipment: [
     { _row:2, equipmentId:'EQ-001', name:'2022 Ford F-250',             category:'Vehicle',    makeModel:'Ford F-250 XLT',    status:'In Use',     assignedTo:'Mike T.',  assignedJob:'JOB-001', value:'$45,000', notes:'Main work truck' },
     { _row:3, equipmentId:'EQ-002', name:'2019 Trailer',                category:'Trailer',    makeModel:'Big Tex 14OA',      status:'Available',  assignedTo:'',         assignedJob:'',        value:'$8,500',  notes:'Material hauler' },
-    { _row:4, equipmentId:'EQ-003', name:'24ft Extension Ladder',       category:'Ladder',     makeModel:'Werner D1524-2',    status:'Available',  assignedTo:'',         assignedJob:'',        value:'$280',    notes:'' },
-    { _row:5, equipmentId:'EQ-004', name:'DeWalt Tile Saw',             category:'Power Tool', makeModel:'DeWalt D24000S',    status:'Maintenance',assignedTo:'',         assignedJob:'',        value:'$650',    notes:'Blade needs replacing' },
-    { _row:6, equipmentId:'EQ-005', name:'Scaffold Set (4 sections)',   category:'Scaffold',   makeModel:'Bil-Jax 4x5',       status:'Available',  assignedTo:'',         assignedJob:'',        value:'$1,200',  notes:'Stored in bay 2' },
+    { _row:4, equipmentId:'EQ-003', name:'Honda Trencher',       category:'Ladder',     makeModel:'Honda F220',    status:'Available',  assignedTo:'',         assignedJob:'',        value:'$280',    notes:'' },
+    { _row:5, equipmentId:'EQ-004', name:'Wacker Neuson Plate Compactor',             category:'Compaction', makeModel:'Wacker Neuson VP1340A',    status:'Maintenance',assignedTo:'',         assignedJob:'',        value:'$650',    notes:'Needs new pad' },
+    { _row:6, equipmentId:'EQ-005', name:'Dingo Mini Loader',   category:'Equipment',   makeModel:'Toro Dingo TX525',       status:'Available',  assignedTo:'',         assignedJob:'',        value:'$1,200',  notes:'Narrow access loader' },
     { _row:7, equipmentId:'EQ-006', name:'2021 Ford Transit Van',       category:'Vehicle',    makeModel:'Ford Transit 250',  status:'Available',  assignedTo:'',         assignedJob:'',        value:'$38,000', notes:'Cargo van — crew transport' },
   ],
 };
@@ -1792,7 +1792,7 @@ async function changeJobStatus(dbStatus, btn, displayLabel) {
 
 /* ─── GENERATE DOCUMENT ─────────────────────────────────────────── */
 async function triggerDocGen(eventType, rowNumber) {
-  if (usingDemo) { toastInfo('Connect to Google Sheets to generate documents'); return; }
+  if (usingDemo) { toastInfo('Documents will be generated by AI'); return; }
   const btn = event?.target;
   const savedRow = rowNumber || _currentJobRow;
   btnLoading(btn, '⏳ Starting…');
@@ -2229,7 +2229,7 @@ function renderTeam() {
 
   const el = document.getElementById('teamList');
   if (team.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No team members</div><div class="empty-sub">Add your crew to the Team tab in your spreadsheet</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No team members</div><div class="empty-sub">Tap + Add to create your first team member</div></div>`;
     return;
   }
 
@@ -2550,7 +2550,7 @@ function renderMarketing() {
 
   const el = document.getElementById('marketingList');
   if (items.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📢</div><div class="empty-title">No campaigns</div><div class="empty-sub">Add campaigns to the Marketing Library tab in your spreadsheet</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📢</div><div class="empty-title">No campaigns</div><div class="empty-sub">No campaigns set up yet. Create one to get started.</div></div>`;
     return;
   }
 
