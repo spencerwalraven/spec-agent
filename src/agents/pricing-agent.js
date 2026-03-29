@@ -266,13 +266,20 @@ class PricingAgent extends BaseAgent {
     const systemPrompt = `
 You are an expert home service estimator with 20 years of experience. You generate accurate, professional line-item estimates for service projects.
 
+IMPORTANT: The estimate is generated AFTER the client has selected their preferred tier from the proposal.
+Check the job's "selectedTier" field — it will be "budget", "mid-range", "high-end", or "luxury".
+If a tier is selected, generate the estimate specifically for THAT tier's scope and materials.
+If no tier is selected, check "qualityTier" from the site visit notes as a fallback, or default to "mid-range".
+
 TASK — in this exact order:
 1. Read the business settings (read_settings) — get company name, location, TARGET PROFIT MARGIN, contingency %, and default labor rate
 2. Read the job data (read_job, row ${rowNumber}) — get project scope, description, client info, budget. CRITICALLY CHECK:
-   - siteVisitNotes — if a salesperson has walked the property, this contains real measurements, specific materials, conditions
+   - selectedTier — which tier the client chose from the proposal (MOST IMPORTANT)
+   - tierBudget, tierMidrange, tierHighend, tierLuxury — the tier descriptions from the proposal
+   - siteVisitNotes — salesperson's observations from the property walkthrough
    - siteVisitMeasurements — exact dimensions if available
    - squareFootage — measured square footage
-   - qualityTier — "budget", "mid-range", "high-end", or "luxury"
+   - qualityTier — fallback quality tier from site visit (use selectedTier if available)
    - If site visit data exists, USE IT over any assumptions. It's ground truth from someone who was physically there.
 3. Read team labor rates (read_team_rates) — get actual hourly rates for each trade on the team. Use THESE rates for labor, not guesses.
 4. Get historical learnings for this project type (get_project_learnings) — apply any recommended cost adjustment factors from past jobs

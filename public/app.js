@@ -1421,6 +1421,21 @@ async function showJobDetail(idx) {
       ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: ${j.siteVisitDate}</div>` : ''}
     </div>` : ''}
 
+    ${currentUser?.role !== 'field' && (j.tierBudget || j.tierMidrange || j.tierHighend || j.tierLuxury) ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
+      <div class="modal-section-label" style="margin-bottom:10px">🎯 Client Tier Selection</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${[
+          {key:'budget',label:'🟢 Budget',desc:j.tierBudget},
+          {key:'mid-range',label:'🔵 Mid-Range',desc:j.tierMidrange},
+          {key:'high-end',label:'🟡 High-End',desc:j.tierHighend},
+          {key:'luxury',label:'🔴 Luxury',desc:j.tierLuxury}
+        ].filter(t=>t.desc).map(t =>
+          '<button onclick="selectTier('+_currentJobRow+',\''+t.key+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid '+(j.selectedTier===t.key?'var(--gold)':'var(--border)')+';background:'+(j.selectedTier===t.key?'rgba(74,140,63,0.15)':'var(--card)')+';cursor:pointer;text-align:left;width:100%"><div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--text)">'+t.label+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+t.desc+'</div></div>'+(j.selectedTier===t.key?'<span style="color:var(--gold);font-weight:800;font-size:12px">SELECTED ✓</span>':'')+'</button>'
+        ).join('')}
+      </div>
+      ${j.selectedTier ? '<div style="font-size:11px;color:var(--gold);margin-top:8px;font-weight:600">✅ Client chose: '+j.selectedTier.charAt(0).toUpperCase()+j.selectedTier.slice(1)+' — now generate the detailed estimate</div>' : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Select the tier the client chose, then generate the estimate</div>'}
+    </div>` : ''}
+
     ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
         <span>📦 Materials & Costs</span>
@@ -1451,8 +1466,8 @@ async function showJobDetail(idx) {
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
-      [{name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready'},
-       {name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal'},
+      [{name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal'},
+       {name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready'},
        {name:'Contract',icon:'📝',link:contLink,event:'generate_contract'},
        {name:'Kickoff Doc',icon:'🚀',link:kickLink,event:'plan_project'}
       ].map(d => '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div>'+
@@ -1490,6 +1505,22 @@ async function showJobDetail(idx) {
   if (currentUser?.role !== 'field') {
     loadJobMaterials(_currentJobRow);
   }
+}
+
+async function selectTier(jobRow, tier) {
+  try {
+    await api('/api/jobs/' + jobRow + '/field-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field: 'selected_tier', value: tier }),
+    });
+    toast('✅ ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' tier selected — generate the estimate now');
+    // Refresh the job detail
+    delete loaded['jobs'];
+    allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
+    const idx = allJobs.findIndex(j => (j._row || j.id) === jobRow);
+    if (idx >= 0) showJobDetail(idx);
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveJobNotes(jobRow) {

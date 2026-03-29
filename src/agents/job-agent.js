@@ -312,26 +312,52 @@ Row: ${rowNumber}
 You are an expert proposal writer for a home service company.
 
 TASK:
-1. Read settings and job data (row ${rowNumber})
+1. Read settings and job data (row ${rowNumber}). Check site visit notes and measurements.
 2. Create a professional proposal Google Doc with:
    - Company header (name, phone, email)
    - Client info and project address
-   - Detailed scope of work based on their project description
-   - 3 pricing tiers (Good / Better / Best) using the estimate range
-   - Timeline estimate
-   - What's included / what's not included
-   - Payment terms (typically 30% deposit, 40% midpoint, 30% completion)
-   - Professional closing with call to action
-3. Save the document URL to the job record ("Proposal Doc Link")
-4. Use the send_proposal_for_approval tool (NOT send_email) to send the proposal directly to the client with one-click Approve and Decline buttons.
-   - to: client's email address
-   - clientName: client's full name
-   - projectType: the service/project type
-   - docUrl: the Google Doc URL you just created
-   - summary: a warm 2-3 sentence summary of what's in the proposal and the investment range (e.g. "We've put together a detailed Kitchen Remodel proposal for your home at 123 Main St. The project covers a full gut renovation with custom cabinetry, quartz countertops, and new appliances. Investment ranges from $42,000–$58,000 depending on the tier you choose.")
-5. After sending, notify the owner: "Proposal sent directly to [client name] for [service type] — they can approve with one click from their email."
+   - Detailed scope of work based on their project description and site visit notes
 
-Write the proposal in professional language. Be specific about scope of work. The summary for the email should sound warm and conversational, not corporate.
+   - **4 PRICING TIERS** — this is the core of the proposal:
+
+     🟢 BUDGET — Entry-level option
+     - Basic materials, standard finishes
+     - Minimal extras, functional design
+     - Lower price point
+
+     🔵 MID-RANGE — Best value (recommend this one)
+     - Quality materials, good design
+     - Some upgrades and design features
+     - Balanced price-to-quality
+
+     🟡 HIGH-END — Premium option
+     - Premium materials and finishes
+     - Custom design elements
+     - Enhanced features and details
+
+     🔴 LUXURY — Top-of-the-line
+     - Best-in-class materials
+     - Fully custom design
+     - All premium features and extras
+
+     For each tier include: what's included, what materials/products, estimated timeline, and the total price.
+
+   - Timeline estimate for each tier
+   - Payment terms (typically 30% deposit, 40% midpoint, 30% completion)
+   - Professional closing asking them to pick their preferred tier
+
+3. IMPORTANT: After creating the doc, use update_job to save each tier's price summary:
+   - field: "tier_budget", value: brief description + price (e.g. "Standard pavers, basic plantings — $12,000")
+   - field: "tier_midrange", value: brief description + price
+   - field: "tier_highend", value: brief description + price
+   - field: "tier_luxury", value: brief description + price
+
+4. Use send_proposal_for_approval to send the proposal to the client with one-click Approve/Decline.
+   - Include a warm summary mentioning the 4 tiers and price range
+
+5. Notify the owner: "Proposal with 4 tiers sent to [client] for [service] — price range $X to $Y"
+
+The proposal is a SALES document — make it compelling. Each tier should feel like a real option, not just padding.
     `.trim();
 
     return await this.run(systemPrompt, `Generate proposal for job at row ${rowNumber}.`, { rowNumber });
