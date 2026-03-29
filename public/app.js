@@ -2023,8 +2023,8 @@ async function loadClientJobs(clientId) {
         ` : ''}
         ${j.siteVisitNotes ? '<div style="margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12px;color:var(--text2)"><span style="font-weight:700;color:var(--text3)">📋 Site Notes:</span> ' + j.siteVisitNotes + '</div>' : ''}
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-          ${['Estimate','Proposal','Contract','Kickoff'].map(doc => {
-            const evt = doc==='Estimate'?'estimate_ready':doc==='Proposal'?'generate_proposal':doc==='Contract'?'generate_contract':'plan_project';
+          ${['Proposal','Estimate','Contract','Kickoff'].map(doc => {
+            const evt = doc==='Proposal'?'generate_proposal':doc==='Estimate'?'estimate_ready':doc==='Contract'?'generate_contract':'plan_project';
             return '<button style="flex:1;min-width:70px;padding:7px 0;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer" onclick="triggerDocGen(\''+evt+'\','+j.id+')">' + doc + '</button>';
           }).join('')}
         </div>
