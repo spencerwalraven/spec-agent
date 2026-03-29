@@ -107,7 +107,7 @@ let allLeads = [], allJobs = [], allClients = [], allTeam = [], allMarketing = [
 let leadFilter = 'all', jobFilter = 'all', teamFilter = 'all', mktgFilter = 'all';
 let usingDemo = false;
 let _calendlyLink = '';
-let currentUser = { name: '', role: 'owner' };
+let currentUser = { name: '', role: '' }; // empty until /api/me returns
 
 /* ─── GREETING ──────────────────────────────────────────────────── */
 function greet() {
@@ -1433,22 +1433,15 @@ async function showJobDetail(idx) {
       <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
     </div>` : ''}
 
-    ${currentUser?.role !== 'field' ? `<div class="modal-section">
-      <div class="modal-section-label">Documents</div>
-      ${[
-        {name:'Estimate',    icon:'💰', link:'',       event:'estimate_ready'},
-        {name:'Proposal',    icon:'📄', link:propLink, event:'generate_proposal'},
-        {name:'Contract',    icon:'📝', link:contLink, event:'generate_contract'},
-        {name:'Kickoff Doc', icon:'🚀', link:'',       event:'plan_project'},
-      ].map(d => \`
-        <div class="doc-link">
-          <div class="doc-icon">\${d.icon}</div>
-          <div class="doc-name">\${d.name}</div>
-          \${d.link
-            ? \`<a class="doc-btn" href="\${d.link}" target="_blank">Open ↗</a>\`
-            : \`<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen('\${d.event}',${_currentJobRow})">Generate</button>\`}
-        </div>\`).join('')}
-    </div>` : ''}
+    ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
+      [{name:'Estimate',icon:'💰',link:'',event:'estimate_ready'},
+       {name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal'},
+       {name:'Contract',icon:'📝',link:contLink,event:'generate_contract'},
+       {name:'Kickoff Doc',icon:'🚀',link:'',event:'plan_project'}
+      ].map(d => '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div>'+
+        (d.link ? '<a class="doc-btn" href="'+d.link+'" target="_blank">Open ↗</a>'
+               : '<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>')+
+        '</div>').join('') + '</div>' : ''}
 
     <div class="modal-section">
       <div class="modal-section-label">Phases</div>
@@ -3018,40 +3011,35 @@ async function triggerAgent(type) {
 
 /* ─── INIT ──────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  // Start rendering immediately with default role — don't block on /api/me
-  applyRoleNav(currentUser.role);
-  navigate('dashboard');
-  initPullToRefresh();
-  connectActivityStream();
-
-  // Load user role in background — update nav if role differs from default
+  // Load user role FIRST, then render
   fetch('/api/me')
     .then(r => r.ok ? r.json() : null)
     .catch(() => null)
     .then(me => {
       console.log('[Auth] /api/me returned:', JSON.stringify(me));
       if (me?.role) {
-        const prevRole = currentUser.role;
         currentUser = { name: me.name || '', role: me.role };
-        // Rebuild nav only if role actually changed
-        if (me.role !== prevRole) applyRoleNav(me.role);
-        // Update greeting name if dashboard is still active
-        const greetEl = document.getElementById('greetSub');
-        if (greetEl && me.name && me.name !== 'Owner') {
-          greetEl.textContent = greet() + `, ${me.name}`;
-        }
+      } else {
+        currentUser = { name: '', role: 'owner' }; // fallback
       }
+
+      // NOW render with the correct role
+      applyRoleNav(currentUser.role);
+      navigate('dashboard');
+      initPullToRefresh();
+      connectActivityStream();
+
+      // Update greeting name
+      if (me?.name && me.name !== 'Owner') {
+        const greetEl = document.getElementById('greetSub');
+        if (greetEl) greetEl.textContent = greet() + `, ${me.name}`;
+      }
+
+      // Pre-load settings for Calendly link
+      api('/api/settings').then(s => {
+        if (s) _calendlyLink = s.calendlyLink || s.calendly_link || '';
+      });
     });
-
-  // Pre-load settings for Calendly link
-  api('/api/settings').then(s => {
-    if (s) _calendlyLink = s.calendlyLink || s.calendly_link || '';
-  });
-
-  // Demo banner
-  setTimeout(() => {
-    if (usingDemo) toast('📋 Demo mode — connect to Google Sheets for live data', 3500);
-  }, 1500);
 });
 
 /* ─── FIELD UPDATE PAGE (now Job Site Estimate) ─────────────────── */
