@@ -897,6 +897,58 @@ app.get('/api/clients/:id/photos', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: JOB MATERIALS ───────────────────────────────────────────────────────
+app.get('/api/jobs/:id/materials', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid job ID' });
+    res.json(await dbJobs.getJobMaterials(id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/jobs/:id/materials', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid job ID' });
+    const mat = await dbJobs.addJobMaterial(id, req.body);
+    res.json(mat);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/jobs/:id/materials/:matId', requireAuth, async (req, res) => {
+  try {
+    const matId = parseInt(req.params.matId);
+    if (isNaN(matId)) return res.status(400).json({ error: 'Invalid material ID' });
+    await dbJobs.updateJobMaterial(matId, req.body);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/jobs/:id/materials/:matId', requireAuth, async (req, res) => {
+  try {
+    const matId = parseInt(req.params.matId);
+    if (isNaN(matId)) return res.status(400).json({ error: 'Invalid material ID' });
+    await dbJobs.deleteJobMaterial(matId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: MANUAL TIME ENTRY (for missed clock-ins) ───────────────────────────
+app.post('/api/timeclock/manual', requireAuth, async (req, res) => {
+  try {
+    const { teamMemberName, jobId, jobName, date, hoursWorked, notes } = req.body;
+    if (!teamMemberName || !hoursWorked) return res.status(400).json({ error: 'Name and hours required' });
+    const clockIn = new Date(date || Date.now());
+    const hours = parseFloat(hoursWorked);
+    const clockOut = new Date(clockIn.getTime() + hours * 3600000);
+    await query(`
+      INSERT INTO time_clock (company_id, team_member_name, job_id, job_name, clock_in, clock_out, hours, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [1, teamMemberName, jobId || null, jobName || '', clockIn, clockOut, hours, notes || 'Manual entry']);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: CLIENT 360 TIMELINE (PostgreSQL) ───────────────────────────────────
 app.get('/api/clients/:name/timeline', async (req, res) => {
   try {

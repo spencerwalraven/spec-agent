@@ -1419,6 +1419,17 @@ async function showJobDetail(idx) {
       ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: ${j.siteVisitDate}</div>` : ''}
     </div>` : ''}
 
+    ${currentUser?.role !== 'field' ? `<div class="modal-section">
+      <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📦 Materials & Costs</span>
+        <button style="font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-weight:700" onclick="addMaterialRow(${_currentJobRow})">+ Add Item</button>
+      </div>
+      <div id="jmMaterialsList" style="margin-top:8px">
+        <div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">Loading materials…</div>
+      </div>
+      <div id="jmMaterialsTotal" style="margin-top:8px"></div>
+    </div>` : ''}
+
     <div class="modal-section">
       <div class="modal-section-label">Project Info</div>
       ${start    ? `<div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${start}</div></div>` : ''}
@@ -1470,6 +1481,11 @@ async function showJobDetail(idx) {
   `;
 
   openModal('jobModal');
+
+  // Load materials asynchronously after modal opens
+  if (currentUser?.role !== 'field') {
+    loadJobMaterials(_currentJobRow);
+  }
 }
 
 async function saveSiteVisit(jobRow) {
@@ -1488,6 +1504,95 @@ async function saveSiteVisit(jobRow) {
   } catch (e) {
     toast('❌ ' + e.message, 3000);
   }
+}
+
+async function loadJobMaterials(jobId) {
+  const el = document.getElementById('jmMaterialsList');
+  const totEl = document.getElementById('jmMaterialsTotal');
+  if (!el) return;
+  try {
+    const materials = await api('/api/jobs/' + jobId + '/materials');
+    if (!materials || !materials.length) {
+      el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">No materials yet — generate an estimate or add items manually</div>';
+      if (totEl) totEl.innerHTML = '';
+      return;
+    }
+    // Group by category
+    const cats = {};
+    let grandTotal = 0;
+    materials.forEach(m => {
+      const cat = m.category || 'Other';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(m);
+      const cost = parseFloat((m.totalCost || '0').replace(/[^0-9.-]/g, '')) || 0;
+      grandTotal += cost;
+    });
+
+    el.innerHTML = Object.entries(cats).map(([cat, items]) =>
+      '<div style="margin-bottom:12px">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">' + cat + '</div>' +
+        items.map(m =>
+          '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px" data-mat-id="' + m.id + '">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-weight:600;color:var(--text)">' + (m.item || '—') + '</div>' +
+              '<div style="color:var(--text3);font-size:11px">' + (m.quantity || '') + ' · ' + (m.unitCost || '') + (m.bestSource ? ' · <span style="color:var(--gold)">' + m.bestSource + '</span>' : '') + '</div>' +
+            '</div>' +
+            '<div style="font-weight:700;color:var(--text);white-space:nowrap">' + (m.totalCost || '—') + '</div>' +
+            '<div style="display:flex;gap:2px">' +
+              '<select style="background:var(--card2);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-size:10px;padding:2px 4px" onchange="updateMaterialStatus(' + _currentJobRow + ',' + m.id + ',this.value)">' +
+                '<option value="needed"' + (m.status==='needed'?' selected':'') + '>Needed</option>' +
+                '<option value="ordered"' + (m.status==='ordered'?' selected':'') + '>Ordered</option>' +
+                '<option value="received"' + (m.status==='received'?' selected':'') + '>Received</option>' +
+              '</select>' +
+              '<button style="background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 2px" onclick="deleteMaterial(' + _currentJobRow + ',' + m.id + ')">✕</button>' +
+            '</div>' +
+          '</div>'
+        ).join('') +
+      '</div>'
+    ).join('');
+
+    if (totEl) totEl.innerHTML = '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);font-weight:800"><span>Materials Total</span><span style="color:var(--gold)">' + formatCurrency(grandTotal) + '</span></div>';
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Error loading materials</div>';
+  }
+}
+
+async function addMaterialRow(jobId) {
+  const item = prompt('Material name (e.g. "Belgard Pavers"):');
+  if (!item) return;
+  const qty = prompt('Quantity (e.g. "800 sq ft"):') || '';
+  const unitCost = prompt('Unit cost (e.g. "$5.20/sq ft"):') || '';
+  const total = prompt('Total cost (e.g. "$4,160"):') || '';
+  const source = prompt('Best source (e.g. "SiteOne"):') || '';
+  const cat = prompt('Category (e.g. "Hardscape"):') || 'General';
+  try {
+    await api('/api/jobs/' + jobId + '/materials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item, quantity: qty, unitCost, totalCost: total, bestSource: source, category: cat }),
+    });
+    toast('✅ Material added');
+    loadJobMaterials(jobId);
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+async function updateMaterialStatus(jobId, matId, status) {
+  try {
+    await api('/api/jobs/' + jobId + '/materials/' + matId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+async function deleteMaterial(jobId, matId) {
+  if (!confirm('Remove this material?')) return;
+  try {
+    await api('/api/jobs/' + jobId + '/materials/' + matId, { method: 'DELETE' });
+    toast('✅ Removed');
+    loadJobMaterials(jobId);
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveSiteVisitAndEstimate(jobRow) {

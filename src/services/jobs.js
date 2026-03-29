@@ -145,6 +145,43 @@ async function getPhotosForClient(clientId) {
   }));
 }
 
+async function getJobMaterials(jobId) {
+  const rows = await getAll(`
+    SELECT * FROM job_materials WHERE job_id = $1 AND company_id = $2 ORDER BY category, item
+  `, [jobId, COMPANY_ID]);
+  return rows.map(r => ({
+    id: r.id, jobId: r.job_id, jobRef: r.job_ref || '',
+    category: r.category || '', item: r.item || '',
+    quantity: r.quantity || '', unitCost: r.unit_cost || '',
+    totalCost: r.total_cost || '', bestSource: r.best_source || '',
+    status: r.status || 'needed', createdAt: r.created_at,
+  }));
+}
+
+async function addJobMaterial(jobId, data) {
+  return insertOne(`
+    INSERT INTO job_materials (company_id, job_id, category, item, quantity, unit_cost, total_cost, best_source, status)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *
+  `, [COMPANY_ID, jobId, data.category||'', data.item||'', data.quantity||'', data.unitCost||'', data.totalCost||'', data.bestSource||'', data.status||'needed']);
+}
+
+async function updateJobMaterial(materialId, data) {
+  const allowed = ['category','item','quantity','unit_cost','total_cost','best_source','status'];
+  const sets = []; const vals = []; let i = 1;
+  for (const [k,v] of Object.entries(data)) {
+    const col = k.replace(/([A-Z])/g, '_$1').toLowerCase();
+    if (allowed.includes(col)) { sets.push(`${col} = $${i++}`); vals.push(v); }
+  }
+  if (!sets.length) return;
+  vals.push(materialId); vals.push(COMPANY_ID);
+  await query(`UPDATE job_materials SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${i++} AND company_id = $${i}`, vals);
+}
+
+async function deleteJobMaterial(materialId) {
+  await query(`DELETE FROM job_materials WHERE id = $1 AND company_id = $2`, [materialId, COMPANY_ID]);
+}
+
 async function createJob(data) {
   // Auto-generate job_ref
   const count = await getOne(`SELECT COUNT(*) FROM jobs WHERE company_id = $1`, [COMPANY_ID]);
@@ -242,4 +279,5 @@ module.exports = {
   getJobs, getJob, getJobByRef, getJobsForClient, getPhotosForClient,
   createJob, updateJobStatus, updateJobField,
   getPhases, updatePhaseStatus, updatePhaseActualCost, formatJob,
+  getJobMaterials, addJobMaterial, updateJobMaterial, deleteJobMaterial,
 };
