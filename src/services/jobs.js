@@ -56,6 +56,9 @@ function formatJob(r) {
     qbEstimateId:      r.qb_estimate_id || '',
     qbInvoiceId:       r.qb_invoice_id  || '',
     createdAt:         r.created_at,
+    updatedAt:         r.updated_at,
+    emailThreadId:     r.email_thread_id || '',
+    clientEmail:       r.client_email || '',
     // Compatibility aliases (analytics, agents, scheduler use Sheets-era names via g())
     jobStatus:            r.status            || '',
     Status:               r.status            || '',
@@ -76,13 +79,13 @@ function formatJob(r) {
     'Lead Source':        r.source        || '',
     'Proposal Sent':      r.proposal_status || '',
     'Proposal Sent Date': r.proposal_sent_at || '',
-    'Proposal Followup Step': r.proposal_followup_step || '0',
+    'Proposal Followup Step': r.proposal_follow_ups || '0',
   };
 }
 
 async function getJobs(status) {
   let sql = `
-    SELECT j.*, c.name AS client_name
+    SELECT j.*, c.name AS client_name, c.email AS client_email
     FROM jobs j
     LEFT JOIN clients c ON j.client_id = c.id
     WHERE j.company_id = $1
@@ -96,7 +99,7 @@ async function getJobs(status) {
 
 async function getJob(id) {
   const r = await getOne(`
-    SELECT j.*, c.name AS client_name
+    SELECT j.*, c.name AS client_name, c.email AS client_email
     FROM jobs j LEFT JOIN clients c ON j.client_id = c.id
     WHERE j.id = $1 AND j.company_id = $2
   `, [id, COMPANY_ID]);
@@ -105,7 +108,7 @@ async function getJob(id) {
 
 async function getJobByRef(ref) {
   const r = await getOne(`
-    SELECT j.*, c.name AS client_name
+    SELECT j.*, c.name AS client_name, c.email AS client_email
     FROM jobs j LEFT JOIN clients c ON j.client_id = c.id
     WHERE j.job_ref = $1 AND j.company_id = $2
   `, [ref, COMPANY_ID]);
@@ -148,7 +151,11 @@ async function updateJobStatus(id, status) {
 async function updateJobField(id, field, value) {
   const allowed = ['notes', 'status', 'priority', 'estimated_value', 'actual_value',
     'material_cost', 'labor_cost', 'proposal_status', 'contract_status',
-    'kickoff_date', 'start_date', 'end_date', 'scope_of_work', 'ai_plan'];
+    'kickoff_date', 'start_date', 'end_date', 'scope_of_work', 'ai_plan',
+    'site_visit_notes', 'site_visit_measurements', 'square_footage', 'quality_tier',
+    'site_visit_date', 'email_thread_id', 'proposal_sent_at', 'contract_signed_at',
+    'deposit_paid', 'review_requested', 'proposal_follow_ups', 'deposit_invoice_sent',
+    'final_invoice_sent', 'thirty_day_sent'];
   if (!allowed.includes(field)) throw new Error(`Field ${field} not updatable`);
   return updateOne(
     `UPDATE jobs SET ${field} = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,

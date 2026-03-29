@@ -89,9 +89,8 @@ const EXECUTORS = {
 
       // Generate approval token
       const token = makeToken();
-      const baseUrl = process.env.APP_URL || process.env.RAILWAY_PUBLIC_DOMAIN
-        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-        : 'https://your-app.railway.app';
+      const baseUrl = process.env.APP_URL
+        || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://spec-agent-production.up.railway.app');
 
       const approveUrl = `${baseUrl}/api/change-order/approve/${token}`;
       const declineUrl = `${baseUrl}/api/change-order/decline/${token}`;

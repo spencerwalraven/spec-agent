@@ -427,9 +427,13 @@ function btnDone(btn, label, ms = 2000) {
 }
 
 /* ─── API FETCH W/ DEMO FALLBACK ────────────────────────────────── */
-async function api(path) {
+async function api(path, options = {}) {
   try {
-    const res = await fetch(path);
+    const res = await fetch(path, {
+      credentials: 'same-origin',
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
     if (!res.ok) throw new Error('API ' + res.status);
     usingDemo = false;
     setConnDot('live');
@@ -461,7 +465,7 @@ function setConnDot(state) {
   const dot = document.getElementById('connDot');
   if (!dot) return;
   dot.className = 'conn-dot ' + state;
-  dot.title = state === 'live' ? 'Connected to Google Sheets ✓'
+  dot.title = state === 'live' ? 'Connected to database ✓'
             : state === 'demo' ? 'Demo mode — not connected'
             : 'Connection error';
 }
@@ -784,7 +788,7 @@ function showAddLead() {
 
 async function saveNewLead() {
   const name = document.getElementById('newLeadName')?.value?.trim();
-  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!name) { toast('u274c Name is required'); return; }
   const data = {
     name,
     phone:   document.getElementById('newLeadPhone')?.value?.trim() || '',
@@ -798,10 +802,10 @@ async function saveNewLead() {
     const result = await api('/api/leads', { method: 'POST', body: data });
     if (!result?.ok) throw new Error(result?.error || 'Failed');
     closeModal('addLeadModal');
-    showToast(`${name} added as a lead!`);
+    toast(`${name} added as a lead!`);
     delete loaded['leads'];
     await loadLeads();
-  } catch (e) { showToast(e.message || 'Error adding lead', 'error'); }
+  } catch (e) { toast('u274c ' + (e.message || 'Error adding lead')); }
 }
 
 /* ─── CREATE JOB ───────────────────────────────────────────────── */
@@ -821,7 +825,7 @@ async function showCreateJob() {
 
 async function saveNewJob() {
   const title = document.getElementById('newJobTitle')?.value?.trim();
-  if (!title) { showToast('Job title is required', 'error'); return; }
+  if (!title) { toast('u274c Job title is required'); return; }
   const data = {
     clientId:       document.getElementById('newJobClient')?.value || null,
     title,
@@ -835,10 +839,10 @@ async function saveNewJob() {
     const result = await api('/api/jobs', { method: 'POST', body: data });
     if (!result?.ok) throw new Error(result?.error || 'Failed');
     closeModal('createJobModal');
-    showToast(`Job "${title}" created!`);
+    toast(`Job "${title}" created!`);
     delete loaded['jobs'];
     await loadJobs();
-  } catch (e) { showToast(e.message || 'Error creating job', 'error'); }
+  } catch (e) { toast('u274c ' + (e.message || 'Error creating job')); }
 }
 
 let leadView = 'list'; // 'list' | 'pipeline'
@@ -2002,7 +2006,7 @@ function showAddTeamMember() {
 
 async function saveNewTeamMember() {
   const name = document.getElementById('newMemberName')?.value?.trim();
-  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!name) { toast('u274c Name is required'); return; }
 
   const data = {
     name,
@@ -2030,10 +2034,10 @@ async function saveNewTeamMember() {
     }
 
     closeModal('addTeamModal');
-    showToast(`${name} added to team!`);
+    toast(`${name} added to team!`);
     await loadTeam();
   } catch (e) {
-    showToast(e.message || 'Error adding team member', 'error');
+    toast('u274c ' + (e.message || 'Error adding team member'));
   }
 }
 
@@ -2052,14 +2056,14 @@ async function saveSetLogin() {
   const username = document.getElementById('setLoginUsername')?.value?.trim();
   const password = document.getElementById('setLoginPassword')?.value?.trim();
   const role     = document.getElementById('setLoginRole')?.value || 'field';
-  if (!username || !password) { showToast('Username and password required', 'error'); return; }
+  if (!username || !password) { toast('u274c Username and password required'); return; }
   try {
     await api(`/api/team/${id}/set-login`, { method: 'POST', body: { username, password, role } });
     closeModal('setLoginModal');
-    showToast('Login credentials saved!');
+    toast('Login credentials saved!');
     loadSettings(); // Refresh team list
   } catch(e) {
-    showToast(e.message || 'Error saving login', 'error');
+    toast('u274c ' + (e.message || 'Error saving login'));
   }
 }
 
@@ -4467,7 +4471,7 @@ function openPhotoModal() {
   // Get current job context from the open job modal
   photoModalJobRow = window._openJobRow || null;
   photoModalJobId  = window._openJobId  || null;
-  if (!photoModalJobRow) { showToast('Open a job first'); return; }
+  if (!photoModalJobRow) { toast('Open a job first'); return; }
   closeModal('jobModal');
   document.getElementById('photoModalSub').textContent = `Photos for ${window._openJobClient || 'this job'} — visible to client automatically`;
   document.getElementById('photoPreviewWrap').style.display = 'none';
@@ -4532,19 +4536,19 @@ async function uploadPhotoModal() {
       body: JSON.stringify({
         jobId:       photoModalJobId,
         caption,
-        imageBase64: photoFileData.base64,
+        imageData: photoFileData.base64,
         mimeType:    photoFileData.mimeType
       })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
-    showToast('📸 Photo uploaded — visible on client portal');
+    toast('📸 Photo uploaded — visible on client portal');
     document.getElementById('photoPreviewWrap').style.display = 'none';
     document.getElementById('photoFileInput').value = '';
     photoFileData = null;
     loadPhotoModalGrid();
   } catch(e) {
-    showToast('Upload failed: ' + e.message, true);
+    toast('❌ Upload failed: ' + e.message);
   } finally {
     btn.textContent = 'Upload Photo';
     btn.disabled = false;
@@ -4664,7 +4668,7 @@ async function saveRecurringJob() {
   const clientName  = document.getElementById('rClientName')?.value?.trim();
   const serviceType = document.getElementById('rServiceType')?.value;
   const frequency   = document.getElementById('rFrequency')?.value;
-  if (!clientName) { showToast('Client name required', true); return; }
+  if (!clientName) { toast('❌ Client name required'); return; }
 
   const btn = document.querySelector('#addRecurringModal .btn-gold');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
@@ -4685,11 +4689,11 @@ async function saveRecurringJob() {
       })
     });
     if (!res.ok) throw new Error((await res.json()).error);
-    showToast('✅ Recurring job saved');
+    toast('✅ Recurring job saved');
     closeModal('addRecurringModal');
     loadRecurring();
   } catch(e) {
-    showToast('Save failed: ' + e.message, true);
+    toast('❌ Save failed: ' + e.message);
   } finally {
     if (btn) { btn.textContent = 'Save Job'; btn.disabled = false; }
   }
@@ -4701,10 +4705,10 @@ async function runRecurringJob(row, clientName) {
     const res  = await fetch(`/api/recurring/${row}/run`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    showToast(`✅ Job ${data.jobId} created for ${clientName}`);
+    toast(`✅ Job ${data.jobId} created for ${clientName}`);
     loadRecurring();
   } catch(e) {
-    showToast('Failed: ' + e.message, true);
+    toast('❌ Failed: ' + e.message);
   }
 }
 
@@ -4819,7 +4823,7 @@ function openAddTaskModal() {
 
 async function saveTask() {
   const title = document.getElementById('taskTitle')?.value?.trim();
-  if (!title) { showToast('Task title required', true); return; }
+  if (!title) { toast('❌ Task title required'); return; }
   const btn = document.querySelector('#addTaskModal .btn-gold');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
   try {
@@ -4837,13 +4841,13 @@ async function saveTask() {
       })
     });
     if (!res.ok) throw new Error((await res.json()).error);
-    showToast('✅ Task saved');
+    toast('✅ Task saved');
     closeModal('addTaskModal');
     // Clear form
     ['taskTitle','taskAssignedTo','taskClientName','taskJobId','taskNotes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     loadTasks();
   } catch(e) {
-    showToast('Save failed: ' + e.message, true);
+    toast('❌ Save failed: ' + e.message);
   } finally {
     if (btn) { btn.textContent = 'Save Task'; btn.disabled = false; }
   }
@@ -4852,10 +4856,10 @@ async function saveTask() {
 async function completeTask(row) {
   try {
     await fetch(`/api/tasks/${row}/complete`, { method: 'POST' });
-    showToast('✅ Task complete!');
+    toast('✅ Task complete!');
     loadTasks();
   } catch(e) {
-    showToast('Failed: ' + e.message, true);
+    toast('❌ Failed: ' + e.message);
   }
 }
 
@@ -4863,10 +4867,10 @@ async function deleteTask(row) {
   if (!confirm('Delete this task?')) return;
   try {
     await fetch(`/api/tasks/${row}`, { method: 'DELETE' });
-    showToast('Task deleted');
+    toast('Task deleted');
     loadTasks();
   } catch(e) {
-    showToast('Failed: ' + e.message, true);
+    toast('❌ Failed: ' + e.message);
   }
 }
 

@@ -263,7 +263,7 @@ class PricingAgent extends BaseAgent {
 
   async generateEstimate({ rowNumber }) {
     const systemPrompt = `
-You are an expert home remodeling estimator with 20 years of experience. You generate accurate, professional line-item estimates for service projects.
+You are an expert home service estimator with 20 years of experience. You generate accurate, professional line-item estimates for service projects.
 
 TASK — in this exact order:
 1. Read the business settings (read_settings) — get company name, location, TARGET PROFIT MARGIN, contingency %, and default labor rate

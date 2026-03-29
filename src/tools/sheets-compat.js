@@ -327,7 +327,7 @@ async function appendRow(tabName, data) {
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [COMPANY_ID, jobId, data.title||'', data.description||'',
        parseFloat(data.amount||0)||0, data.status||'pending',
-       data.token || require('crypto').randomBytes(16).toString('hex')]
+       data.token || data['Approval Token'] || require('crypto').randomUUID()]
     );
   }
   if (tabName === 'Job Materials') {
@@ -385,7 +385,8 @@ async function getNextRep() {
 }
 
 // ─── findRowByEmail(email) — Find a lead by email ──────────────────────────
-async function findRowByEmail(email) {
+async function findRowByEmail(tabOrEmail, maybeEmail) {
+  const email = maybeEmail || tabOrEmail;
   if (!email) return null;
   const r = await getOne(
     `SELECT * FROM leads WHERE LOWER(email) = LOWER($1) AND company_id = $2`,
@@ -425,7 +426,7 @@ async function createJobFromLead(leadId) {
     status: 'pending',
   });
 
-  return job;
+  return { jobId: job.job_ref, rowNumber: job.id, ...job };
 }
 
 // ─── getLastRow(tabName) — Get the count (used for ID generation) ───────────

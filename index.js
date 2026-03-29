@@ -313,6 +313,7 @@ function requireAuth(req, res, next) {
   if (!isAuthenticated(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  req.user = getAuthSession(req);
   next();
 }
 

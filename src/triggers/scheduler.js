@@ -72,12 +72,12 @@ async function runProposalFollowUps() {
   logger.info('Scheduler', 'Running proposal follow-ups…');
   const jobs = await readTab('Jobs');
   for (const job of jobs) {
-    const proposalStatus = g(job, 'Proposal Sent', 'Proposal Status') || '';
+    const proposalStatus = g(job, 'Proposal Sent', 'Proposal Status', 'proposalStatus') || '';
     if (!/sent|approved/i.test(proposalStatus)) continue;
     const proposalDate = g(job, 'Proposal Sent Date', 'Proposal Date');
     const days = daysBetween(proposalDate);
     // Follow up after 3 days, then 7 days
-    const followupStep = parseInt(g(job, 'Proposal Followup Step') || '0') || 0;
+    const followupStep = parseInt(g(job, 'Proposal Followup Step', 'proposalFollowUps') || '0') || 0;
     if ((days >= 3 && followupStep === 0) || (days >= 7 && followupStep === 1)) {
       await safeRoute('proposal_followup', { rowNumber: job._row });
     }
@@ -100,10 +100,10 @@ async function runInvoiceFollowUps() {
   logger.info('Scheduler', 'Running invoice follow-ups…');
   const jobs = await readTab('Jobs');
   for (const job of jobs) {
-    const depositSent = g(job, 'Deposit Invoice Sent');
-    const depositPaid = g(job, 'Deposit Paid', 'Deposit Invoice Paid');
-    const finalSent   = g(job, 'Final Invoice Sent');
-    const finalPaid   = g(job, 'Final Invoice Paid', 'Final Paid');
+    const depositSent = g(job, 'Deposit Invoice Sent', 'depositInvoiceSent');
+    const depositPaid = g(job, 'Deposit Paid', 'Deposit Invoice Paid', 'depositPaid');
+    const finalSent   = g(job, 'Final Invoice Sent', 'finalInvoiceSent');
+    const finalPaid   = g(job, 'Final Invoice Paid', 'Final Paid', 'finalPaid');
 
     // Follow up on unpaid deposit invoices after 3 days
     if (/yes/i.test(depositSent) && !/yes|paid/i.test(depositPaid)) {
@@ -128,7 +128,7 @@ async function runReviewFollowUps() {
   const jobs = await readTab('Jobs');
   for (const job of jobs) {
     const status       = (g(job, 'Job Status', 'Status') || '').toLowerCase();
-    const reviewStatus = g(job, 'Review Status', 'Review Requested') || '';
+    const reviewStatus = g(job, 'Review Status', 'Review Requested', 'reviewRequested') || '';
     const completionDate = g(job, 'Completion Date', 'Job Completion Date');
     if (!status.includes('complete')) continue;
     if (/requested|received/i.test(reviewStatus)) continue;
@@ -146,7 +146,7 @@ async function runThirtyDayCheckIns() {
   const jobs = await readTab('Jobs');
   for (const job of jobs) {
     const status      = (g(job, 'Job Status', 'Status') || '').toLowerCase();
-    const checkInSent = g(job, '30-Day Check-in Sent', '30 Day Check In Sent') || '';
+    const checkInSent = g(job, '30-Day Check-in Sent', '30 Day Check In Sent', 'thirtyDaySent') || '';
     const completionDate = g(job, 'Completion Date', 'Job Completion Date');
     if (!status.includes('complete')) continue;
     if (/yes/i.test(checkInSent)) continue;
@@ -209,17 +209,17 @@ async function runDailyBriefing() {
     });
 
     const proposalsOut = jobs.filter(j =>
-      /awaiting approval|sent/i.test(g(j,'Proposal Status','Proposal Sent') || '')
+      /awaiting approval|sent/i.test(g(j,'Proposal Status','Proposal Sent','proposalStatus') || '')
     );
 
     const unpaidDeposits = jobs.filter(j =>
-      /yes/i.test(g(j,'Deposit Invoice Sent','') || '') &&
-      !/yes|paid/i.test(g(j,'Deposit Paid','Deposit Invoice Paid') || '')
+      /yes/i.test(g(j,'Deposit Invoice Sent','depositInvoiceSent') || '') &&
+      !/yes|paid/i.test(g(j,'Deposit Paid','Deposit Invoice Paid','depositPaid') || '')
     );
 
     const unpaidFinals = jobs.filter(j =>
-      /yes/i.test(g(j,'Final Invoice Sent','') || '') &&
-      !/yes|paid/i.test(g(j,'Final Invoice Paid','Final Paid') || '')
+      /yes/i.test(g(j,'Final Invoice Sent','finalInvoiceSent') || '') &&
+      !/yes|paid/i.test(g(j,'Final Invoice Paid','Final Paid','finalPaid') || '')
     );
 
     // Phases due/overdue today

@@ -29,6 +29,8 @@ function formatLead(r) {
     timestamp:    r.created_at   ? new Date(r.created_at).toLocaleDateString() : '',
     createdAt:    r.created_at,
     emailThread:  r.email_thread_id || '',
+    emailThreadId: r.email_thread_id || '',
+    serviceRequested: r.service || '',
     assignedTo:   r.assigned_to    || '',
     // Compatibility aliases (scheduler, analytics, agents use Sheets-era names via g())
     'First Name':               (r.name || '').split(' ')[0] || '',
@@ -101,11 +103,16 @@ async function updateLeadNote(id, note) {
 }
 
 async function updateLeadScore(id, score, scoreLabel, aiSummary) {
-  return updateOne(
-    `UPDATE leads SET score = $1, score_label = $2, ai_summary = $3, updated_at = NOW()
-     WHERE id = $4 AND company_id = $5`,
-    [score, scoreLabel, aiSummary, id, COMPANY_ID]
-  );
+  const sets = [];
+  const vals = [];
+  let i = 1;
+  if (score !== null && score !== undefined) { sets.push(`score = $${i++}`); vals.push(score); }
+  if (scoreLabel !== null && scoreLabel !== undefined) { sets.push(`score_label = $${i++}`); vals.push(scoreLabel); }
+  if (aiSummary !== null && aiSummary !== undefined) { sets.push(`ai_summary = $${i++}`); vals.push(aiSummary); }
+  if (sets.length === 0) return;
+  vals.push(id);
+  vals.push(COMPANY_ID);
+  await query(`UPDATE leads SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${i++} AND company_id = $${i}`, vals);
 }
 
 async function logLeadContact(id) {
