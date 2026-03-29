@@ -3,7 +3,7 @@
  * Caches the app shell for fast loads and offline access.
  */
 
-const CACHE    = 'spec-crm-v2';
+const CACHE    = 'spec-crm-v3';
 const SHELL    = [
   '/',
   '/app.js',
@@ -55,17 +55,14 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // For static assets — cache first, then network
+  // For static assets — network first, fall back to cache
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res && res.status === 200 && res.type !== 'opaque') {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
-    })
+    fetch(e.request).then(res => {
+      if (res && res.status === 200 && res.type !== 'opaque') {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
