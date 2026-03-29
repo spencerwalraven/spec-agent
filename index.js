@@ -3074,6 +3074,17 @@ app.get('/api/sgc/quickbooks/status', (req, res) => {
   }
 });
 
+// Temporary token export — used once to copy tokens into Railway env vars
+app.get('/api/sgc/quickbooks/export-tokens', (req, res) => {
+  if (req.query.secret !== (process.env.WEBHOOK_SECRET || '')) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    res.json(sgcQb.getTokens());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/sgc/quickbooks/disconnect', (req, res) => {
   try {
     const fs   = require('fs');
