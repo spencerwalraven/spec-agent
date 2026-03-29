@@ -1328,8 +1328,10 @@ async function showJobDetail(idx) {
   const depPaid  = j.depositPaid    || 'No';
   const propStat = j.proposalStatus  || '';
   const contStat = j.contractStatus  || '';
-  const propLink = j.proposalToken ? `/proposal/${j.proposalToken}` : '';
-  const contLink = '';
+  const estLink  = j.estimateLink    || '';
+  const propLink = j.proposalLink    || (j.proposalToken ? `/proposal/${j.proposalToken}` : '');
+  const contLink = j.contractLink    || '';
+  const kickLink = j.kickoffLink     || '';
 
   window._openJobRow    = _currentJobRow;
   window._openJobId     = jobId;
@@ -1449,10 +1451,10 @@ async function showJobDetail(idx) {
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
-      [{name:'Estimate',icon:'💰',link:'',event:'estimate_ready'},
+      [{name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready'},
        {name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal'},
        {name:'Contract',icon:'📝',link:contLink,event:'generate_contract'},
-       {name:'Kickoff Doc',icon:'🚀',link:'',event:'plan_project'}
+       {name:'Kickoff Doc',icon:'🚀',link:kickLink,event:'plan_project'}
       ].map(d => '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div>'+
         (d.link ? '<a class="doc-btn" href="'+d.link+'" target="_blank">Open ↗</a>'
                : '<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>')+

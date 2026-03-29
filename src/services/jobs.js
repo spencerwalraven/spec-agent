@@ -32,6 +32,11 @@ function formatJob(r) {
     startDate:         r.start_date  ? new Date(r.start_date).toLocaleDateString()  : '',
     endDate:           r.end_date    ? new Date(r.end_date).toLocaleDateString()    : '',
     kickoffDate:       r.kickoff_date ? new Date(r.kickoff_date).toLocaleDateString() : '',
+    // Doc links
+    estimateLink:      r.estimate_link     || '',
+    proposalLink:      r.proposal_link     || '',
+    contractLink:      r.contract_link     || '',
+    kickoffLink:       r.kickoff_link      || '',
     // Proposal
     proposalStatus:    r.proposal_status   || '',
     proposalSentAt:    r.proposal_sent_at  || null,
@@ -222,7 +227,8 @@ async function updateJobField(id, field, value) {
     'site_visit_notes', 'site_visit_measurements', 'square_footage', 'quality_tier',
     'site_visit_date', 'email_thread_id', 'proposal_sent_at', 'contract_signed_at',
     'deposit_paid', 'review_requested', 'proposal_follow_ups', 'deposit_invoice_sent',
-    'final_invoice_sent', 'thirty_day_sent'];
+    'final_invoice_sent', 'thirty_day_sent',
+    'estimate_link', 'proposal_link', 'contract_link', 'kickoff_link'];
   if (!allowed.includes(field)) throw new Error(`Field ${field} not updatable`);
   return updateOne(
     `UPDATE jobs SET ${field} = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,

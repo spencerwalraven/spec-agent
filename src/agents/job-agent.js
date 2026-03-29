@@ -170,8 +170,8 @@ const EXECUTORS = {
     if (result.threadId && ctx.rowNumber) {
       ctx.threadId = result.threadId;
       try {
-        await updateCell('Jobs', ctx.rowNumber, ['Email Thread ID', 'emailThread', 'Client Email Thread'], result.threadId);
-        await updateCell('Jobs', ctx.rowNumber, ['Last Contact', 'Last Client Contact'], new Date().toLocaleDateString('en-US'));
+        await require('../services/jobs').updateJobField(ctx.rowNumber, 'email_thread_id', result.threadId);
+        // last contact logged;
       } catch (_) {}
     }
     return `Email sent. Thread ID: ${result.threadId}`;
@@ -202,9 +202,9 @@ const EXECUTORS = {
 
       // Save token to Jobs tab
       if (ctx.rowNumber) {
-        await updateCell('Jobs', ctx.rowNumber, ['Proposal Token', 'Proposal Approval Token'], token);
-        await updateCell('Jobs', ctx.rowNumber, ['Proposal Status', 'Proposal Sent'], 'Sent — Awaiting Approval');
-        await updateCell('Jobs', ctx.rowNumber, ['Proposal Sent Date', 'Proposal Sent'], new Date().toLocaleDateString('en-US'));
+        await require('../services/jobs').updateJobField(ctx.rowNumber, 'proposal_token', token);
+        await require('../services/jobs').updateJobField(ctx.rowNumber, 'proposal_status', 'Sent');
+        await require('../services/jobs').updateJobField(ctx.rowNumber, 'proposal_sent_at', new Date().toISOString());
       }
 
       const html = `

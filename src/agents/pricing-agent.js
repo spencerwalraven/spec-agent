@@ -237,10 +237,11 @@ const EXECUTORS = {
   create_estimate_doc: async ({ title, content }, ctx) => {
     try {
       const doc = await createDoc({ title, body: content });
-      // Save doc link to job row
+      // Save doc link to job
       if (ctx.rowNumber) {
         try {
-          await updateCell('Jobs', ctx.rowNumber, ['Estimate Doc Link', 'Estimate Link'], doc.docUrl);
+          const dbJobs = require('../services/jobs');
+          await dbJobs.updateJobField(ctx.rowNumber, 'estimate_link', doc.docUrl);
         } catch (_) {}
       }
       logger.success('PricingAgent', `Estimate doc created: ${doc.docUrl}`);
