@@ -18,10 +18,11 @@ const { route }  = require('../agents/orchestrator');
 const { readTab, g } = require('../tools/sheets-compat');
 const { logger } = require('../utils/logger');
 const { notifyOwner } = require('../tools/notify');
-let gmailWatch, weatherTool, sgcBriefing;
-try { gmailWatch  = require('../tools/gmail-watch'); } catch (_) {}
-try { weatherTool = require('../tools/weather');     } catch (_) {}
-try { sgcBriefing = require('../jobs/sgc-briefing'); } catch (_) {}
+let gmailWatch, weatherTool, sgcBriefing, sgcFieldMonitor;
+try { gmailWatch      = require('../tools/gmail-watch'); } catch (_) {}
+try { weatherTool     = require('../tools/weather');     } catch (_) {}
+try { sgcBriefing     = require('../jobs/sgc-briefing'); } catch (_) {}
+try { sgcFieldMonitor = require('../jobs/sgc-field-report-monitor'); } catch (_) {}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -453,6 +454,13 @@ function startScheduler() {
     if (!sgcBriefing) return;
     try { await sgcBriefing.runSGCMorningBriefing(); }
     catch (e) { logger.error('Scheduler', `SGC briefing failed: ${e.message}`); }
+  }, { timezone: 'America/Phoenix' });
+
+  // SGC field report monitor — weekdays at 6:00pm Arizona time
+  cron.schedule('0 18 * * 1-5', async () => {
+    if (!sgcFieldMonitor) return;
+    try { await sgcFieldMonitor.runFieldReportMonitor(); }
+    catch (e) { logger.error('Scheduler', `SGC field report monitor failed: ${e.message}`); }
   }, { timezone: 'America/Phoenix' });
 
   // Gmail watch renewal — every day at 6:00am (watch expires after 7 days)

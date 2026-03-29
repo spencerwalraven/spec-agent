@@ -281,6 +281,7 @@ const PUBLIC_PREFIXES = [
   '/sgc',
   '/api/sgc/',
   '/sgc-ops',
+  '/api/sgc/field-report',
 ];
 
 app.use((req, res, next) => {
@@ -3124,6 +3125,78 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
     const active = jobs.filter(j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase() === 'in progress');
     res.json({ jobs: active.map(j => ({ job: j['#'], customer: j['Customer'], status: j['Job Status '] || j['Job Status'], thru: j['Thru'] })) });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
+app.post('/api/sgc/field-report', async (req, res) => {
+  try {
+    const payload = req.body;
+    // Parse Tally webhook format
+    const fields  = (payload?.data?.fields || []);
+    const get     = (label) => {
+      const f = fields.find(f => f.label && f.label.toLowerCase().includes(label.toLowerCase()));
+      return f ? (Array.isArray(f.value) ? f.value.join(', ') : String(f.value || '')) : '';
+    };
+
+    const report = {
+      'Submitted At': new Date().toISOString(),
+      'Name':         get('name'),
+      'Date':         get('date'),
+      'Job Name / Address': get('job'),
+      'Work Completed Today': get('work completed'),
+      'Issues or Delays': get('issues'),
+      'Materials Purchased': get('materials'),
+      'Plan for Tomorrow': get('plan'),
+      'Admin Follow Up': get('admin') || get('follow up'),
+    };
+
+    // Write to Google Sheet "Field Reports" tab
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    if (SGC_SHEET_ID) {
+      const { google } = require('googleapis');
+      const auth = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+      );
+      auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+      const sheets = google.sheets({ version: 'v4', auth });
+
+      const headers = Object.keys(report);
+      const values  = Object.values(report);
+
+      // Check if sheet tab exists, create headers if first row
+      try {
+        const check = await sheets.spreadsheets.values.get({
+          spreadsheetId: SGC_SHEET_ID,
+          range: 'Field Reports!A1:Z1',
+        });
+        if (!check.data.values || !check.data.values[0]?.length) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SGC_SHEET_ID,
+            range: 'Field Reports!A1',
+            valueInputOption: 'RAW',
+            requestBody: { values: [headers] },
+          });
+        }
+      } catch (_) {
+        // Tab might not exist — try to create it
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SGC_SHEET_ID,
+        range: 'Field Reports!A1',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: [values] },
+      });
+    }
+
+    logger.info('SGC-FieldReport', `Report received from ${report['Name']} for ${report['Job Name / Address']}`);
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('SGC-FieldReport', `Webhook error: ${e.message}`);
     res.status(500).json({ error: e.message });
   }
 });
