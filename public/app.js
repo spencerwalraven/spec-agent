@@ -125,7 +125,7 @@ function applyRoleNav(role) {
       { page: 'dashboard', icon: '🏠', label: 'Home' },
       { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
       { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'clients',   icon: '🤝', label: 'Clients' },
+      { page: 'team',      icon: '👥', label: 'Team' },
       { page: 'more',      icon: '☰',  label: 'More' },
     ],
     sales: [
@@ -1388,32 +1388,12 @@ async function showJobDetail(idx) {
       ${statusSwitcher}
     </div>
 
-    ${currentUser?.role !== 'field' ? `<div class="modal-section">
-      <div class="modal-section-label">Financials</div>
-      <div class="detail-row"><div class="detail-key">Contract Value</div><div class="detail-val fw800" style="color:var(--gold)">${estVal ? formatCurrency(estVal) : '—'}</div></div>
-      ${matCost ? `<div class="detail-row"><div class="detail-key">Materials</div><div class="detail-val">${formatCurrency(matCost)}</div></div>` : ''}
-      ${labCost ? `<div class="detail-row"><div class="detail-key">Labor</div><div class="detail-val">${formatCurrency(labCost)}</div></div>` : ''}
-      ${(matCost || labCost) ? `<div class="detail-row"><div class="detail-key">Gross Profit</div><div class="detail-val" style="color:var(--green)">${formatCurrency(grossProfit)} <span style="font-size:11px;color:var(--text3)">(${marginPct}%)</span></div></div>` : ''}
-      <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
-    </div>` : ''}
-
-    <div class="modal-section">
-      <div class="modal-section-label">Project Info</div>
-      <div class="detail-row" id="jmStatusBadge"><div class="detail-key">Status</div><div class="detail-val">${statusBadge(JOB_STATUS_LABELS[status] || status)}</div></div>
-      ${start    ? `<div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${start}</div></div>` : ''}
-      ${end      ? `<div class="detail-row"><div class="detail-key">End Date</div><div class="detail-val">${end}</div></div>` : ''}
-      ${address  ? `<div class="detail-row"><div class="detail-key">Address</div><div class="detail-val" style="font-size:13px">${address}</div></div>` : ''}
-      ${propStat ? `<div class="detail-row"><div class="detail-key">Proposal</div><div class="detail-val">${statusBadge(propStat)}</div></div>` : ''}
-      ${contStat ? `<div class="detail-row"><div class="detail-key">Contract</div><div class="detail-val">${statusBadge(contStat)}</div></div>` : ''}
-    </div>
-
-    ${currentUser?.role !== 'field' ? `<div class="modal-section">
-      <div class="modal-section-label">📋 Site Visit Notes</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Add details after walking the property — the AI uses these to build accurate estimates</div>
-      <textarea id="jmSiteNotes" placeholder="Describe what you saw — existing conditions, specific materials client wants, access issues, anything relevant..." rows="3" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitNotes || ''}</textarea>
-      <textarea id="jmSiteMeasurements" placeholder="Measurements: kitchen 12x14, island 4x8, backsplash 35 sq ft..." rows="2" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitMeasurements || ''}</textarea>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input id="jmSqft" type="number" placeholder="Sq ft" class="form-input" style="flex:1;font-size:13px" value="${j.squareFootage || ''}">
+    ${currentUser?.role !== 'field' ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
+      <div class="modal-section-label" style="margin-bottom:10px">📋 Site Visit & Estimate</div>
+      <textarea id="jmSiteNotes" placeholder="Site conditions, client preferences, specific materials, access issues..." rows="3" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitNotes || ''}</textarea>
+      <textarea id="jmSiteMeasurements" placeholder="Measurements: patio 20x25, walkway 4x60, retaining wall 40 linear ft..." rows="2" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitMeasurements || ''}</textarea>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="jmSqft" type="number" placeholder="Total sq ft" class="form-input" style="flex:1;font-size:13px" value="${j.squareFootage || ''}">
         <select id="jmQuality" class="form-input" style="flex:1;font-size:13px">
           <option value="">Quality tier...</option>
           <option value="budget" ${j.qualityTier==='budget'?'selected':''}>Budget</option>
@@ -1424,9 +1404,27 @@ async function showJobDetail(idx) {
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save Notes</button>
-        <button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate(${_currentJobRow})">🤖 Save & Generate Estimate</button>
+        <button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate(${_currentJobRow})">🤖 Generate Estimate</button>
       </div>
-      ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">Last site visit: ${j.siteVisitDate}</div>` : ''}
+      ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: ${j.siteVisitDate}</div>` : ''}
+    </div>` : ''}
+
+    <div class="modal-section">
+      <div class="modal-section-label">Project Info</div>
+      ${start    ? `<div class="detail-row"><div class="detail-key">Start Date</div><div class="detail-val">${start}</div></div>` : ''}
+      ${end      ? `<div class="detail-row"><div class="detail-key">End Date</div><div class="detail-val">${end}</div></div>` : ''}
+      ${address  ? `<div class="detail-row"><div class="detail-key">Address</div><div class="detail-val" style="font-size:13px">${address}</div></div>` : ''}
+      ${propStat ? `<div class="detail-row"><div class="detail-key">Proposal</div><div class="detail-val">${statusBadge(propStat)}</div></div>` : ''}
+      ${contStat ? `<div class="detail-row"><div class="detail-key">Contract</div><div class="detail-val">${statusBadge(contStat)}</div></div>` : ''}
+    </div>
+
+    ${currentUser?.role !== 'field' ? `<div class="modal-section">
+      <div class="modal-section-label">Financials</div>
+      <div class="detail-row"><div class="detail-key">Contract Value</div><div class="detail-val fw800" style="color:var(--gold)">${estVal ? formatCurrency(estVal) : '—'}</div></div>
+      ${matCost ? `<div class="detail-row"><div class="detail-key">Materials</div><div class="detail-val">${formatCurrency(matCost)}</div></div>` : ''}
+      ${labCost ? `<div class="detail-row"><div class="detail-key">Labor</div><div class="detail-val">${formatCurrency(labCost)}</div></div>` : ''}
+      ${(matCost || labCost) ? `<div class="detail-row"><div class="detail-key">Gross Profit</div><div class="detail-val" style="color:var(--green)">${formatCurrency(grossProfit)} <span style="font-size:11px;color:var(--text3)">(${marginPct}%)</span></div></div>` : ''}
+      <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? `<div class="modal-section">
