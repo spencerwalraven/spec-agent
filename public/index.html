@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SPEC CRM</title>
+<title>SPEC Systems</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CRM">
+<meta name="apple-mobile-web-app-title" content="SPEC">
 <meta name="theme-color" content="#0A0A0A">
 <link rel="apple-touch-icon" href="/icon.svg">
 <style>
@@ -122,7 +122,7 @@
   .card-body{padding:16px}
 
   /* ── KPI GRID ─────────────────────────────────────────────────── */
-  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
   .kpi-card{
     background:var(--card);border:1px solid var(--border);
     border-radius:var(--r);padding:14px;
@@ -589,9 +589,9 @@
   @keyframes shimmer{0%,100%{opacity:.4}50%{opacity:.9}}
 
   /* ── DASHBOARD HEADER ─────────────────────────────────────────── */
-  .dash-greeting{margin-bottom:18px}
-  .greet-sub{font-size:13px;color:var(--text3);margin-bottom:4px}
-  .greet-main{font-size:22px;font-weight:800}
+  .dash-greeting{margin-bottom:20px;padding:4px 0}
+  .greet-sub{font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:500}
+  .greet-main{font-size:24px;font-weight:800;line-height:1.2}
   .greet-company{
     background:linear-gradient(135deg,var(--gold),#E8C56A);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -826,7 +826,7 @@
   /* ── TODAY'S SCHEDULE STRIP ──────────────────────────────────── */
   .today-strip{
     background:var(--card);border:1px solid var(--border);
-    border-radius:var(--r);margin-bottom:16px;overflow:hidden;
+    border-radius:var(--r);margin-bottom:20px;overflow:hidden;
   }
   .today-strip-hdr{
     display:flex;align-items:center;justify-content:space-between;
@@ -972,7 +972,7 @@
       <div class="section-header">
         <span class="section-title">Recent Activity</span>
       </div>
-      <div class="card">
+      <div class="card" style="margin-bottom:20px">
         <div class="card-body" id="activityFeed">
           <div class="skeleton" style="height:12px;width:80%;margin-bottom:12px"></div>
           <div class="skeleton" style="height:12px;width:60%;margin-bottom:12px"></div>
@@ -981,7 +981,7 @@
       </div>
 
       <!-- AI Activity Feed -->
-      <div class="section-header" style="margin-top:20px">
+      <div class="section-header">
         <span class="section-title">🤖 AI Activity</span>
         <button onclick="navigate('agents')" class="section-action">See all →</button>
       </div>
