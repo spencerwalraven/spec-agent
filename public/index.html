@@ -418,16 +418,16 @@
   .est-grade-btn.sel-standard .g-name{color:var(--gold)}
   .est-grade-btn.sel-premium{background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.25)}
   .est-grade-btn.sel-premium .g-name{color:#A78BFA}
-  .est-room-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
-  .est-room-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-  .est-room-num{width:24px;height:24px;border-radius:50%;background:var(--gold);color:#000;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .est-room-name{flex:1;background:none;border:none;border-bottom:1px solid var(--border);padding:3px 0;font-size:14px;font-weight:600;color:var(--text);font-family:inherit}
-  .est-room-name:focus{outline:none;border-bottom-color:var(--gold)}
-  .est-room-name::placeholder{color:var(--text3)}
-  .est-remove-room{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;-webkit-tap-highlight-color:transparent}
-  .est-remove-room:active{color:var(--red)}
-  .est-add-room{display:flex;align-items:center;gap:6px;background:none;border:1px dashed rgba(191,148,56,.3);border-radius:var(--r-sm);padding:10px 14px;color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:12px;font-family:inherit;-webkit-tap-highlight-color:transparent}
-  .est-add-room:active{background:rgba(191,148,56,.06)}
+  .est-area-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+  .est-area-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .est-area-num{width:24px;height:24px;border-radius:50%;background:var(--gold);color:#000;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .est-area-name{flex:1;background:none;border:none;border-bottom:1px solid var(--border);padding:3px 0;font-size:14px;font-weight:600;color:var(--text);font-family:inherit}
+  .est-area-name:focus{outline:none;border-bottom-color:var(--gold)}
+  .est-area-name::placeholder{color:var(--text3)}
+  .est-remove-area{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;-webkit-tap-highlight-color:transparent}
+  .est-remove-area:active{color:var(--red)}
+  .est-add-area{display:flex;align-items:center;gap:6px;background:none;border:1px dashed rgba(191,148,56,.3);border-radius:var(--r-sm);padding:10px 14px;color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:12px;font-family:inherit;-webkit-tap-highlight-color:transparent}
+  .est-add-area:active{background:rgba(191,148,56,.06)}
   .est-submit{width:100%;background:var(--gold);color:#000;border:none;border-radius:var(--r);padding:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s;margin-top:8px}
   .est-submit:active{opacity:.75}
   .est-submit.loading{opacity:.5;pointer-events:none}
@@ -1136,15 +1136,15 @@
           </div>
         </div>
 
-        <!-- Rooms & Scope -->
+        <!-- Areas & Scope -->
         <div class="est-card">
           <div class="est-card-hdr">
-            <span class="est-card-title">Rooms &amp; Scope</span>
+            <span class="est-card-title">Areas &amp; Scope</span>
             <span class="est-card-badge">Tap items to select</span>
           </div>
           <div class="est-card-body" style="padding-bottom:6px">
-            <div id="estRoomsContainer"></div>
-            <button type="button" class="est-add-room" onclick="estAddRoom()">+ Add Room</button>
+            <div id="estAreasContainer"></div>
+            <button type="button" class="est-add-area" onclick="estAddArea()">+ Add Area</button>
           </div>
         </div>
 

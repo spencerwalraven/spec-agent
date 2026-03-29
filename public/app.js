@@ -3050,8 +3050,8 @@ let _fieldPhases = {};
 let _expandedFieldRow = null;
 
 async function loadField() {
-  // page-field is now the Job Site Estimate form — just ensure rooms are initialized
-  if (!estRoomCount) estAddRoom('Kitchen');
+  // page-field is now the Job Site Estimate form — just ensure areas are initialized
+  if (!estAreaCount) estAddArea('Front Yard');
   return; // no async data needed
   const el = document.getElementById('fieldJobList');
   if (!el) return;
@@ -4284,7 +4284,7 @@ const EST_SCOPE_ITEMS = [
   { key: 'custom',       label: 'Other / Custom',            unit: null     },
 ];
 
-let estRoomCount = 0;
+let estAreaCount = 0;
 
 function estBuildScopeGrid(roomId) {
   return EST_SCOPE_ITEMS.map(item => {
@@ -4301,12 +4301,12 @@ function estBuildScopeGrid(roomId) {
   }).join('');
 }
 
-function estBuildRoom(idx, isFirst) {
-  const removeBtn = isFirst ? '' : `<button type="button" class="est-remove-room" onclick="estRemoveRoom(this)" title="Remove">✕</button>`;
-  return `<div class="est-room-card" data-room-idx="${idx}">
-    <div class="est-room-hdr">
-      <div class="est-room-num">${idx}</div>
-      <input class="est-room-name" type="text" placeholder="Room name (e.g. Kitchen)">
+function estBuildArea(idx, isFirst) {
+  const removeBtn = isFirst ? '' : `<button type="button" class="est-remove-room" onclick="estRemoveArea(this)" title="Remove">✕</button>`;
+  return `<div class="est-area-card" data-room-idx="${idx}">
+    <div class="est-area-hdr">
+      <div class="est-area-num">${idx}</div>
+      <input class="est-area-name" type="text" placeholder="Area name (e.g. Front Yard)">
       ${removeBtn}
     </div>
     <div class="est-scope-grid">${estBuildScopeGrid(idx)}</div>
@@ -4319,27 +4319,27 @@ function estBuildRoom(idx, isFirst) {
   </div>`;
 }
 
-function estAddRoom(defaultName) {
-  estRoomCount++;
-  const container = document.getElementById('estRoomsContainer');
+function estAddArea(defaultName) {
+  estAreaCount++;
+  const container = document.getElementById('estAreasContainer');
   if (!container) return;
   const div = document.createElement('div');
-  div.innerHTML = estBuildRoom(estRoomCount, estRoomCount === 1);
+  div.innerHTML = estBuildArea(estAreaCount, estAreaCount === 1);
   const card = div.firstElementChild;
   container.appendChild(card);
-  if (defaultName) card.querySelector('.est-room-name').value = defaultName;
-  if (estRoomCount > 1) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (defaultName) card.querySelector('.est-area-name').value = defaultName;
+  if (estAreaCount > 1) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   estRenumber();
 }
 
-function estRemoveRoom(btn) {
-  btn.closest('.est-room-card').remove();
+function estRemoveArea(btn) {
+  btn.closest('.est-area-card').remove();
   estRenumber();
 }
 
 function estRenumber() {
-  document.querySelectorAll('#estRoomsContainer .est-room-card').forEach((c, i) => {
-    const num = c.querySelector('.est-room-num');
+  document.querySelectorAll('#estAreasContainer .est-area-card').forEach((c, i) => {
+    const num = c.querySelector('.est-area-num');
     if (num) num.textContent = i + 1;
     c.setAttribute('data-room-idx', i + 1);
   });
@@ -4365,8 +4365,8 @@ function estSelectGrade(btn) {
 
 function estCollectData() {
   const rooms = [];
-  document.querySelectorAll('#estRoomsContainer .est-room-card').forEach(card => {
-    const roomName = card.querySelector('.est-room-name')?.value?.trim() || 'Room';
+  document.querySelectorAll('#estAreasContainer .est-area-card').forEach(card => {
+    const roomName = card.querySelector('.est-area-name')?.value?.trim() || 'Room';
     const grade = card.querySelector('.est-grade-btn.sel-budget') ? 'budget'
                 : card.querySelector('.est-grade-btn.sel-premium') ? 'premium'
                 : 'standard';
@@ -4436,9 +4436,9 @@ function showEstSuccess() {
     btn.style.display = '';
     lbl.textContent = 'Send to Estimate Agent';
     success.classList.remove('visible');
-    document.getElementById('estRoomsContainer').innerHTML = '';
-    estRoomCount = 0;
-    estAddRoom('Kitchen');
+    document.getElementById('estAreasContainer').innerHTML = '';
+    estAreaCount = 0;
+    estAddArea('Front Yard');
     document.getElementById('estClientName').value = '';
     document.getElementById('estClientPhone').value = '';
     document.getElementById('estAddress').value = '';
@@ -4459,7 +4459,7 @@ const _origNavigate = navigate;
 // Init first room when field page is first opened
 document.addEventListener('DOMContentLoaded', () => {
   // pre-init the room so it's ready on first open
-  if (!estRoomCount) estAddRoom('Kitchen');
+  if (!estAreaCount) estAddArea('Front Yard');
 });
 
 // ── PHOTO UPLOAD ──────────────────────────────────────────────
