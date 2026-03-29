@@ -143,8 +143,7 @@ function applyRoleNav(role) {
     ],
   };
 
-  // Build role-aware More menu
-  buildMoreMenu(role);
+  // Role-aware More menu hiding handled separately
 
   if (!role || !configs[role]) role = 'owner';
   const items = configs[role];
