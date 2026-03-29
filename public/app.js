@@ -1725,7 +1725,7 @@ async function triggerDocGen(eventType, rowNumber) {
   try {
     const res = await fetch('/webhook/trigger', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-internal': '1' },
       body: JSON.stringify({ type: eventType, rowNumber: savedRow }),
     });
     if (res.ok) {
@@ -3200,7 +3200,7 @@ async function triggerAgent(type) {
   try {
     const res = await fetch('/webhook/trigger', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-internal': '1' },
       body: JSON.stringify({ type, rowNumber }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
