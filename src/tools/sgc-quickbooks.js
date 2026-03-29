@@ -34,8 +34,24 @@ const TOKEN_FILE = path.join(__dirname, '../data/sgc-qb-tokens.json');
 
 function getTokens() {
   try {
-    if (!fs.existsSync(TOKEN_FILE)) return {};
-    return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+    // Try the local token file first
+    if (fs.existsSync(TOKEN_FILE)) {
+      const tokens = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+      if (tokens.refreshToken) return tokens;
+    }
+    // Fall back to Railway environment variables (survive redeploys)
+    if (process.env.SGC_QB_REFRESH_TOKEN) {
+      const tokens = {
+        accessToken:  process.env.SGC_QB_ACCESS_TOKEN  || '',
+        refreshToken: process.env.SGC_QB_REFRESH_TOKEN,
+        realmId:      process.env.SGC_QB_REALM_ID      || '',
+        expiresAt:    process.env.SGC_QB_EXPIRES_AT    || '',
+        companyName:  process.env.SGC_QB_COMPANY_NAME  || '',
+      };
+      saveTokens(tokens); // write to file so token refreshes work
+      return tokens;
+    }
+    return {};
   } catch { return {}; }
 }
 
