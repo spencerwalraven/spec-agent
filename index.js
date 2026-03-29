@@ -280,6 +280,7 @@ const PUBLIC_PREFIXES = [
   '/api/pay/',
   '/sgc',
   '/api/sgc/',
+  '/sgc-ops',
 ];
 
 app.use((req, res, next) => {
@@ -3080,6 +3081,52 @@ async function handleQBPayment(realmId, paymentId) {
 
 // ─── SGC STANDALONE PAGE ─────────────────────────────────────────────────────
 app.get('/sgc', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc.html')));
+
+// ─── SGC OPS DASHBOARD ────────────────────────────────────────────────────────
+app.get('/sgc-ops', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc-ops.html')));
+
+app.get('/api/sgc/ops/subs', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const [subs] = await Promise.all([agent.sgcReadTab('2025 SubCons')]);
+    const mapped = subs.map(s => ({
+      name:        s['Name'] || s['Company Name'] || s['SUB'] || '',
+      company:     s['Company'] || s['Company Name'] || '',
+      trade:       s['Trade'] || s['Specialty'] || s['TRADE'] || '',
+      email:       s['Email'] || s['EMAIL'] || '',
+      w9:          s['W9 Received '] || s['W9 Received'] || s['W-9'] || '',
+      btOnboarded: s['BT Onboarding'] || s['Buildertrend'] || '',
+      needs1099:   s['1099 needed'] || s['1099 Needed'] || '',
+      sent1099:    s['1099 Sent'] || '',
+      totalPaid:   s['2025 Total'] || s['Total Paid'] || s['2025 Total Paid'] || '',
+      notes:       s['NOTES'] || s['Notes'] || '',
+    })).filter(s => s.name);
+    res.json({ subs: mapped });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/sgc/ops/insurance', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const tasks = await agent.sgcReadTab('Insurance Tasks');
+    res.json({ tasks });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/sgc/ops/jobs', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const jobs = await agent.sgcReadTab('SGC');
+    const active = jobs.filter(j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase() === 'in progress');
+    res.json({ jobs: active.map(j => ({ job: j['#'], customer: j['Customer'], status: j['Job Status '] || j['Job Status'], thru: j['Thru'] })) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── SGC QUICKBOOKS OAUTH ─────────────────────────────────────────────────────
 app.get('/api/sgc/quickbooks/connect', (req, res) => {

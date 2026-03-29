@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGC Operations Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0a0a0a;
+      --card:    #141414;
+      --card2:   #1c1c1c;
+      --border:  #2a2a2a;
+      --text:    #f0f0f0;
+      --text2:   #888;
+      --text3:   #555;
+      --gold:    #C9A84C;
+      --gold2:   #E8C56A;
+      --red:     #ef4444;
+      --green:   #4ade80;
+      --yellow:  #facc15;
+      --radius:  12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+    }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .top-bar-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .top-bar-info { flex: 1; }
+    .top-bar-title { font-size: 17px; font-weight: 700; }
+    .top-bar-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .top-bar-right { display: flex; align-items: center; gap: 12px; }
+    .last-updated { font-size: 11px; color: var(--text3); }
+    .refresh-btn {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+    /* ── NAV TABS ── */
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 16px 24px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      color: var(--text2);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+    .tab-badge {
+      display: inline-block;
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .content { padding: 24px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-label { font-size: 12px; color: var(--text2); }
+    .stat-red .stat-value { color: var(--red); }
+    .stat-green .stat-value { color: var(--green); }
+    .stat-yellow .stat-value { color: var(--yellow); }
+    .stat-gold .stat-value { color: var(--gold); }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title { font-size: 15px; font-weight: 700; }
+    .section-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      background: var(--card2);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── STATUS PILLS ── */
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .pill-green  { background: rgba(74,222,128,0.12); color: var(--green); }
+    .pill-red    { background: rgba(239,68,68,0.12);  color: var(--red); }
+    .pill-yellow { background: rgba(250,204,21,0.12); color: var(--yellow); }
+    .pill-gray   { background: rgba(136,136,136,0.12); color: var(--text2); }
+
+    /* ── COMPLIANCE DOTS ── */
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-green  { background: var(--green); }
+    .dot-red    { background: var(--red); }
+    .dot-gray   { background: var(--text3); }
+
+    /* ── FIELD REPORTS ── */
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .report-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .report-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .tech-name { font-weight: 600; font-size: 14px; }
+    .report-fields { display: flex; flex-direction: column; gap: 6px; }
+    .report-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    /* ── INSURANCE TASKS ── */
+    .task-list { display: flex; flex-direction: column; gap: 8px; }
+    .task-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .task-info { flex: 1; }
+    .task-name { font-size: 14px; font-weight: 500; }
+    .task-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+
+    /* ── LOADING ── */
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: var(--text2);
+      font-size: 14px;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; padding: 50px; color: var(--text2); font-size: 14px; }
+
+    /* ── SEARCH ── */
+    .search-bar {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: var(--text);
+      font-size: 13px;
+      width: 220px;
+      outline: none;
+    }
+    .search-bar:focus { border-color: var(--gold); }
+    .search-bar::placeholder { color: var(--text3); }
+
+    /* ── DEMO BANNER ── */
+    .demo-banner {
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 13px;
+      color: var(--gold);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="top-bar-icon">🏗️</div>
+    <div class="top-bar-info">
+      <div class="top-bar-title">SGC Operations Dashboard</div>
+      <div class="top-bar-sub">Scottsdale General Contracting · Admin View</div>
+    </div>
+    <div class="top-bar-right">
+      <span class="last-updated" id="lastUpdated">Loading...</span>
+      <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- NAV TABS -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('subs')">
+      Sub Compliance <span class="tab-badge" id="subsBadge">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('reports')">
+      Field Reports <span class="tab-badge" id="reportsBadge">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('insurance')">
+      Insurance Tasks <span class="tab-badge" id="insuranceBadge">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('jobs')">
+      Active Jobs
+    </button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- SUB COMPLIANCE TAB -->
+    <div class="tab-panel active" id="tab-subs">
+      <div class="stats-row" id="subStats">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Subcontractor Compliance</div>
+          <div class="section-sub">W-9, Buildertrend onboarding, and 1099 status for all active subs</div>
+        </div>
+        <input class="search-bar" id="subSearch" placeholder="Search subs..." oninput="filterSubs()" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Subcontractor</th>
+              <th>Trade</th>
+              <th>W-9</th>
+              <th>BT Onboarded</th>
+              <th>1099 Needed</th>
+              <th>1099 Sent</th>
+              <th>2025 Total Paid</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="subsTable">
+            <tr><td colspan="8" class="loading"><div class="spinner"></div>Loading subcontractors...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FIELD REPORTS TAB -->
+    <div class="tab-panel" id="tab-reports">
+      <div class="demo-banner">
+        ⚡ Field report monitoring is being set up via Tally + Buildertrend. Daily AI follow-up emails will go live by end of week.
+      </div>
+      <div class="stats-row">
+        <div class="stat-card stat-green">
+          <div class="stat-value">5</div>
+          <div class="stat-label">Field Techs Being Tracked</div>
+        </div>
+        <div class="stat-card stat-yellow">
+          <div class="stat-value">—</div>
+          <div class="stat-label">Reports Submitted Today</div>
+        </div>
+        <div class="stat-card stat-red">
+          <div class="stat-value">—</div>
+          <div class="stat-label">Missing / Incomplete</div>
+        </div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Daily Field Reports</div>
+          <div class="section-sub">AI monitors submissions at 6pm · Sends follow-up emails automatically if missing or incomplete</div>
+        </div>
+      </div>
+      <div class="report-grid">
+        <!-- Tech cards for demo -->
+        <div class="report-card">
+          <div class="report-card-top">
+            <span class="tech-name">Joe Robb</span>
+            <span class="pill pill-yellow">Pending</span>
+          </div>
+          <div class="report-fields">
+            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
+            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
+            <div class="report-field"><span class="dot dot-red"></span> Materials Purchased</div>
+            <div class="report-field"><span class="dot dot-red"></span> Plan for Tomorrow</div>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-top">
+            <span class="tech-name">Elias Fuentes</span>
+            <span class="pill pill-green">Submitted</span>
+          </div>
+          <div class="report-fields">
+            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
+            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
+            <div class="report-field"><span class="dot dot-green"></span> Materials Purchased</div>
+            <div class="report-field"><span class="dot dot-green"></span> Plan for Tomorrow</div>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-top">
+            <span class="tech-name">Gerardo Garcia</span>
+            <span class="pill pill-red">Missing</span>
+          </div>
+          <div class="report-fields">
+            <div class="report-field"><span class="dot dot-gray"></span> Hours Worked</div>
+            <div class="report-field"><span class="dot dot-gray"></span> Work Completed</div>
+            <div class="report-field"><span class="dot dot-gray"></span> Materials Purchased</div>
+            <div class="report-field"><span class="dot dot-gray"></span> Plan for Tomorrow</div>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-top">
+            <span class="tech-name">Matthew Romani</span>
+            <span class="pill pill-green">Submitted</span>
+          </div>
+          <div class="report-fields">
+            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
+            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
+            <div class="report-field"><span class="dot dot-green"></span> Materials Purchased</div>
+            <div class="report-field"><span class="dot dot-green"></span> Plan for Tomorrow</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px; padding:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); font-size:13px; color:var(--text2);">
+        <strong style="color:var(--gold);">🤖 AI Action Log — Today</strong><br><br>
+        <span style="color:var(--text3);">6:00 PM</span> &nbsp;·&nbsp; Checked submissions for all 4 techs<br>
+        <span style="color:var(--text3);">6:01 PM</span> &nbsp;·&nbsp; <span style="color:var(--red)">Gerardo Garcia</span> — no report submitted. Sent follow-up email.<br>
+        <span style="color:var(--text3);">6:01 PM</span> &nbsp;·&nbsp; <span style="color:var(--yellow)">Joe Robb</span> — report incomplete (missing materials + plan). Sent reminder.<br>
+        <span style="color:var(--text3);">6:02 PM</span> &nbsp;·&nbsp; Serene notified of 2 outstanding reports.
+      </div>
+    </div>
+
+    <!-- INSURANCE TASKS TAB -->
+    <div class="tab-panel" id="tab-insurance">
+      <div class="stats-row" id="insuranceStats">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Insurance & Compliance Tasks</div>
+          <div class="section-sub">Policies, agreements, and safety programs required for SGC</div>
+        </div>
+      </div>
+      <div class="task-list" id="insuranceList">
+        <div class="loading"><div class="spinner"></div>Loading tasks...</div>
+      </div>
+    </div>
+
+    <!-- ACTIVE JOBS TAB -->
+    <div class="tab-panel" id="tab-jobs">
+      <div class="stats-row" id="jobStats">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Active Jobs</div>
+          <div class="section-sub">All jobs currently in progress</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Job #</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Target End</th>
+            </tr>
+          </thead>
+          <tbody id="jobsTable">
+            <tr><td colspan="4" class="loading"><div class="spinner"></div>Loading jobs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <script>
+    let allSubs = [];
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        const tabs = ['subs', 'reports', 'insurance', 'jobs'];
+        b.classList.toggle('active', tabs[i] === name);
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function statusPill(val) {
+      if (!val) return '<span class="pill pill-red">Missing</span>';
+      const v = String(val).toLowerCase().trim();
+      if (v === 'yes' || v === 'true' || v === 'received')  return '<span class="pill pill-green">Yes</span>';
+      if (v === 'no'  || v === 'false') return '<span class="pill pill-red">No</span>';
+      if (v === 'incomplete') return '<span class="pill pill-yellow">Incomplete</span>';
+      return `<span class="pill pill-gray">${val}</span>`;
+    }
+
+    function taskPill(status) {
+      if (!status) return '<span class="pill pill-gray">Unknown</span>';
+      const v = status.toLowerCase();
+      if (v === 'complete' || v === 'done') return '<span class="pill pill-green">Complete</span>';
+      if (v === 'in progress') return '<span class="pill pill-yellow">In Progress</span>';
+      return '<span class="pill pill-red">Not Started</span>';
+    }
+
+    async function loadSubs() {
+      try {
+        const res  = await fetch('/api/sgc/ops/subs');
+        const data = await res.json();
+        allSubs = data.subs || [];
+
+        // Stats
+        const missingW9  = allSubs.filter(s => !s.w9 || String(s.w9).toLowerCase() !== 'yes').length;
+        const notBT      = allSubs.filter(s => !s.btOnboarded || String(s.btOnboarded).toLowerCase() !== 'yes').length;
+        const compliant  = allSubs.filter(s => String(s.w9||'').toLowerCase() === 'yes' && String(s.btOnboarded||'').toLowerCase() === 'yes').length;
+
+        document.getElementById('subStats').innerHTML = `
+          <div class="stat-card stat-gold"><div class="stat-value">${allSubs.length}</div><div class="stat-label">Total Subcontractors</div></div>
+          <div class="stat-card stat-red"><div class="stat-value">${missingW9}</div><div class="stat-label">Missing W-9</div></div>
+          <div class="stat-card stat-red"><div class="stat-value">${notBT}</div><div class="stat-label">Not on Buildertrend</div></div>
+          <div class="stat-card stat-green"><div class="stat-value">${compliant}</div><div class="stat-label">Fully Compliant</div></div>
+        `;
+        document.getElementById('subsBadge').textContent = missingW9 + notBT > 0 ? missingW9 : '✓';
+
+        renderSubs(allSubs);
+      } catch (e) {
+        document.getElementById('subsTable').innerHTML = `<tr><td colspan="8" class="empty">Error loading subs: ${e.message}</td></tr>`;
+      }
+    }
+
+    function renderSubs(subs) {
+      if (!subs.length) {
+        document.getElementById('subsTable').innerHTML = '<tr><td colspan="8" class="empty">No subcontractors found</td></tr>';
+        return;
+      }
+      document.getElementById('subsTable').innerHTML = subs.map(s => `
+        <tr>
+          <td><strong>${s.name}</strong>${s.company && s.company !== s.name ? `<br><span style="color:var(--text2);font-size:11px">${s.company}</span>` : ''}</td>
+          <td style="color:var(--text2)">${s.trade || '—'}</td>
+          <td>${statusPill(s.w9)}</td>
+          <td>${statusPill(s.btOnboarded)}</td>
+          <td>${statusPill(s.needs1099)}</td>
+          <td>${statusPill(s.sent1099)}</td>
+          <td style="color:var(--gold)">${s.totalPaid ? '$' + Number(String(s.totalPaid).replace(/[$,]/g,'')).toLocaleString() : '—'}</td>
+          <td style="color:var(--text2);font-size:12px">${s.notes || '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function filterSubs() {
+      const q = document.getElementById('subSearch').value.toLowerCase();
+      renderSubs(allSubs.filter(s =>
+        (s.name + s.company + s.trade).toLowerCase().includes(q)
+      ));
+    }
+
+    async function loadInsurance() {
+      try {
+        const res  = await fetch('/api/sgc/ops/insurance');
+        const data = await res.json();
+        const tasks = data.tasks || [];
+
+        const notStarted = tasks.filter(t => (t['Status']||'').toLowerCase() === 'not started').length;
+        const inProgress = tasks.filter(t => (t['Status']||'').toLowerCase() === 'in progress').length;
+        const complete   = tasks.filter(t => ['complete','done'].includes((t['Status']||'').toLowerCase())).length;
+
+        document.getElementById('insuranceBadge').textContent = notStarted || '✓';
+        document.getElementById('insuranceStats').innerHTML = `
+          <div class="stat-card stat-red"><div class="stat-value">${notStarted}</div><div class="stat-label">Not Started</div></div>
+          <div class="stat-card stat-yellow"><div class="stat-value">${inProgress}</div><div class="stat-label">In Progress</div></div>
+          <div class="stat-card stat-green"><div class="stat-value">${complete}</div><div class="stat-label">Complete</div></div>
+          <div class="stat-card stat-gold"><div class="stat-value">${tasks.length}</div><div class="stat-label">Total Tasks</div></div>
+        `;
+
+        if (!tasks.length) {
+          document.getElementById('insuranceList').innerHTML = '<div class="empty">No insurance tasks found</div>';
+          return;
+        }
+
+        document.getElementById('insuranceList').innerHTML = tasks.map(t => {
+          const name  = t['Task'] || t['Item'] || t['Description'] || Object.values(t).find(v => v && v.length > 2) || 'Unknown Task';
+          const owner = t['Owner'] || t['Assigned To'] || '';
+          const due   = t['Due Date'] || t['Due'] || '';
+          const type  = t['Type'] || '';
+          return `
+            <div class="task-item">
+              ${taskPill(t['Status'])}
+              <div class="task-info">
+                <div class="task-name">${name}</div>
+                <div class="task-meta">${[type, owner ? 'Owner: ' + owner : '', due ? 'Due: ' + due : ''].filter(Boolean).join(' · ')}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        document.getElementById('insuranceList').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+      }
+    }
+
+    async function loadJobs() {
+      try {
+        const res  = await fetch('/api/sgc/ops/jobs');
+        const data = await res.json();
+        const jobs = data.jobs || [];
+
+        document.getElementById('jobStats').innerHTML = `
+          <div class="stat-card stat-gold"><div class="stat-value">${jobs.length}</div><div class="stat-label">Jobs In Progress</div></div>
+        `;
+
+        if (!jobs.length) {
+          document.getElementById('jobsTable').innerHTML = '<tr><td colspan="4" class="empty">No active jobs</td></tr>';
+          return;
+        }
+
+        document.getElementById('jobsTable').innerHTML = jobs.map(j => `
+          <tr>
+            <td><strong>#${j.job || '—'}</strong></td>
+            <td>${j.customer || '—'}</td>
+            <td><span class="pill pill-green">In Progress</span></td>
+            <td style="color:var(--text2)">${j.thru || '—'}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        document.getElementById('jobsTable').innerHTML = `<tr><td colspan="4" class="empty">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    function loadAll() {
+      document.getElementById('lastUpdated').textContent = 'Refreshing...';
+      Promise.all([loadSubs(), loadInsurance(), loadJobs()]).then(() => {
+        const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        document.getElementById('lastUpdated').textContent = `Updated ${now}`;
+      });
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>
