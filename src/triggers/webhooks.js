@@ -209,6 +209,26 @@ router.post('/new-lead', async (req, res) => {
       };
     }
 
+    // Round-robin sales rep assignment
+    try {
+      const dbTeam = require('../services/team');
+      const team = await dbTeam.getTeam();
+      const salesReps = team.filter(m => m.role && /sales|owner/i.test(m.role) && m.status === 'active');
+      if (salesReps.length > 0) {
+        // Count existing leads per rep to find who has fewest
+        const allLeads = await dbLeads.getLeads();
+        const counts = {};
+        salesReps.forEach(r => counts[r.name] = 0);
+        allLeads.forEach(l => { if (counts[l.assignedTo] !== undefined) counts[l.assignedTo]++; });
+        const minCount = Math.min(...Object.values(counts));
+        const nextRep = salesReps.find(r => counts[r.name] === minCount);
+        if (nextRep) {
+          leadData.assigned_to = nextRep.name;
+          logger.info('Webhook', `Round-robin assigned to: ${nextRep.name}`);
+        }
+      }
+    } catch (e) { logger.warn('Webhook', `Round-robin skipped: ${e.message}`); }
+
     logger.info('Webhook', `Writing lead to Postgres: ${leadData.name} (${leadData.email})`);
     const newLead = await dbLeads.createLead(leadData);
     logger.success('Webhook', `Lead created — id ${newLead.id} — firing Lead Agent`);

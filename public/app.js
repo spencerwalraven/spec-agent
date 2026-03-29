@@ -1400,25 +1400,39 @@ async function showJobDetail(idx) {
       ${statusSwitcher}
     </div>
 
-    ${currentUser?.role !== 'field' ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
-      <div class="modal-section-label" style="margin-bottom:10px">📋 Site Visit & Estimate</div>
-      <textarea id="jmSiteNotes" placeholder="Site conditions, client preferences, specific materials, access issues..." rows="3" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitNotes || ''}</textarea>
-      <textarea id="jmSiteMeasurements" placeholder="Measurements: patio 20x25, walkway 4x60, retaining wall 40 linear ft..." rows="2" class="form-input" style="font-size:13px;margin-bottom:8px">${j.siteVisitMeasurements || ''}</textarea>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <input id="jmSqft" type="number" placeholder="Total sq ft" class="form-input" style="flex:1;font-size:13px" value="${j.squareFootage || ''}">
-        <select id="jmQuality" class="form-input" style="flex:1;font-size:13px">
-          <option value="">Quality tier...</option>
-          <option value="budget" ${j.qualityTier==='budget'?'selected':''}>Budget</option>
-          <option value="mid-range" ${j.qualityTier==='mid-range'?'selected':''}>Mid-Range</option>
-          <option value="high-end" ${j.qualityTier==='high-end'?'selected':''}>High-End</option>
-          <option value="luxury" ${j.qualityTier==='luxury'?'selected':''}>Luxury</option>
-        </select>
+    ${currentUser?.role !== 'field' ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+      <div class="modal-section-label" style="margin-bottom:12px">📋 Site Visit Notes</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Site Conditions & Client Preferences</div>
+        <textarea id="jmSiteNotes" placeholder="Describe the property, access, soil conditions, existing features, what the client wants..." rows="3" class="form-input" style="font-size:13px">${j.siteVisitNotes || ''}</textarea>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Measurements</div>
+        <textarea id="jmSiteMeasurements" placeholder="Patio: 20x25ft, Walkway: 4x60ft, Retaining wall: 40 linear ft..." rows="2" class="form-input" style="font-size:13px">${j.siteVisitMeasurements || ''}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Sq Ft</div>
+          <input id="jmSqft" type="number" placeholder="e.g. 500" class="form-input" style="font-size:13px;width:100%" value="${j.squareFootage || ''}">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Preferred Tier</div>
+          <select id="jmQuality" class="form-input" style="font-size:13px;width:100%">
+            <option value="">Not specified</option>
+            <option value="budget" ${j.qualityTier==='budget'?'selected':''}>Budget</option>
+            <option value="mid-range" ${j.qualityTier==='mid-range'?'selected':''}>Mid-Range</option>
+            <option value="high-end" ${j.qualityTier==='high-end'?'selected':''}>High-End</option>
+            <option value="luxury" ${j.qualityTier==='luxury'?'selected':''}>Luxury</option>
+          </select>
+        </div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save Notes</button>
-        <button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate(${_currentJobRow})">🤖 Generate Estimate</button>
+        ${!propLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndProposal('+_currentJobRow+')">📄 Generate Proposal</button>'
+        : j.selectedTier && !estLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate('+_currentJobRow+')">🤖 Generate Estimate</button>'
+        : '<div style="flex:1;text-align:center;padding:10px;font-size:12px;color:var(--text3)">'+(propLink && !j.selectedTier ? '⏳ Waiting for client to select tier' : '✅ Docs generated')+'</div>'}
       </div>
-      ${j.siteVisitDate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: ${j.siteVisitDate}</div>` : ''}
+      ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: '+j.siteVisitDate+'</div>' : ''}
     </div>` : ''}
 
     ${currentUser?.role !== 'field' && (j.tierBudget || j.tierMidrange || j.tierHighend || j.tierLuxury) ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
@@ -1667,6 +1681,11 @@ async function deleteMaterial(jobId, matId) {
     toast('✅ Removed');
     loadJobMaterials(jobId);
   } catch (e) { toast('❌ ' + e.message); }
+}
+
+async function saveSiteVisitAndProposal(jobRow) {
+  await saveSiteVisit(jobRow);
+  triggerDocGen('generate_proposal', jobRow);
 }
 
 async function saveSiteVisitAndEstimate(jobRow) {
