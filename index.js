@@ -2957,6 +2957,60 @@ async function handleQBPayment(realmId, paymentId) {
 // ─── SGC STANDALONE PAGE ─────────────────────────────────────────────────────
 app.get('/sgc', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc.html')));
 
+// ─── SGC QUICKBOOKS OAUTH ─────────────────────────────────────────────────────
+app.get('/api/sgc/quickbooks/connect', (req, res) => {
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const url = sgcQb.getAuthUrl(redirectUri);
+    res.redirect(url);
+  } catch (e) {
+    res.status(500).send(`QB connect error: ${e.message}`);
+  }
+});
+
+app.get('/api/sgc/quickbooks/callback', async (req, res) => {
+  try {
+    const { code, realmId, error } = req.query;
+    if (error) return res.send(`QuickBooks error: ${error}`);
+    if (!code || !realmId) return res.status(400).send('Missing code or realmId');
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
+    res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
+      <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
+      <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
+      <p style="color:#888">You can close this window and return to your SGC assistant.</p>
+      <script>setTimeout(() => window.close(), 3000)</script>
+    </body></html>`);
+  } catch (e) {
+    res.status(500).send(`QB callback error: ${e.message}`);
+  }
+});
+
+app.get('/api/sgc/quickbooks/status', (req, res) => {
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    res.json({ connected: sgcQb.isConnected(), company: sgcQb.getCompanyName() });
+  } catch (e) {
+    res.json({ connected: false, error: e.message });
+  }
+});
+
+app.post('/api/sgc/quickbooks/disconnect', (req, res) => {
+  try {
+    const fs   = require('fs');
+    const path = require('path');
+    const file = path.join(__dirname, 'src/data/sgc-qb-tokens.json');
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    res.json({ disconnected: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -3251,60 +3305,6 @@ app.get('/admin/seed', async (req, res) => {
     res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see Summit Remodeling data.</p><a href="/">Go to Dashboard</a>');
   } catch (e) {
     res.status(500).send(`<h2>❌ Seed failed</h2><pre>${e.message}</pre>`);
-  }
-});
-
-// ─── SGC QUICKBOOKS OAUTH ─────────────────────────────────────────────────────
-app.get('/api/sgc/quickbooks/connect', (req, res) => {
-  try {
-    const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
-    const url = sgcQb.getAuthUrl(redirectUri);
-    res.redirect(url);
-  } catch (e) {
-    res.status(500).send(`QB connect error: ${e.message}`);
-  }
-});
-
-app.get('/api/sgc/quickbooks/callback', async (req, res) => {
-  try {
-    const { code, realmId, error } = req.query;
-    if (error) return res.send(`QuickBooks error: ${error}`);
-    if (!code || !realmId) return res.status(400).send('Missing code or realmId');
-    const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
-    const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
-    res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
-      <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
-      <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
-      <p style="color:#888">You can close this window and return to your SGC assistant.</p>
-      <script>setTimeout(() => window.close(), 3000)</script>
-    </body></html>`);
-  } catch (e) {
-    res.status(500).send(`QB callback error: ${e.message}`);
-  }
-});
-
-app.get('/api/sgc/quickbooks/status', (req, res) => {
-  try {
-    const sgcQb = require('./src/tools/sgc-quickbooks');
-    res.json({ connected: sgcQb.isConnected(), company: sgcQb.getCompanyName() });
-  } catch (e) {
-    res.json({ connected: false, error: e.message });
-  }
-});
-
-app.post('/api/sgc/quickbooks/disconnect', (req, res) => {
-  try {
-    const fs   = require('fs');
-    const path = require('path');
-    const file = path.join(__dirname, 'src/data/sgc-qb-tokens.json');
-    if (fs.existsSync(file)) fs.unlinkSync(file);
-    res.json({ disconnected: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
   }
 });
 

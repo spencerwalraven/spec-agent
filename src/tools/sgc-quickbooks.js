@@ -149,7 +149,8 @@ async function qbRequest(method, endpoint, body, accessTokenOverride, realmIdOve
     ({ accessToken, realmId } = await getValidToken());
   }
 
-  const url = `${QB_BASE}/v3/company/${realmId}${endpoint}?minorversion=73`;
+  const sep = endpoint.includes('?') ? '&' : '?';
+  const url = `${QB_BASE}/v3/company/${realmId}${endpoint}${sep}minorversion=73`;
   const opts = {
     method,
     headers: {
@@ -196,7 +197,7 @@ async function findOrCreateCustomer({ name, email }) {
   // Create new
   const customer = { DisplayName: name };
   if (email) customer.PrimaryEmailAddr = { Address: email };
-  const res = await qbRequest('POST', '/customer', { Customer: customer });
+  const res = await qbRequest('POST', '/customer', customer);
   const id = res.Customer?.Id;
   logger.success('SGC-QB', `Created QB customer: ${name} (ID: ${id})`);
   return id;
@@ -204,26 +205,39 @@ async function findOrCreateCustomer({ name, email }) {
 
 // ─── INVOICES ─────────────────────────────────────────────────────────────────
 
+async function getServiceItemId() {
+  // Find a service-type item to use on invoices — prefer one named 'Services'
+  const res = await qbRequest('GET', `/query?query=select * from Item where Type = 'Service' MAXRESULTS 20`);
+  const items = res.QueryResponse?.Item || [];
+  if (!items.length) throw new Error('No service items found in QuickBooks. Please create a "Services" item in QB first.');
+  const preferred = items.find(i => /service/i.test(i.Name)) || items[0];
+  return { value: String(preferred.Id), name: preferred.Name };
+}
+
 async function createInvoice({ customerName, customerEmail, amount, description, dueDate }) {
-  const customerId = await findOrCreateCustomer({ name: customerName, email: customerEmail });
+  const [customerId, itemRef] = await Promise.all([
+    findOrCreateCustomer({ name: customerName, email: customerEmail }),
+    getServiceItemId(),
+  ]);
   const invoice = {
     CustomerRef: { value: String(customerId) },
     Line: [{
-      Amount:          parseFloat(amount),
-      DetailType:      'SalesItemLineDetail',
-      SalesItemLineDetail: {
-        ItemRef:     { value: '1', name: 'Services' },
-        UnitPrice:   parseFloat(amount),
-        Qty:         1,
-      },
+      Amount:      parseFloat(amount),
+      DetailType:  'SalesItemLineDetail',
       Description: description,
+      SalesItemLineDetail: {
+        ItemRef:   itemRef,
+        UnitPrice: parseFloat(amount),
+        Qty:       1,
+      },
     }],
     PrivateNote: `Created by SGC Admin Assistant`,
   };
   if (dueDate) invoice.DueDate = dueDate;
-  const res      = await qbRequest('POST', '/invoice', { Invoice: invoice });
+  const res      = await qbRequest('POST', '/invoice', invoice);
   const qbInv    = res.Invoice;
-  const invoiceUrl = `https://app.qbo.intuit.com/app/invoice?txnId=${qbInv?.Id}`;
+  const qbAppBase  = QB_ENV === 'sandbox' ? 'https://app.sandbox.qbo.intuit.com' : 'https://app.qbo.intuit.com';
+  const invoiceUrl = `${qbAppBase}/app/invoice?txnId=${qbInv?.Id}`;
   logger.success('SGC-QB', `Created invoice #${qbInv?.DocNumber} for ${customerName} — $${amount}`);
   return {
     invoiceNumber: qbInv?.DocNumber,
