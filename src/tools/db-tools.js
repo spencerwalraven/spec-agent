@@ -51,7 +51,8 @@ async function toolUpdateLead({ leadId, rowNumber, field, value }) {
   // Generic fallback — direct column update via query
   const { query } = require('../db');
   const allowed = ['name','email','phone','address','service','message','source',
-    'score','score_label','status','notes','ai_summary','outreach_sent','sms_sent'];
+    'score','score_label','status','notes','ai_summary','outreach_sent','sms_sent',
+    'nurture_step','assigned_to','email_thread_id','last_contact'];
   const col = field.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase → snake_case
   if (!allowed.includes(col)) return `Error: field "${field}" not updatable`;
   await query(`UPDATE leads SET ${col} = $1, updated_at = NOW() WHERE id = $2`, [value, id]);
