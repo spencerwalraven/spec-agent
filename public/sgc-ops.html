@@ -512,6 +512,12 @@
       return '<span class="pill pill-red">Not Started</span>';
     }
 
+    function isYes(val) {
+      if (!val) return false;
+      const v = String(val).toLowerCase().trim();
+      return v === 'yes' || v === 'true' || v === 'received' || v === 'complete' || v === 'done';
+    }
+
     async function loadSubs() {
       try {
         const res  = await fetch('/api/sgc/ops/subs');
@@ -519,9 +525,9 @@
         allSubs = data.subs || [];
 
         // Stats
-        const missingW9  = allSubs.filter(s => !s.w9 || String(s.w9).toLowerCase() !== 'yes').length;
-        const notBT      = allSubs.filter(s => !s.btOnboarded || String(s.btOnboarded).toLowerCase() !== 'yes').length;
-        const compliant  = allSubs.filter(s => String(s.w9||'').toLowerCase() === 'yes' && String(s.btOnboarded||'').toLowerCase() === 'yes').length;
+        const missingW9  = allSubs.filter(s => !isYes(s.w9)).length;
+        const notBT      = allSubs.filter(s => !isYes(s.btOnboarded)).length;
+        const compliant  = allSubs.filter(s => isYes(s.w9) && isYes(s.btOnboarded)).length;
 
         document.getElementById('subStats').innerHTML = `
           <div class="stat-card stat-gold"><div class="stat-value">${allSubs.length}</div><div class="stat-label">Total Subcontractors</div></div>
