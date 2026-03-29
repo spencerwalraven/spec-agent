@@ -257,7 +257,7 @@ const EXECUTORS = {
 
 class PlanningAgent extends BaseAgent {
   constructor() {
-    super('PlanningAgent', DEFAULT_MODEL, TOOLS, EXECUTORS);
+    super('PlanningAgent', 'claude-sonnet-4-5', TOOLS, EXECUTORS);
   }
 
   async planProject({ rowNumber }) {

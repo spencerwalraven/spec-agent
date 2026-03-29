@@ -15,10 +15,10 @@ require('dotenv').config();
 const Anthropic = require('@anthropic-ai/sdk');
 const { logger } = require('../utils/logger');
 
-// Default model — claude-sonnet-4-5 is the right choice for CRM work:
-// fast, cheap (matters for monthly retainer pricing), excellent at tool use + email writing.
-// Use claude-opus-4-5 only for high-complexity tasks if needed (override in subclass).
-const DEFAULT_MODEL = process.env.AGENT_MODEL || 'claude-sonnet-4-5';
+// Default model — haiku for most tasks (12x cheaper than sonnet, handles emails/scoring/updates well).
+// Sonnet for complex tasks (estimates, proposals, contracts) — override in subclass.
+// Opus only for chat assistant where quality matters most.
+const DEFAULT_MODEL = process.env.AGENT_MODEL || 'claude-haiku-3-5-20241022';
 const MAX_ITERATIONS = 20;
 
 class BaseAgent {

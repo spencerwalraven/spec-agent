@@ -225,7 +225,7 @@ You can:
 Keep responses concise and actionable. Use numbers and specifics. Format with bullet points when listing multiple items. If asked to draft an email, write a complete ready-to-send message.`;
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 1024,
     system: systemPrompt,
     tools: TOOLS,
@@ -256,7 +256,7 @@ Keep responses concise and actionable. Use numbers and specifics. Format with bu
     ];
 
     currentResponse = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       system: systemPrompt,
       tools: TOOLS,

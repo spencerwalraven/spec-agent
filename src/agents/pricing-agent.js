@@ -258,7 +258,7 @@ const EXECUTORS = {
 
 class PricingAgent extends BaseAgent {
   constructor() {
-    super('PricingAgent', DEFAULT_MODEL, TOOLS, EXECUTORS);
+    super('PricingAgent', 'claude-sonnet-4-5', TOOLS, EXECUTORS); // Sonnet for complex estimates
   }
 
   async generateEstimate({ rowNumber }) {

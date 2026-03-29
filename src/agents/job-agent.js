@@ -260,7 +260,7 @@ const EXECUTORS = {
 
 class JobAgent extends BaseAgent {
   constructor() {
-    super('JobAgent', DEFAULT_MODEL, TOOLS, EXECUTORS);
+    super('JobAgent', 'claude-sonnet-4-5', TOOLS, EXECUTORS);
   }
 
   // ── Generate estimate after site visit ───────────────────────────────────
