@@ -1466,14 +1466,24 @@ async function showJobDetail(idx) {
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
-      [{name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal'},
-       {name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready'},
-       {name:'Contract',icon:'📝',link:contLink,event:'generate_contract'},
-       {name:'Kickoff Doc',icon:'🚀',link:kickLink,event:'plan_project'}
-      ].map(d => '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div>'+
-        (d.link ? '<a class="doc-btn" href="'+d.link+'" target="_blank">Open ↗</a>'
-               : '<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>')+
-        '</div>').join('') + '</div>' : ''}
+      [{name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal',status:propStat,sendType:'proposal'},
+       {name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready',status:'',sendType:'estimate'},
+       {name:'Contract',icon:'📝',link:contLink,event:'generate_contract',status:contStat,sendType:'contract'},
+       {name:'Kickoff Doc',icon:'🚀',link:kickLink,event:'plan_project',status:'',sendType:''}
+      ].map(d => {
+        var btns = '';
+        if (d.link) {
+          btns += '<a class="doc-btn" href="'+d.link+'" target="_blank" style="font-size:11px">Open ↗</a>';
+          if (d.sendType && (!d.status || d.status.toLowerCase().includes('pending') || d.status.toLowerCase().includes('ready'))) {
+            btns += '<button class="doc-btn" style="color:#22C55E;cursor:pointer;font-size:11px;font-weight:700" onclick="approveAndSend(\''+d.sendType+'\','+_currentJobRow+')">Approve & Send ✓</button>';
+          } else if (d.status && d.status.toLowerCase().includes('sent')) {
+            btns += '<span style="color:var(--green);font-size:11px;font-weight:600">Sent ✓</span>';
+          }
+        } else {
+          btns = '<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>';
+        }
+        return '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div><div style="display:flex;gap:6px;align-items:center">'+btns+'</div></div>';
+      }).join('') + '</div>' : ''}
 
     <div class="modal-section">
       <div class="modal-section-label">Phases</div>
@@ -1505,6 +1515,23 @@ async function showJobDetail(idx) {
   if (currentUser?.role !== 'field') {
     loadJobMaterials(_currentJobRow);
   }
+}
+
+async function approveAndSend(docType, jobRow) {
+  if (!confirm('Send this ' + docType + ' to the client? Make sure you\'ve reviewed the document first.')) return;
+  try {
+    const res = await api('/api/jobs/' + jobRow + '/approve-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: docType }),
+    });
+    toast('✅ ' + docType.charAt(0).toUpperCase() + docType.slice(1) + ' approved and sent to client!');
+    // Refresh job detail
+    delete loaded['jobs'];
+    allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
+    const idx = allJobs.findIndex(j => (j._row || j.id) === jobRow);
+    if (idx >= 0) showJobDetail(idx);
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function selectTier(jobRow, tier) {

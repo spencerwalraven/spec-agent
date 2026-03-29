@@ -352,12 +352,12 @@ TASK:
    - field: "tier_highend", value: brief description + price
    - field: "tier_luxury", value: brief description + price
 
-4. Use send_proposal_for_approval to send the proposal to the client with one-click Approve/Decline.
-   - Include a warm summary mentioning the 4 tiers and price range
+4. DO NOT send the proposal to the client yet. Instead:
+   - Update the job's proposal_status to "Pending Review"
+   - Notify the owner: "📄 Proposal READY FOR REVIEW — [client name] / [service type] / price range $X–$Y. Review the doc and approve before it goes to the client."
+   - The owner/salesman will review and click "Approve & Send" from the dashboard.
 
-5. Notify the owner: "Proposal with 4 tiers sent to [client] for [service] — price range $X to $Y"
-
-The proposal is a SALES document — make it compelling. Each tier should feel like a real option, not just padding.
+5. This is a SALES document — make it compelling. Each tier should feel like a real option, not just padding. The client should feel excited about every option.
     `.trim();
 
     return await this.run(systemPrompt, `Generate proposal for job at row ${rowNumber}.`, { rowNumber });

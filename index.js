@@ -949,6 +949,55 @@ app.post('/api/timeclock/manual', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: APPROVE & SEND DOC TO CLIENT ────────────────────────────────────────
+app.post('/api/jobs/:row/approve-send', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { type } = req.body;
+    const job = await dbJobs.getJob(id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const client = job.clientId ? await dbClients.getClient(job.clientId) : null;
+    const clientEmail = client?.email || job.clientEmail || '';
+    if (!clientEmail) return res.status(400).json({ error: 'No client email found' });
+
+    const settings = await dbSettings.readSettings();
+    const companyName = settings.companyName || 'Your Company';
+    const docLink = job[type + 'Link'] || '';
+
+    let subject, body;
+    if (type === 'proposal') {
+      subject = 'Your ' + (job.service || job.title) + ' Proposal from ' + companyName;
+      body = 'Hi ' + (client?.name || 'there') + ',\n\nWe\'ve put together a detailed proposal for your ' + (job.service || job.title) + ' project at ' + (job.address || 'your property') + '.\n\n' +
+        (docLink ? 'View your proposal: ' + docLink + '\n\n' : '') +
+        'We\'ve included 4 options at different price points so you can choose what fits best. Take a look and let us know which tier you\'d like to go with!\n\n' +
+        (settings.emailSignature || companyName + '\n' + settings.phone);
+      await dbJobs.updateJobField(id, 'proposal_status', 'Sent');
+    } else if (type === 'contract') {
+      subject = 'Your ' + (job.service || job.title) + ' Contract from ' + companyName;
+      body = 'Hi ' + (client?.name || 'there') + ',\n\nYour contract for the ' + (job.service || job.title) + ' project is ready for review and signature.\n\n' +
+        (docLink ? 'View your contract: ' + docLink + '\n\n' : '') +
+        'Please review the terms and let us know if you have any questions.\n\n' +
+        (settings.emailSignature || companyName + '\n' + settings.phone);
+      await dbJobs.updateJobField(id, 'contract_status', 'Sent');
+    } else if (type === 'estimate') {
+      subject = 'Your ' + (job.service || job.title) + ' Estimate from ' + companyName;
+      body = 'Hi ' + (client?.name || 'there') + ',\n\nHere\'s your detailed estimate for the ' + (job.service || job.title) + ' project.\n\n' +
+        (docLink ? 'View your estimate: ' + docLink + '\n\n' : '') +
+        'This includes a full breakdown of materials, labor, and timeline.\n\n' +
+        (settings.emailSignature || companyName + '\n' + settings.phone);
+    }
+
+    const { sendEmail } = require('./src/tools/gmail');
+    await sendEmail({ to: clientEmail, subject, body });
+    res.json({ ok: true, message: type + ' sent to ' + clientEmail });
+  } catch (e) {
+    console.error('Approve & send error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── API: CLIENT 360 TIMELINE (PostgreSQL) ───────────────────────────────────
 app.get('/api/clients/:name/timeline', async (req, res) => {
   try {
