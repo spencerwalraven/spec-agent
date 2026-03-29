@@ -125,9 +125,9 @@ async function createDoc({ title, body, companyName }) {
               bold: true,
               fontSize: { magnitude: 22, unit: 'PT' },
               foregroundColor: rgb(NAVY),
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'bold,fontSize,foregroundColor,fontFamily',
+            fields: 'bold,fontSize,foregroundColor,weightedFontFamily',
           },
         });
         isFirst = false;
@@ -151,9 +151,9 @@ async function createDoc({ title, body, companyName }) {
               bold: true,
               fontSize: { magnitude: 11, unit: 'PT' },
               foregroundColor: rgb(NAVY),
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'bold,fontSize,foregroundColor,fontFamily',
+            fields: 'bold,fontSize,foregroundColor,weightedFontFamily',
           },
         });
 
@@ -176,9 +176,9 @@ async function createDoc({ title, body, companyName }) {
               bold: true,
               fontSize: { magnitude: 10, unit: 'PT' },
               foregroundColor: rgb(GOLD),
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'bold,fontSize,foregroundColor,fontFamily',
+            fields: 'bold,fontSize,foregroundColor,weightedFontFamily',
           },
         });
 
@@ -200,9 +200,9 @@ async function createDoc({ title, body, companyName }) {
               bold: true,
               fontSize: { magnitude: 14, unit: 'PT' },
               foregroundColor: rgb(NAVY),
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'bold,fontSize,foregroundColor,fontFamily',
+            fields: 'bold,fontSize,foregroundColor,weightedFontFamily',
           },
         });
 
@@ -214,9 +214,9 @@ async function createDoc({ title, body, companyName }) {
               italic: true,
               fontSize: { magnitude: 9, unit: 'PT' },
               foregroundColor: rgb(GRAY),
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'italic,fontSize,foregroundColor,fontFamily',
+            fields: 'italic,fontSize,foregroundColor,weightedFontFamily',
           },
         });
 
@@ -226,9 +226,9 @@ async function createDoc({ title, body, companyName }) {
             range: { startIndex: start, endIndex: textEnd },
             textStyle: {
               bold: true,
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'bold,fontFamily',
+            fields: 'bold,weightedFontFamily',
           },
         });
 
@@ -238,9 +238,9 @@ async function createDoc({ title, body, companyName }) {
             range: { startIndex: start, endIndex: textEnd },
             textStyle: {
               fontSize: { magnitude: 10, unit: 'PT' },
-              fontFamily: 'Arial',
+              weightedFontFamily: { weightedFontFamily: 'Arial', weight: 400 },
             },
-            fields: 'fontSize,fontFamily',
+            fields: 'fontSize,weightedFontFamily',
           },
         });
       }
