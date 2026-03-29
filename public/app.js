@@ -146,7 +146,8 @@ function applyRoleNav(role) {
   // Build role-aware More menu
   buildMoreMenu(role);
 
-  const items = configs[role] || configs.owner;
+  if (!role || !configs[role]) role = 'owner';
+  const items = configs[role];
   const curPage = document.querySelector('.page.active')?.id?.replace('page-','') || 'dashboard';
 
   nav.innerHTML = items.map(item => `
@@ -174,6 +175,8 @@ function buildMoreMenu(role) {
      <div class="more-grid" style="margin-bottom:20px">${items.join('')}</div>`;
 
   let html = '';
+  // Default to owner if role is unrecognized
+  if (!role || !['owner','sales','field'].includes(role)) role = 'owner';
 
   if (role === 'owner') {
     html += section('Daily Tools', [
@@ -3023,6 +3026,7 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(r => r.ok ? r.json() : null)
     .catch(() => null)
     .then(me => {
+      console.log('[Auth] /api/me returned:', JSON.stringify(me));
       if (me?.role) {
         const prevRole = currentUser.role;
         currentUser = { name: me.name || '', role: me.role };
