@@ -11,6 +11,10 @@ const { google } = require('googleapis');
 const { logger }  = require('../utils/logger');
 const { sendEmail } = require('../tools/gmail');
 
+// Set SGC_TEST_MODE=true in Railway to log emails without sending them
+const TEST_MODE = process.env.SGC_TEST_MODE === 'true';
+if (TEST_MODE) logger.warn('SGC-FieldMonitor', '⚠️  TEST MODE — emails will be logged but NOT sent');
+
 const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
 
 // ─── FIELD TECH ROSTER ────────────────────────────────────────────────────────
@@ -23,6 +27,14 @@ const FIELD_TECHS = [
 ];
 
 const SERENE_EMAIL  = process.env.SGC_SERENE_EMAIL  || 'swartzserene@gmail.com';
+
+async function safeSendEmail(params) {
+  if (TEST_MODE) {
+    logger.info('SGC-FieldMonitor', `[TEST] Would send email to ${params.to} — Subject: ${params.subject}`);
+    return;
+  }
+  return sendEmail(params);
+}
 const REQUIRED_FIELDS = ['Work Completed Today', 'Job Name / Address'];
 
 function getSGCSheets() {
@@ -89,7 +101,7 @@ async function runFieldReportMonitor() {
       missing.push(tech);
       // Send missing report email
       try {
-        await sendEmail({
+        await safeSendEmail({
           to: tech.email,
           subject: `Reminder: Daily Field Report Missing — ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Phoenix' })}`,
           body: `Hi ${tech.name.split(' ')[0]},
@@ -113,7 +125,7 @@ Scottsdale General Contracting`,
       // Send incomplete report email
       const missingFields = REQUIRED_FIELDS.filter(f => !report[f] || String(report[f]).trim() === '');
       try {
-        await sendEmail({
+        await safeSendEmail({
           to: tech.email,
           subject: `Field Report Incomplete — a few fields need filling in`,
           body: `Hi ${tech.name.split(' ')[0]},
