@@ -18,7 +18,7 @@ const { logger } = require('../utils/logger');
 // Default model — haiku for most tasks (12x cheaper than sonnet, handles emails/scoring/updates well).
 // Sonnet for complex tasks (estimates, proposals, contracts) — override in subclass.
 // Opus only for chat assistant where quality matters most.
-const DEFAULT_MODEL = process.env.AGENT_MODEL || 'claude-3-5-haiku-20241022';
+const DEFAULT_MODEL = process.env.AGENT_MODEL || 'claude-3-5-haiku-latest';
 const MAX_ITERATIONS = 20;
 
 class BaseAgent {
