@@ -177,7 +177,22 @@ const EXECUTORS = {
     return `Email sent. Thread ID: ${result.threadId}`;
   },
   read_email_thread: async (args)     => toolReadThread(args),
-  create_document:   async (args)     => toolCreateDoc(args),
+  create_document:   async (args, ctx) => {
+    const result = await toolCreateDoc(args);
+    // Auto-save doc link to the job based on title keywords
+    if (ctx?.rowNumber && result.includes('http')) {
+      const url = result.match(/https?:\/\/[^\s]+/)?.[0] || '';
+      if (url) {
+        const dbJobs = require('../services/jobs');
+        const title = (args.title || '').toLowerCase();
+        if (title.includes('proposal'))      await dbJobs.updateJobField(ctx.rowNumber, 'proposal_link', url).catch(()=>{});
+        else if (title.includes('contract')) await dbJobs.updateJobField(ctx.rowNumber, 'contract_link', url).catch(()=>{});
+        else if (title.includes('kickoff') || title.includes('plan'))  await dbJobs.updateJobField(ctx.rowNumber, 'kickoff_link', url).catch(()=>{});
+        else if (title.includes('estimate')) await dbJobs.updateJobField(ctx.rowNumber, 'estimate_link', url).catch(()=>{});
+      }
+    }
+    return result;
+  },
   read_settings:     async ()         => toolReadSettings(),
   notify_owner:      async (args)     => toolNotifyOwner(args),
   read_phases:       async (args)     => toolReadPhases(args),
