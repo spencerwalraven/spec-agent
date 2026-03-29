@@ -1714,6 +1714,9 @@ function renderClients() {
   }).join('');
 }
 
+let _openClientId = null;
+let _openClientName = null;
+
 function showClientDetail(idx) {
   const c = allClients[idx];
   if (!c) return;
@@ -1722,72 +1725,165 @@ function showClientDetail(idx) {
   const name   = g(c,'Full Name','fullName') || `${firstName} ${lastName}`.trim() || 'Unknown';
   const email  = g(c,'Email','email');
   const phone  = g(c,'Phone','phone','Phone Number');
-  const ltv    = g(c,'Lifetime Value','lifetimeValue','LTV');
-  const jobs   = g(c,'Jobs Completed','jobsCompleted','Total Jobs','totalJobs','Number of Jobs');
+  const ltv    = g(c,'Lifetime Value','lifetimeValue','LTV','totalRevenue');
+  const jobCt  = g(c,'Jobs Completed','jobsCompleted','Total Jobs','totalJobs','jobCount');
   const last   = g(c,'Last Job','lastJob','Last Job Type','Last Project');
   const sat    = g(c,'AI Score','aiScore','Satisfaction Score','Satisfaction');
   const refs   = g(c,'Referral Potential','referralScore','Referral Score','Referrals Given');
   const notes  = g(c,'Notes','notes','Customer Profile','customerProfile');
   const addr   = g(c,'Street Address','address','Address');
+  const commStyle = g(c,'Communication Style','communicationStyle') || '';
+  const concerns  = g(c,'Key Concerns','keyConcerns') || '';
+  const prefContact = g(c,'Preferred Contact','preferredContact') || '';
+
+  _openClientId = c._row || c.id;
+  _openClientName = name;
 
   document.getElementById('cmName').textContent = name;
   document.getElementById('cmSub').textContent  = email || phone || '—';
   document.getElementById('cmCall').href  = phone ? 'tel:' + phone.replace(/\D/g,'') : '#';
   document.getElementById('cmEmail').href = email ? 'mailto:' + email : '#';
 
-  renderClientOverview({ name, email, phone, ltv, jobs, last, sat, refs, notes, addr });
-
-  _openClientName = name;
-  switchClientTab('overview');
-  openModal('clientModal');
-}
-
-function renderClientOverview({ name, email, phone, ltv, jobs, last, sat, refs, notes, addr }) {
+  // Render overview tab
   const el = document.getElementById('cmOverviewContent');
-  if (!el) return;
-  el.innerHTML = `
+  if (el) el.innerHTML = `
     <div class="modal-section">
       <div class="modal-section-label">Client Profile</div>
       <div class="detail-row"><div class="detail-key">Lifetime Value</div><div class="detail-val text-gold fw800">${ltv?formatCurrency(ltv):'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">Total Jobs</div><div class="detail-val">${jobs||'—'}</div></div>
+      <div class="detail-row"><div class="detail-key">Total Jobs</div><div class="detail-val">${jobCt||'—'}</div></div>
       <div class="detail-row"><div class="detail-key">Last Project</div><div class="detail-val">${last||'—'}</div></div>
       <div class="detail-row"><div class="detail-key">Satisfaction</div><div class="detail-val">${sat?'⭐ '+sat:'—'}</div></div>
-      <div class="detail-row"><div class="detail-key">Referrals Given</div><div class="detail-val">${refs||'0'}</div></div>
+      <div class="detail-row"><div class="detail-key">Referrals</div><div class="detail-val">${refs||'0'}</div></div>
       ${addr?`<div class="detail-row"><div class="detail-key">Address</div><div class="detail-val">${addr}</div></div>`:''}
       <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val">${phone||'—'}</div></div>
       <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val" style="word-break:break-all">${email||'—'}</div></div>
+      ${prefContact?`<div class="detail-row"><div class="detail-key">Prefers</div><div class="detail-val" style="text-transform:capitalize">${prefContact}</div></div>`:''}
     </div>
-    ${notes?`
-    <div class="modal-section">
+    ${commStyle || concerns ? `<div class="modal-section">
+      <div class="modal-section-label">Working With This Client</div>
+      ${commStyle?`<div class="detail-row"><div class="detail-key">Communication</div><div class="detail-val" style="font-size:13px">${commStyle}</div></div>`:''}
+      ${concerns?`<div class="detail-row"><div class="detail-key">Key Concerns</div><div class="detail-val" style="font-size:13px">${concerns}</div></div>`:''}
+    </div>` : ''}
+    ${notes?`<div class="modal-section">
       <div class="modal-section-label">Notes</div>
       <div class="notes-box">${notes}</div>
     </div>`:''}
   `;
+
+  // Clear jobs + photos tabs (will lazy-load when clicked)
+  const jobsEl = document.getElementById('cmJobsContent');
+  if (jobsEl) jobsEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Loading jobs…</div>';
+  const photosEl = document.getElementById('cmPhotosContent');
+  if (photosEl) photosEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Loading photos…</div>';
+
+  switchClientTab('overview');
+  openModal('clientModal');
 }
 
-// ── CLIENT 360 TIMELINE ───────────────────────────────────────────────────────
-let _openClientName = null;
+// ── CLIENT HUB TABS ────────────────────────────────────────────────────────────
+const CLIENT_TABS = ['overview','jobs','photos','history'];
 
 function switchClientTab(tab) {
-  const overviewBtn = document.getElementById('cmTabOverview');
-  const timelineBtn = document.getElementById('cmTabTimeline');
-  const overviewDiv = document.getElementById('cmOverviewContent');
-  const timelineDiv = document.getElementById('cmTimelineContent');
-  if (!overviewBtn) return;
+  CLIENT_TABS.forEach(t => {
+    const btn = document.getElementById('cmTab_' + t);
+    const div = document.getElementById('cm' + t.charAt(0).toUpperCase() + t.slice(1) + 'Content');
+    if (btn) {
+      btn.style.borderBottomColor = t === tab ? 'var(--gold)' : 'transparent';
+      btn.style.color = t === tab ? 'var(--gold)' : 'var(--text2)';
+    }
+    if (div) div.style.display = t === tab ? '' : 'none';
+  });
 
-  const isOverview = tab === 'overview';
-  overviewBtn.style.borderBottomColor = isOverview ? 'var(--gold)' : 'transparent';
-  overviewBtn.style.color             = isOverview ? 'var(--gold)' : 'var(--text2)';
-  timelineBtn.style.borderBottomColor = !isOverview ? 'var(--gold)' : 'transparent';
-  timelineBtn.style.color             = !isOverview ? 'var(--gold)' : 'var(--text2)';
-  overviewDiv.style.display = isOverview ? '' : 'none';
-  timelineDiv.style.display = !isOverview ? '' : 'none';
+  // Lazy-load data when tab is first opened
+  if (tab === 'jobs' && _openClientId) loadClientJobs(_openClientId);
+  if (tab === 'photos' && _openClientId) loadClientPhotos(_openClientId);
+  if (tab === 'history' && _openClientName) loadClientTimeline(_openClientName);
+}
 
-  if (tab === 'timeline' && _openClientName) loadClientTimeline(_openClientName);
+async function loadClientJobs(clientId) {
+  const el = document.getElementById('cmJobsContent');
+  if (!el || el.dataset.loaded === String(clientId)) return;
+  el.dataset.loaded = clientId;
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Loading…</div>';
+
+  try {
+    const jobs = await api('/api/clients/' + clientId + '/jobs');
+    if (!jobs || !jobs.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No jobs yet for this client</div>';
+      return;
+    }
+    el.innerHTML = jobs.map(j => {
+      const val = j.estimatedValue || j.totalJobValue || 0;
+      const status = JOB_STATUS_LABELS[j.status] || j.status || '';
+      const phases = (j.phases || []);
+      const doneCt = phases.filter(p => p.status === 'completed').length;
+      const pct = phases.length ? Math.round(doneCt / phases.length * 100) : 0;
+
+      return `<div class="modal-section" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--text)">${j.title || j.service || 'Untitled Job'}</div>
+            <div style="font-size:12px;color:var(--text3)">${j.jobId || j.jobRef} · ${j.address || ''}</div>
+          </div>
+          <div style="text-align:right">
+            ${val ? '<div style="font-weight:800;color:var(--gold)">' + formatCurrency(val) + '</div>' : ''}
+            <div style="margin-top:2px">${statusBadge(status)}</div>
+          </div>
+        </div>
+        ${phases.length ? `
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${doneCt} of ${phases.length} phases complete (${pct}%)</div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:10px">
+            <div style="height:100%;width:${pct}%;background:var(--green);border-radius:2px"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            ${phases.map(p => '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">' +
+              '<span style="color:' + (p.status==='completed'?'var(--green)':p.status==='in_progress'?'var(--gold)':'var(--text3)') + '">' +
+              (p.status==='completed'?'✅ ':p.status==='in_progress'?'🔄 ':'○ ') + (p.name||'Phase') + '</span>' +
+              '<span style="color:var(--text3)">' + (p.assignedTo||'') + '</span></div>').join('')}
+          </div>
+        ` : ''}
+        ${j.siteVisitNotes ? '<div style="margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12px;color:var(--text2)"><span style="font-weight:700;color:var(--text3)">📋 Site Notes:</span> ' + j.siteVisitNotes + '</div>' : ''}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          ${['Estimate','Proposal','Contract','Kickoff'].map(doc => {
+            const evt = doc==='Estimate'?'estimate_ready':doc==='Proposal'?'generate_proposal':doc==='Contract'?'generate_contract':'plan_project';
+            return '<button style="flex:1;min-width:70px;padding:7px 0;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer" onclick="triggerDocGen(\''+evt+'\','+j.id+')">' + doc + '</button>';
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red)">Error loading jobs</div>';
+  }
+}
+
+async function loadClientPhotos(clientId) {
+  const el = document.getElementById('cmPhotosContent');
+  if (!el || el.dataset.loaded === String(clientId)) return;
+  el.dataset.loaded = clientId;
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Loading…</div>';
+
+  try {
+    const photos = await api('/api/clients/' + clientId + '/photos');
+    if (!photos || !photos.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">📷 No photos yet<br><span style="font-size:12px;color:var(--text3)">Photos uploaded from job pages will appear here</span></div>';
+      return;
+    }
+    el.innerHTML = `
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${photos.length} photo${photos.length!==1?'s':''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        ${photos.map(p => `<div style="position:relative;padding-top:100%;border-radius:8px;overflow:hidden;background:var(--card);cursor:pointer" onclick="window.open('${p.url}','_blank')">
+          <img src="${p.url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">
+          ${p.caption?'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:3px 6px;font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.caption+'</div>':''}
+        </div>`).join('')}
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red)">Error loading photos</div>';
+  }
 }
 
 async function loadClientTimeline(name) {
-  const el = document.getElementById('cmTimelineContent');
+  const el = document.getElementById('cmHistoryContent');
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2);font-size:13px">Loading timeline…</div>';
 

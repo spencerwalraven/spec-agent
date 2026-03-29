@@ -874,6 +874,29 @@ app.get('/api/clients', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: CLIENT JOBS (all jobs for a specific client) ────────────────────────
+app.get('/api/clients/:id/jobs', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid client ID' });
+    const jobs = await dbJobs.getJobsForClient(id);
+    // Also get phases for each job
+    for (const job of jobs) {
+      job.phases = await dbJobs.getPhases(job.id);
+    }
+    res.json(jobs);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: CLIENT PHOTOS (all photos across all client's jobs) ─────────────────
+app.get('/api/clients/:id/photos', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid client ID' });
+    res.json(await dbJobs.getPhotosForClient(id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: CLIENT 360 TIMELINE (PostgreSQL) ───────────────────────────────────
 app.get('/api/clients/:name/timeline', async (req, res) => {
   try {

@@ -2033,12 +2033,16 @@
     </div>
     <div class="modal-body" id="cmBody">
       <!-- Tab bar -->
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin:-20px -20px 16px;padding:0 20px">
-        <button id="cmTabOverview" onclick="switchClientTab('overview')" style="padding:12px 16px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--gold);color:var(--gold)">Overview</button>
-        <button id="cmTabTimeline" onclick="switchClientTab('timeline')" style="padding:12px 16px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">Timeline</button>
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin:-20px -20px 16px;padding:0 20px;overflow-x:auto">
+        <button id="cmTab_overview" onclick="switchClientTab('overview')" style="padding:12px 14px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--gold);color:var(--gold);white-space:nowrap">Overview</button>
+        <button id="cmTab_jobs" onclick="switchClientTab('jobs')" style="padding:12px 14px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);white-space:nowrap">Jobs</button>
+        <button id="cmTab_photos" onclick="switchClientTab('photos')" style="padding:12px 14px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);white-space:nowrap">Photos</button>
+        <button id="cmTab_history" onclick="switchClientTab('history')" style="padding:12px 14px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);white-space:nowrap">History</button>
       </div>
       <div id="cmOverviewContent"></div>
-      <div id="cmTimelineContent" style="display:none"></div>
+      <div id="cmJobsContent" style="display:none"></div>
+      <div id="cmPhotosContent" style="display:none"></div>
+      <div id="cmHistoryContent" style="display:none"></div>
     </div>
     <div class="modal-actions">
       <a class="btn btn-secondary" id="cmCall" href="#">📞 Call</a>

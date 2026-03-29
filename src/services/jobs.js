@@ -115,6 +115,36 @@ async function getJobByRef(ref) {
   return r ? formatJob(r) : null;
 }
 
+async function getJobsForClient(clientId) {
+  const rows = await getAll(`
+    SELECT j.*, c.name AS client_name, c.email AS client_email
+    FROM jobs j LEFT JOIN clients c ON j.client_id = c.id
+    WHERE j.client_id = $1 AND j.company_id = $2
+    ORDER BY j.created_at DESC
+  `, [clientId, COMPANY_ID]);
+  return rows.map(formatJob);
+}
+
+async function getPhotosForClient(clientId) {
+  const rows = await getAll(`
+    SELECT p.*, j.job_ref, j.title AS job_title
+    FROM photos p
+    JOIN jobs j ON p.job_id = j.id
+    WHERE j.client_id = $1 AND j.company_id = $2
+    ORDER BY p.created_at DESC
+  `, [clientId, COMPANY_ID]);
+  return rows.map(r => ({
+    id: r.id,
+    jobId: r.job_id,
+    jobRef: r.job_ref || '',
+    jobTitle: r.job_title || '',
+    url: r.url || r.drive_url || '',
+    caption: r.caption || '',
+    phase: r.phase || '',
+    createdAt: r.created_at,
+  }));
+}
+
 async function createJob(data) {
   // Auto-generate job_ref
   const count = await getOne(`SELECT COUNT(*) FROM jobs WHERE company_id = $1`, [COMPANY_ID]);
@@ -209,6 +239,7 @@ async function updatePhaseActualCost(id, cost) {
 }
 
 module.exports = {
-  getJobs, getJob, getJobByRef, createJob, updateJobStatus, updateJobField,
+  getJobs, getJob, getJobByRef, getJobsForClient, getPhotosForClient,
+  createJob, updateJobStatus, updateJobField,
   getPhases, updatePhaseStatus, updatePhaseActualCost, formatJob,
 };
