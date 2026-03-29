@@ -143,7 +143,11 @@ function applyRoleNav(role) {
     ],
   };
 
-  // Role-aware More menu hiding handled separately
+  // Hide More menu items that this role shouldn't see
+  document.querySelectorAll('[data-roles]').forEach(el => {
+    const allowed = el.dataset.roles.split(' ');
+    el.style.display = allowed.includes(role) ? '' : 'none';
+  });
 
   if (!role || !configs[role]) role = 'owner';
   const items = configs[role];

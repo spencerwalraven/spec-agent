@@ -1502,38 +1502,46 @@
     <!-- ── MORE PAGE ───────────────────────────────────────────────── -->
     <section class="page" id="page-more">
       <!-- DAILY TOOLS -->
-      <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px;margin-top:4px">Daily Tools</div>
-      <div class="more-grid" style="margin-bottom:20px">
-        <button class="more-item" onclick="navigate('field')"><div class="more-icon">📐</div><div class="more-name">Job Estimate</div><div class="more-desc">Site visit form</div></button>
-        <button class="more-item" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
-        <button class="more-item" onclick="navigate('tasks')" style="position:relative"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc" id="moreTaskDesc">Action items</div></button>
-        <button class="more-item" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+      <div class="more-section" data-roles="owner sales" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px;margin-top:4px">Daily Tools</div>
+      <div class="more-grid more-section" data-roles="owner sales" style="margin-bottom:20px">
+        <button class="more-item" data-roles="owner sales" onclick="navigate('field')"><div class="more-icon">📐</div><div class="more-name">Job Estimate</div><div class="more-desc">Site visit form</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('tasks')"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc" id="moreTaskDesc">Action items</div></button>
+        <button class="more-item" data-roles="owner field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+      </div>
+
+      <!-- FIELD TOOLS (field workers only see this + time clock + alerts) -->
+      <div class="more-section" data-roles="field" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px;margin-top:4px">My Tools</div>
+      <div class="more-grid more-section" data-roles="field" style="margin-bottom:20px">
+        <button class="more-item" data-roles="field" onclick="navigate('tasks')"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc">My tasks</div></button>
+        <button class="more-item" data-roles="field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+        <button class="more-item" data-roles="field" onclick="navigate('alerts')"><div class="more-icon">🔔</div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
       </div>
 
       <!-- MANAGE -->
-      <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Manage</div>
-      <div class="more-grid" style="margin-bottom:20px">
-        <button class="more-item" onclick="navigate('team')"><div class="more-icon">👥</div><div class="more-name">Team</div><div class="more-desc">Members &amp; rates</div></button>
-        <button class="more-item" onclick="navigate('clients')"><div class="more-icon">🤝</div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
-        <button class="more-item" onclick="navigate('conversations')"><div class="more-icon">💬</div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
-        <button class="more-item" onclick="navigate('approvals')" style="position:relative"><div class="more-icon">✅</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
-        <button class="more-item" onclick="navigate('marketing')"><div class="more-icon">📢</div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
-        <button class="more-item" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; equipment</div></button>
+      <div class="more-section" data-roles="owner sales" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Manage</div>
+      <div class="more-grid more-section" data-roles="owner sales" style="margin-bottom:20px">
+        <button class="more-item" data-roles="owner" onclick="navigate('team')"><div class="more-icon">👥</div><div class="more-name">Team</div><div class="more-desc">Members &amp; rates</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('clients')"><div class="more-icon">🤝</div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('conversations')"><div class="more-icon">💬</div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('approvals')"><div class="more-icon">✅</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('marketing')"><div class="more-icon">📢</div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; equipment</div></button>
       </div>
 
       <!-- INSIGHTS -->
-      <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Insights</div>
-      <div class="more-grid" style="margin-bottom:20px">
-        <button class="more-item" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
-        <button class="more-item" onclick="navigate('agents')"><div class="more-icon">🤖</div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
+      <div class="more-section" data-roles="owner" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Insights</div>
+      <div class="more-grid more-section" data-roles="owner" style="margin-bottom:20px">
+        <button class="more-item" data-roles="owner" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('agents')"><div class="more-icon">🤖</div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
       </div>
 
       <!-- ADMIN -->
-      <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Admin</div>
-      <div class="more-grid" style="margin-bottom:20px">
-        <button class="more-item" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
-        <button class="more-item" onclick="navigate('recurring')"><div class="more-icon">🔁</div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
-        <button class="more-item" onclick="navigate('alerts')"><div class="more-icon">🔔</div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
+      <div class="more-section" data-roles="owner" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Admin</div>
+      <div class="more-grid more-section" data-roles="owner" style="margin-bottom:20px">
+        <button class="more-item" data-roles="owner" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('recurring')"><div class="more-icon">🔁</div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
+        <button class="more-item" data-roles="owner sales field" onclick="navigate('alerts')"><div class="more-icon">🔔</div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
       </div>
 
       <a href="/logout" onclick="return confirm('Sign out of the dashboard?')" style="display:block;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:600;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1F0A0A'" onmouseout="this.style.background='var(--card)'">
