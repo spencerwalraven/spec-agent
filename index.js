@@ -3504,6 +3504,25 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
 let _lastTallyDebug = null;
 app.get('/api/sgc/ops/debug/tally', (req, res) => res.json(_lastTallyDebug || { message: 'No submission received yet' }));
 
+// Known UUID→name map from Tally dropdown options (auto-populated from last payload)
+const TALLY_ID_MAP = {};
+app.get('/api/sgc/ops/field-reports/fix-names', async (req, res) => {
+  // Patch existing sheet rows that have UUID names using the known ID→name map
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const rows = await agent.sgcReadTab('Field Reports');
+    let fixed = 0;
+    for (const row of rows) {
+      const name = row['Name'] || '';
+      if (TALLY_ID_MAP[name]) {
+        await agent.sgcUpdateCell('Field Reports', row._row, 'Name', TALLY_ID_MAP[name]);
+        fixed++;
+      }
+    }
+    res.json({ ok: true, fixed, map: TALLY_ID_MAP });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
 app.post('/api/sgc/field-report', async (req, res) => {
   try {
@@ -3515,6 +3534,15 @@ app.post('/api/sgc/field-report', async (req, res) => {
     // Tally can nest fields under data.fields OR data.responses — try both
     const fields = payload?.data?.fields || payload?.data?.responses || payload?.fields || [];
 
+    // Build UUID→name map from dropdown options so we can fix historical bad entries
+    for (const f of fields) {
+      if (f.options?.length) {
+        for (const opt of f.options) {
+          if (opt.id && opt.text) TALLY_ID_MAP[opt.id] = opt.text;
+        }
+      }
+    }
+
     // Log everything
     logger.info('SGC-FieldReport', `Payload keys: ${Object.keys(payload || {}).join(', ')} | data keys: ${Object.keys(payload?.data || {}).join(', ')}`);
     logger.info('SGC-FieldReport', `Fields (${fields.length}): ${JSON.stringify(fields.map(f => ({ type: f.type, label: f.label, key: f.key, value: f.value })))}`);
@@ -3524,8 +3552,14 @@ app.post('/api/sgc/field-report', async (req, res) => {
     const extractValue = (f) => {
       if (!f) return '';
       let v = f.value;
-      if (Array.isArray(v)) v = v.filter(x => x != null && x !== '').join(', ');
-      else if (v != null && typeof v === 'object') v = Object.values(v).filter(Boolean).join(', ');
+      // DROPDOWN / MULTIPLE_CHOICE: value is array of option IDs → resolve to display text
+      if (Array.isArray(v) && f.options?.length) {
+        v = v.map(id => f.options.find(o => o.id === id)?.text || id).filter(Boolean).join(', ');
+      } else if (Array.isArray(v)) {
+        v = v.filter(x => x != null && x !== '').join(', ');
+      } else if (v != null && typeof v === 'object') {
+        v = Object.values(v).filter(Boolean).join(', ');
+      }
       return String(v ?? '').trim();
     };
 
