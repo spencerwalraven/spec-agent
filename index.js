@@ -3106,19 +3106,18 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');
     const jobs = await agent.sgcReadTab('SGC');
-    const active = jobs.filter(j => {
-      const s = (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase();
-      return s !== 'complete' && s !== 'completed' && s !== 'closed' && s !== '';
-    });
-    res.json({ jobs: active.map(j => ({
+    const mapJob = j => ({
       _row:     j._row,
       job:      j['#'],
       customer: j['Customer'],
       address:  j['Address'] || j['Job Address'] || '',
-      status:   j['Job Status '] || j['Job Status'] || '',
+      status:   (j['Job Status '] || j['Job Status'] || '').trim(),
       thru:     j['Thru'] || j['Target End'] || '',
       notes:    j['Notes'] || j['NOTES'] || '',
-    })) });
+    });
+    const active    = jobs.filter(j => { const s = (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase(); return s !== 'complete' && s !== 'completed' && s !== 'closed' && s !== ''; });
+    const completed = jobs.filter(j => { const s = (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase(); return s === 'complete' || s === 'completed' || s === 'closed'; });
+    res.json({ jobs: active.map(mapJob), completed: completed.map(mapJob) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -3189,6 +3188,18 @@ app.delete('/api/sgc/ops/subs', async (req, res) => {
     const row = parseInt(req.body?.row || req.query?.row);
     if (!row) return res.status(400).json({ error: 'row required' });
     await deleteSheetRow('2025 SubCons', row);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC DELETE INSURANCE TASK ───────────────────────────────────────────────
+app.delete('/api/sgc/ops/insurance', async (req, res) => {
+  try {
+    const row = parseInt(req.body?.row || req.query?.row);
+    if (!row) return res.status(400).json({ error: 'row required' });
+    await deleteSheetRow('Insurance Tasks', row);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

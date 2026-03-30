@@ -625,6 +625,66 @@
     .report-del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
     .report-card { position: relative; }
 
+    /* ── STATUS DROPDOWN (jobs + insurance) ── */
+    .status-select {
+      border-radius: 20px;
+      padding: 4px 24px 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      border: 1px solid;
+      appearance: none;
+      -webkit-appearance: none;
+      background-repeat: no-repeat;
+      background-position: right 7px center;
+      background-size: 8px 5px;
+      transition: opacity 0.15s;
+    }
+    .status-select:hover { opacity: 0.85; }
+    .status-gold   { background-color: rgba(201,168,76,0.15);  color: var(--gold);   border-color: rgba(201,168,76,0.35);  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23C9A84C'/%3E%3C/svg%3E"); }
+    .status-yellow { background-color: rgba(250,204,21,0.12);  color: var(--yellow); border-color: rgba(250,204,21,0.35);  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23facc15'/%3E%3C/svg%3E"); }
+    .status-green  { background-color: rgba(74,222,128,0.12);  color: var(--green);  border-color: rgba(74,222,128,0.35);  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%234ade80'/%3E%3C/svg%3E"); }
+    .status-red    { background-color: rgba(239,68,68,0.12);   color: var(--red);    border-color: rgba(239,68,68,0.35);   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23ef4444'/%3E%3C/svg%3E"); }
+    .status-select option { background: #1c1c1c; color: #f0f0f0; font-weight: 500; }
+
+    /* ── COMPLETED JOBS ACCORDION ── */
+    .completed-accordion {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .completed-accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      background: var(--card2);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .completed-accordion-header:hover { background: rgba(74,222,128,0.05); }
+    .completed-accordion-header .acc-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; font-weight: 600;
+    }
+    .completed-accordion-body {
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      max-height: 0;
+    }
+    .completed-accordion-body.open { max-height: 1200px; }
+    .completed-accordion-body .table-wrap {
+      border-radius: 0;
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+    .acc-chevron { color: var(--text3); font-size: 12px; transition: transform 0.25s; }
+    .completed-accordion-header.open .acc-chevron { transform: rotate(180deg); color: var(--green); }
+
     /* ── EXPORT BUTTON ── */
     .export-btn {
       display: flex; align-items: center; gap: 6px;
@@ -825,6 +885,33 @@
           </tbody>
         </table>
       </div>
+
+      <!-- COMPLETED JOBS ACCORDION -->
+      <div class="completed-accordion" id="completedAccordion" style="display:none">
+        <div class="completed-accordion-header" id="completedHeader" onclick="toggleCompletedJobs()">
+          <div class="acc-title">
+            <span class="pill pill-green" id="completedCountPill">0 Completed</span>
+            <span>Completed Jobs</span>
+          </div>
+          <span class="acc-chevron" id="completedChevron">▼</span>
+        </div>
+        <div class="completed-accordion-body" id="completedBody">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job #</th>
+                  <th>Customer</th>
+                  <th>Status</th>
+                  <th>Target End</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="completedJobsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /content -->
@@ -993,32 +1080,57 @@
       return `<span class="pill pill-gray">${val}</span>`;
     }
 
-    function taskPill(status, row) {
+    function taskPill(status) {
+      // Static pill — used only if no row available
       const v = (status || '').toLowerCase().trim();
       const isComplete   = v === 'complete' || v === 'done';
       const isInProgress = v === 'in progress';
       const cls   = isComplete ? 'pill-green' : (isInProgress ? 'pill-yellow' : 'pill-red');
       const label = isComplete ? 'Complete' : (isInProgress ? 'In Progress' : 'Not Started');
-      if (row) {
-        const cycle = { 'complete': 'Not Started', 'done': 'Not Started', 'in progress': 'Complete', 'not started': 'In Progress', '': 'In Progress' };
-        const next  = cycle[v] || 'In Progress';
-        return `<span class="pill ${cls}" style="cursor:pointer;flex-shrink:0" title="Click to cycle status" onclick="toggleInsuranceStatus(${row},'${next}')">${label}</span>`;
-      }
       return `<span class="pill ${cls}">${label}</span>`;
     }
 
-    function jobStatusPill(status, row) {
-      const v = (status || '').toLowerCase().trim();
-      const isComplete = v === 'complete' || v === 'done';
-      const isHold     = v === 'on hold' || v === 'hold';
-      const cls   = isComplete ? 'pill-green' : (isHold ? 'pill-yellow' : 'pill-gold');
-      const label = isComplete ? 'Complete' : (isHold ? 'On Hold' : (status || 'In Progress'));
-      if (row) {
-        const cycle = { 'in progress': 'On Hold', 'on hold': 'Complete', 'complete': 'In Progress', 'done': 'In Progress', '': 'In Progress' };
-        const next  = cycle[v] || 'In Progress';
-        return `<span class="pill ${cls}" style="cursor:pointer" title="Click to cycle status" onclick="cycleJobStatus(${row},'${next}')">${label}</span>`;
-      }
-      return `<span class="pill ${cls}">${label}</span>`;
+    function insuranceStatusSelect(status, row) {
+      const v = (status || '').trim();
+      const vl = v.toLowerCase();
+      const isComplete   = vl === 'complete' || vl === 'done';
+      const isInProgress = vl === 'in progress';
+      const cls = isComplete ? 'status-green' : (isInProgress ? 'status-yellow' : 'status-red');
+      const sel = (opt) => v === opt || (opt === 'Complete' && isComplete) ? 'selected' : '';
+      return `<select class="status-select ${cls}" style="flex-shrink:0" onchange="changeInsuranceStatus(${row},this)" onclick="event.stopPropagation()">
+        <option value="Not Started" ${sel('Not Started')}>Not Started</option>
+        <option value="In Progress" ${sel('In Progress')}>In Progress</option>
+        <option value="Complete"    ${sel('Complete')}>Complete</option>
+      </select>`;
+    }
+
+    function jobStatusSelect(status, row) {
+      const v = (status || '').trim();
+      const vl = v.toLowerCase();
+      const isComplete = vl === 'complete' || vl === 'done';
+      const isHold     = vl === 'on hold' || vl === 'hold';
+      const cls = isComplete ? 'status-green' : (isHold ? 'status-yellow' : 'status-gold');
+      const sel = (opt) => v === opt || (isComplete && opt === 'Complete') ? 'selected' : '';
+      return `<select class="status-select ${cls}" onchange="changeJobStatus(${row},this)" onclick="event.stopPropagation()">
+        <option value="In Progress" ${sel('In Progress')}>In Progress</option>
+        <option value="On Hold"     ${sel('On Hold')}>On Hold</option>
+        <option value="Complete"    ${sel('Complete')}>Complete</option>
+      </select>`;
+    }
+
+    async function changeInsuranceStatus(row, selectEl) {
+      const newVal = selectEl.value;
+      // Update select colour immediately
+      selectEl.className = 'status-select ' + (newVal === 'Complete' ? 'status-green' : newVal === 'In Progress' ? 'status-yellow' : 'status-red');
+      await patchCell('insurance', row, 'Status', newVal);
+      await loadInsurance();
+    }
+
+    async function changeJobStatus(row, selectEl) {
+      const newVal = selectEl.value;
+      selectEl.className = 'status-select ' + (newVal === 'Complete' ? 'status-green' : newVal === 'On Hold' ? 'status-yellow' : 'status-gold');
+      await patchCell('job', row, 'Job Status', newVal);
+      await loadJobs();
     }
 
     function isYes(val) {
@@ -1226,7 +1338,7 @@
 
     async function saveNewSub() {
       const name = document.getElementById('newSubName').value.trim();
-      if (!name) { alert('Name is required'); return; }
+      if (!name) { showToast('Name is required', 'error'); return; }
       const btn = document.getElementById('saveSubBtn');
       btn.textContent = 'Saving...';
       btn.disabled = true;
@@ -1281,16 +1393,19 @@
       card.classList.toggle('expanded', !isOpen);
     }
 
-    // ── INSURANCE STATUS TOGGLE ──
-    async function toggleInsuranceStatus(row, nextStatus) {
-      await patchCell('insurance', row, 'Status', nextStatus);
-      await loadInsurance();
-    }
-
-    // ── JOB STATUS CYCLE ──
-    async function cycleJobStatus(row, nextStatus) {
-      await patchCell('job', row, 'Job Status', nextStatus);
-      await loadJobs();
+    // ── DELETE INSURANCE TASK ──
+    function confirmDeleteInsurance(row, name) {
+      openConfirm(
+        'Delete Task?',
+        `"${name}" will be permanently removed from the Insurance Tasks sheet.`,
+        'Delete',
+        async () => {
+          const res  = await fetch('/api/sgc/ops/insurance', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
+          const data = await res.json();
+          if (data.ok) { showToast('Task deleted', 'success'); await loadInsurance(); }
+          else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
+        }
+      );
     }
 
     function filterSubs() { applySubFilter(); }
@@ -1319,20 +1434,21 @@
         }
 
         document.getElementById('insuranceList').innerHTML = tasks.map(t => {
-          const name  = t['Task'] || t['Item'] || t['Description'] || Object.values(t).find(v => v && !String(v).startsWith('_') && String(v).length > 2) || 'Unknown Task';
-          const owner = t['Owner'] || t['Assigned To'] || '';
-          const due   = t['Due Date'] || t['Due'] || '';
-          const type  = t['Type'] || '';
-          const row   = t._row;
+          const name   = t['Task'] || t['Item'] || t['Description'] || Object.values(t).find(v => v && !String(v).startsWith('_') && String(v).length > 2) || 'Unknown Task';
+          const owner  = t['Owner'] || t['Assigned To'] || '';
+          const due    = t['Due Date'] || t['Due'] || '';
+          const type   = t['Type'] || '';
+          const row    = t._row;
           const status = t['Status'] || '';
           return `
-            <div class="task-item">
-              ${taskPill(status, row)}
+            <div class="task-item" style="position:relative">
+              ${insuranceStatusSelect(status, row)}
               <div class="task-info">
                 <div class="task-name">${name}</div>
                 <div class="task-meta">${[type, owner ? 'Owner: ' + owner : '', due ? 'Due: ' + due : ''].filter(Boolean).join(' · ')}</div>
               </div>
               ${editCell(t['Notes'] || t['NOTES'] || '', row, 'Notes', 'text', 200, 'insurance')}
+              <button class="del-btn" title="Delete task" onclick="confirmDeleteInsurance(${row},'${name.replace(/'/g,"\\'").replace(/`/g,'\\`')}')" style="margin-left:4px;flex-shrink:0">🗑</button>
             </div>
           `;
         }).join('');
@@ -1341,11 +1457,33 @@
       }
     }
 
+    let completedJobsOpen = false;
+
+    function toggleCompletedJobs() {
+      completedJobsOpen = !completedJobsOpen;
+      const body   = document.getElementById('completedBody');
+      const header = document.getElementById('completedHeader');
+      body.classList.toggle('open', completedJobsOpen);
+      header.classList.toggle('open', completedJobsOpen);
+    }
+
+    function renderJobRow(j, isCompleted) {
+      return `
+        <tr style="${isCompleted ? 'opacity:0.7' : ''}">
+          <td><strong>#${j.job || '—'}</strong>${j.address ? `<br><span style="color:var(--text3);font-size:11px">${j.address}</span>` : ''}</td>
+          <td>${j.customer || '—'}</td>
+          <td>${jobStatusSelect(j.status, j._row)}</td>
+          <td style="color:var(--text2)">${editCell(j.thru, j._row, 'Thru', 'text', 90, 'job')}</td>
+          <td>${editCell(j.notes, j._row, 'Notes', 'text', 180, 'job')}</td>
+        </tr>`;
+    }
+
     async function loadJobs() {
       try {
-        const res  = await fetch('/api/sgc/ops/jobs');
-        const data = await res.json();
-        const jobs = data.jobs || [];
+        const res       = await fetch('/api/sgc/ops/jobs');
+        const data      = await res.json();
+        const jobs      = data.jobs      || [];
+        const completed = data.completed || [];
 
         const inProgress = jobs.filter(j => (j.status||'').toLowerCase().includes('progress')).length;
         const onHold     = jobs.filter(j => (j.status||'').toLowerCase().includes('hold')).length;
@@ -1353,24 +1491,29 @@
           <div class="stat-card stat-gold"><div class="stat-value">${jobs.length}</div><div class="stat-label">Active Jobs</div></div>
           <div class="stat-card stat-green"><div class="stat-value">${inProgress}</div><div class="stat-label">In Progress</div></div>
           ${onHold ? `<div class="stat-card stat-yellow"><div class="stat-value">${onHold}</div><div class="stat-label">On Hold</div></div>` : ''}
+          ${completed.length ? `<div class="stat-card" style="cursor:pointer;border-color:rgba(74,222,128,0.3)" onclick="document.getElementById('completedAccordion').scrollIntoView({behavior:'smooth'});if(!completedJobsOpen)toggleCompletedJobs()">
+            <div class="stat-value" style="color:var(--green)">${completed.length}</div>
+            <div class="stat-label">Completed Jobs ↓</div>
+          </div>` : ''}
         `;
 
         if (!jobs.length) {
           document.getElementById('jobsTable').innerHTML = '<tr><td colspan="5" class="empty">No active jobs</td></tr>';
-          return;
+        } else {
+          document.getElementById('jobsTable').innerHTML = jobs.map(j => renderJobRow(j, false)).join('');
         }
 
-        document.getElementById('jobsTable').innerHTML = jobs.map(j => `
-          <tr>
-            <td><strong>#${j.job || '—'}</strong>${j.address ? `<br><span style="color:var(--text3);font-size:11px">${j.address}</span>` : ''}</td>
-            <td>${j.customer || '—'}</td>
-            <td>${jobStatusPill(j.status, j._row)}</td>
-            <td style="color:var(--text2)">${editCell(j.thru, j._row, 'Thru', 'text', 90, 'job')}</td>
-            <td>${editCell(j.notes, j._row, 'Notes', 'text', 180, 'job')}</td>
-          </tr>
-        `).join('');
+        // Completed jobs accordion
+        if (completed.length) {
+          document.getElementById('completedAccordion').style.display = '';
+          document.getElementById('completedCountPill').textContent = completed.length + ' Completed';
+          document.getElementById('completedJobsTable').innerHTML = completed.map(j => renderJobRow(j, true)).join('');
+        } else {
+          document.getElementById('completedAccordion').style.display = 'none';
+        }
       } catch (e) {
-        document.getElementById('jobsTable').innerHTML = `<tr><td colspan="4" class="empty">Error: ${e.message}</td></tr>`;
+        document.getElementById('jobsTable').innerHTML = `<tr><td colspan="5" class="empty">Error: ${e.message}</td></tr>`;
+        showToast('Failed to load jobs: ' + e.message, 'error');
       }
     }
 
