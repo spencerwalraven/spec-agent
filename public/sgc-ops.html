@@ -280,6 +280,24 @@
     }
     .report-dot { flex-shrink: 0; margin-top: 3px; }
     .report-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    /* ── WORKER ROSTER ── */
+    .worker-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      border: 1px solid var(--border); margin-bottom: 6px;
+      background: var(--bg);
+    }
+    .worker-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(201,168,76,0.15); color: var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .worker-info { flex: 1; min-width: 0; }
+    .worker-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .worker-email { font-size: 11px; color: var(--text3); }
+    .worker-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 5px; transition: all 0.15s; }
+    .worker-del:hover { color: var(--red); background: rgba(239,68,68,0.1); }
 
     /* ── INSURANCE TASKS ── */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
@@ -955,6 +973,33 @@
       </div>
       <div id="reportGrid" class="week-table-wrap">
         <div class="loading"><div class="spinner"></div>Loading field reports...</div>
+      </div>
+
+      <!-- WORKER ROSTER ACCORDION -->
+      <div style="margin-top:18px">
+        <div class="completed-accordion-header" onclick="toggleWorkerRoster()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:15px">👷</span>
+            <span style="font-weight:600;font-size:13px">Manage Workers</span>
+            <span class="pill" id="workerCountPill" style="background:rgba(201,168,76,0.12);color:var(--gold);font-size:10px">0 workers</span>
+          </div>
+          <span id="workerRosterChevron" style="color:var(--text3);font-size:13px;transition:transform 0.2s">▼</span>
+        </div>
+        <div id="workerRosterBody" style="overflow:hidden;max-height:0;transition:max-height 0.3s ease">
+          <div style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:16px">
+            <!-- Add worker form -->
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+              <input id="newWorkerName" class="edit-input" placeholder="Full Name" style="flex:1;min-width:140px" />
+              <input id="newWorkerEmail" class="edit-input" placeholder="Email address" type="email" style="flex:1;min-width:180px" />
+              <input id="newWorkerPhone" class="edit-input" placeholder="Phone (optional)" type="tel" style="flex:1;min-width:130px" />
+              <button class="add-row-btn" onclick="addWorker()" id="addWorkerBtn">+ Add Worker</button>
+            </div>
+            <!-- Worker list -->
+            <div id="workerList">
+              <div class="loading"><div class="spinner"></div>Loading workers…</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1677,6 +1722,7 @@
       document.getElementById('statToday').textContent = todaySubmitted;
       document.getElementById('statMissing').textContent = workersList.length ? todayMissing : '—';
       document.getElementById('statWeek').textContent = weekSubmitted;
+      document.getElementById('workerCountPill').textContent = `${workersList.length} worker${workersList.length !== 1 ? 's' : ''}`;
 
       if (!workersList.length) {
         document.getElementById('reportGrid').innerHTML = `
@@ -1963,6 +2009,84 @@
       } finally {
         btn.textContent = '🔔 Send Reminders'; btn.disabled = false;
       }
+    }
+
+    // ── WORKER ROSTER ──
+    let workerRosterOpen = false;
+
+    function toggleWorkerRoster() {
+      workerRosterOpen = !workerRosterOpen;
+      const body = document.getElementById('workerRosterBody');
+      const chev = document.getElementById('workerRosterChevron');
+      body.style.maxHeight = workerRosterOpen ? body.scrollHeight + 400 + 'px' : '0';
+      chev.style.transform = workerRosterOpen ? 'rotate(180deg)' : '';
+      if (workerRosterOpen) renderWorkerList();
+    }
+
+    function renderWorkerList() {
+      const el = document.getElementById('workerList');
+      if (!workersList.length) {
+        el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">No workers added yet. Use the form above to add your team.</div>';
+      } else {
+        el.innerHTML = workersList.map(w => `
+          <div class="worker-row">
+            <div class="worker-avatar">${(w.name||'?').charAt(0).toUpperCase()}</div>
+            <div class="worker-info">
+              <div class="worker-name">${w.name}</div>
+              <div class="worker-email">${w.email || '<em style="color:var(--text3)">No email</em>'}${w.phone ? ' · ' + w.phone : ''}</div>
+            </div>
+            <button class="worker-del" title="Remove worker" onclick="confirmDeleteWorker(${w._row},'${w.name.replace(/'/g,"\\'")}')">🗑</button>
+          </div>`).join('');
+      }
+      document.getElementById('workerCountPill').textContent = `${workersList.length} worker${workersList.length !== 1 ? 's' : ''}`;
+      // Re-expand to fit new content
+      document.getElementById('workerRosterBody').style.maxHeight = '9999px';
+    }
+
+    async function addWorker() {
+      const name  = document.getElementById('newWorkerName').value.trim();
+      const email = document.getElementById('newWorkerEmail').value.trim();
+      const phone = document.getElementById('newWorkerPhone').value.trim();
+      if (!name) { showToast('Worker name is required', 'error'); return; }
+      const btn = document.getElementById('addWorkerBtn');
+      btn.textContent = 'Adding…'; btn.disabled = true;
+      try {
+        const res  = await fetch('/api/sgc/ops/workers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, phone }) });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('newWorkerName').value  = '';
+          document.getElementById('newWorkerEmail').value = '';
+          document.getElementById('newWorkerPhone').value = '';
+          showToast(`${name} added ✓`, 'success');
+          await loadReports(); // refresh workers + grid
+          renderWorkerList();
+        } else {
+          showToast('Failed: ' + (data.error || 'Unknown'), 'error');
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.textContent = '+ Add Worker'; btn.disabled = false;
+      }
+    }
+
+    function confirmDeleteWorker(row, name) {
+      openConfirm(
+        'Remove Worker?',
+        `"${name}" will be removed from the roster. Their past reports won't be affected.`,
+        'Remove',
+        async () => {
+          const res  = await fetch('/api/sgc/ops/workers', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
+          const data = await res.json();
+          if (data.ok) {
+            showToast(`${name} removed`, 'success');
+            await loadReports();
+            renderWorkerList();
+          } else {
+            showToast('Failed: ' + (data.error || 'Unknown'), 'error');
+          }
+        }
+      );
     }
 
     // ── CHAT DRAWER ──

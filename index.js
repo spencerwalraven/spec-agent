@@ -3366,13 +3366,66 @@ app.delete('/api/sgc/ops/todos', async (req, res) => {
 });
 
 // ─── SGC FIELD REPORTS GET (Dashboard) ────────────────────────────────────────
+// ─── SGC WORKERS CRUD ────────────────────────────────────────────────────────
+async function readWorkers(agent) {
+  // Workers sheet: header row = Name | Email | Phone (optional)
+  // Falls back to SGC_WORKERS env var if sheet tab doesn't exist yet
+  try {
+    const rows = await agent.sgcReadTab('SGC Workers');
+    return rows.map(r => ({ _row: r._row, name: r['Name'] || '', email: r['Email'] || '', phone: r['Phone'] || '' })).filter(w => w.name);
+  } catch (_) {
+    try { return JSON.parse(process.env.SGC_WORKERS || '[]').map((w, i) => ({ _row: i + 2, ...w })); } catch (_) { return []; }
+  }
+}
+
+async function ensureWorkersTab(sheets, SGC_SHEET_ID) {
+  try {
+    const check = await sheets.spreadsheets.values.get({ spreadsheetId: SGC_SHEET_ID, range: 'SGC Workers!A1:C1' });
+    if (!check.data.values?.length) throw new Error('no headers');
+  } catch (_) {
+    try {
+      await sheets.spreadsheets.batchUpdate({ spreadsheetId: SGC_SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title: 'SGC Workers' } } }] } });
+    } catch (_) {}
+    await sheets.spreadsheets.values.update({ spreadsheetId: SGC_SHEET_ID, range: 'SGC Workers!A1', valueInputOption: 'RAW', requestBody: { values: [['Name', 'Email', 'Phone']] } });
+  }
+}
+
+app.get('/api/sgc/ops/workers', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const workers = await readWorkers(agent);
+    res.json({ workers });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/sgc/ops/workers', async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    const { google } = require('googleapis');
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+    const sheets = google.sheets({ version: 'v4', auth });
+    await ensureWorkersTab(sheets, SGC_SHEET_ID);
+    await sheets.spreadsheets.values.append({ spreadsheetId: SGC_SHEET_ID, range: 'SGC Workers!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS', requestBody: { values: [[name, email || '', phone || '']] } });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/sgc/ops/workers', async (req, res) => {
+  try {
+    const row = parseInt(req.body?.row);
+    if (!row) return res.status(400).json({ error: 'row required' });
+    await deleteSheetRow('SGC Workers', row);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/sgc/ops/field-reports', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');
-    const rows = await agent.sgcReadTab('Field Reports');
-    // Include worker list so the front-end can build the weekly grid
-    let workers = [];
-    try { workers = JSON.parse(process.env.SGC_WORKERS || '[]'); } catch (_) {}
+    const [rows, workers] = await Promise.all([agent.sgcReadTab('Field Reports'), readWorkers(agent)]);
     res.json({ reports: rows, workers });
   } catch (e) {
     res.json({ reports: [], workers: [] });
@@ -3394,10 +3447,8 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
 
     const submittedNames = todayReports.map(r => (r['Name'] || '').trim().toLowerCase()).filter(Boolean);
 
-    // Worker list — set SGC_WORKERS as JSON in Railway env, e.g.:
-    // [{"name":"Joe","email":"joe@example.com"},{"name":"Elias","email":"elias@example.com"}]
-    let workers = [];
-    try { workers = JSON.parse(process.env.SGC_WORKERS || '[]'); } catch (_) {}
+    // Worker list — read from SGC Workers sheet tab (falls back to env var)
+    const workers = await readWorkers(agent);
 
     const missing = workers.filter(w => !submittedNames.some(n => n.includes(w.name.toLowerCase())));
     const incomplete = todayReports.filter(r => !(r['Name'] && r['Work Completed Today']));
