@@ -830,77 +830,6 @@
     }
     .export-btn:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
 
-    /* ── TO-DO LIST ── */
-    .todo-add-bar {
-      display: flex; gap: 10px; align-items: center;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 18px;
-      margin-bottom: 20px;
-      transition: border-color 0.2s;
-    }
-    .todo-add-bar:focus-within { border-color: rgba(201,168,76,0.5); }
-    .todo-quick-input {
-      flex: 1; background: none; border: none;
-      color: var(--text); font-size: 15px; outline: none;
-      font-family: inherit;
-    }
-    .todo-quick-input::placeholder { color: var(--text3); }
-    .todo-divider { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
-
-    .todo-section-label {
-      font-size: 11px; font-weight: 700; color: var(--text3);
-      text-transform: uppercase; letter-spacing: 0.6px;
-      padding: 8px 0 6px; margin-top: 8px;
-    }
-    .todo-item {
-      display: flex; align-items: center; gap: 13px;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 13px 16px;
-      margin-bottom: 8px; transition: border-color 0.2s, opacity 0.2s;
-    }
-    .todo-item:hover { border-color: rgba(201,168,76,0.25); }
-    .todo-item.todo-done { opacity: 0.45; }
-    .todo-item.todo-done:hover { opacity: 0.65; }
-    .todo-item.todo-overdue { border-left: 3px solid var(--red); }
-
-    .todo-check {
-      width: 22px; height: 22px; border-radius: 50%;
-      border: 2px solid var(--border); background: none;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-size: 11px; flex-shrink: 0;
-      transition: all 0.2s;
-      color: white;
-    }
-    .todo-check:hover { border-color: var(--gold); }
-    .todo-check.checked { background: var(--green); border-color: var(--green); }
-
-    .todo-body { flex: 1; min-width: 0; }
-    .todo-text {
-      font-size: 14px; font-weight: 500;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .todo-text.done { text-decoration: line-through; color: var(--text3); }
-    .todo-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
-    .priority-badge {
-      font-size: 10px; font-weight: 700; padding: 2px 8px;
-      border-radius: 10px; text-transform: uppercase; letter-spacing: 0.4px;
-    }
-    .priority-high   { background: rgba(239,68,68,0.15);  color: var(--red); }
-    .priority-medium { background: rgba(250,204,21,0.15); color: var(--yellow); }
-    .priority-low    { background: rgba(74,222,128,0.12); color: var(--green); }
-    .todo-due {
-      font-size: 11px; color: var(--text2);
-      display: flex; align-items: center; gap: 4px;
-    }
-    .todo-due.overdue { color: var(--red); font-weight: 600; }
-    .todo-due.due-soon { color: var(--yellow); font-weight: 600; }
-
-    .todo-empty {
-      text-align: center; padding: 60px 20px;
-      color: var(--text3); font-size: 15px;
-    }
-    .todo-empty-icon { font-size: 40px; margin-bottom: 12px; }
-
     /* ── DEMO BANNER ── */
     .demo-banner {
       background: rgba(201,168,76,0.1);
@@ -977,9 +906,6 @@
     </button>
     <button class="tab-btn" onclick="switchTab('jobs')">
       Active Jobs
-    </button>
-    <button class="tab-btn" onclick="switchTab('todo')">
-      To-Do <span class="tab-badge" id="todoBadge" style="background:var(--gold);color:#111">—</span>
     </button>
     <button class="tab-btn" onclick="switchTab('meeting')">
       📋 Monday Prep
@@ -1199,41 +1125,6 @@
             </table>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- TO-DO TAB -->
-    <div class="tab-panel" id="tab-todo">
-      <div class="stats-row" id="todoStats">
-        <div class="loading"><div class="spinner"></div>Loading...</div>
-      </div>
-
-      <!-- Quick-add bar -->
-      <div class="todo-add-bar">
-        <span style="font-size:18px;flex-shrink:0">✏️</span>
-        <div class="todo-divider"></div>
-        <input class="todo-quick-input" id="todoInput" placeholder="What needs to get done? Press Enter to add..."
-          onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo();}" />
-        <div class="todo-divider"></div>
-        <select class="editable-select" id="todoPriority" style="border-color:var(--border)">
-          <option value="High">🔴 High</option>
-          <option value="Medium" selected>🟡 Medium</option>
-          <option value="Low">🟢 Low</option>
-        </select>
-        <input type="date" class="editable-input" id="todoDue" style="width:130px;border-color:var(--border)" title="Due date (optional)" />
-        <button class="btn-primary" style="white-space:nowrap;padding:8px 16px" onclick="addTodo()">+ Add</button>
-      </div>
-
-      <!-- Filter pills -->
-      <div class="filter-pills">
-        <button class="filter-pill active" onclick="setTodoFilter('active')">Active <span id="todoActiveCount"></span></button>
-        <button class="filter-pill" onclick="setTodoFilter('all')">All</button>
-        <button class="filter-pill" onclick="setTodoFilter('completed')">Completed <span id="todoCompletedCount"></span></button>
-      </div>
-
-      <!-- Task list -->
-      <div id="todoList">
-        <div class="loading"><div class="spinner"></div>Loading tasks...</div>
       </div>
     </div>
 
@@ -1514,12 +1405,11 @@
 
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        const tabs = ['subs', 'reports', 'insurance', 'jobs', 'todo', 'meeting'];
+        const tabs = ['subs', 'reports', 'insurance', 'jobs', 'meeting'];
         b.classList.toggle('active', tabs[i] === name);
       });
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       document.getElementById('tab-' + name).classList.add('active');
-      if (name === 'todo') loadTodos();
       if (name === 'meeting') loadMeeting();
     }
 
@@ -1765,7 +1655,7 @@
       if (input.select) input.select();
     }
 
-    const PATCH_URLS = { sub: '/api/sgc/ops/subs', insurance: '/api/sgc/ops/insurance', job: '/api/sgc/ops/jobs', todo: '/api/sgc/ops/todos' };
+    const PATCH_URLS = { sub: '/api/sgc/ops/subs', insurance: '/api/sgc/ops/insurance', job: '/api/sgc/ops/jobs' };
 
     async function patchCell(tab, row, field, value) {
       try {
@@ -2693,170 +2583,6 @@
       document.getElementById('chatMessages').scrollTop = 99999;
       input.focus();
     }
-
-    // ── TO-DO LIST ────────────────────────────────────────────────────────────
-    let allTodos   = [];
-    let todoFilter = 'active';
-
-    function setTodoFilter(f) {
-      todoFilter = f;
-      document.querySelectorAll('#tab-todo .filter-pill').forEach(p =>
-        p.classList.toggle('active', p.getAttribute('onclick').includes(`'${f}'`))
-      );
-      renderTodos();
-    }
-
-    function isOverdue(due) {
-      if (!due) return false;
-      return new Date(due) < new Date(new Date().toDateString());
-    }
-    function isDueSoon(due) {
-      if (!due) return false;
-      const diff = new Date(due) - new Date(new Date().toDateString());
-      return diff >= 0 && diff <= 2 * 86400000;
-    }
-    function fmtDue(due) {
-      if (!due) return '';
-      const d = new Date(due + 'T00:00:00');
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    async function loadTodos() {
-      try {
-        const res  = await fetch('/api/sgc/ops/todos');
-        const data = await res.json();
-        allTodos   = data.todos || [];
-        renderTodos();
-      } catch (e) {
-        document.getElementById('todoList').innerHTML = `<div class="empty">Error loading tasks: ${e.message}</div>`;
-      }
-    }
-
-    function renderTodos() {
-      const active    = allTodos.filter(t => (t['Status']||'Active').toLowerCase() !== 'completed');
-      const completed = allTodos.filter(t => (t['Status']||'').toLowerCase() === 'completed');
-
-      // badge on nav tab
-      document.getElementById('todoBadge').textContent = active.length || '✓';
-      document.getElementById('todoActiveCount').textContent    = active.length    ? `(${active.length})`    : '';
-      document.getElementById('todoCompletedCount').textContent = completed.length ? `(${completed.length})` : '';
-
-      // stats row
-      const overdue   = active.filter(t => isOverdue(t['Due Date'])).length;
-      const highPri   = active.filter(t => (t['Priority']||'').toLowerCase() === 'high').length;
-      document.getElementById('todoStats').innerHTML = `
-        <div class="stat-card stat-gold"><div class="stat-value">${active.length}</div><div class="stat-label">Open Tasks</div></div>
-        ${highPri  ? `<div class="stat-card stat-red"><div class="stat-value">${highPri}</div><div class="stat-label">High Priority</div></div>` : ''}
-        ${overdue  ? `<div class="stat-card stat-red"><div class="stat-value">${overdue}</div><div class="stat-label">Overdue</div></div>` : ''}
-        <div class="stat-card stat-green"><div class="stat-value">${completed.length}</div><div class="stat-label">Completed</div></div>
-      `;
-
-      let list = todoFilter === 'active' ? active : todoFilter === 'completed' ? completed : allTodos;
-
-      // Sort: overdue first, then by priority (High→Medium→Low), then by due date
-      const priOrder = { high: 0, medium: 1, low: 2, '': 3 };
-      list = [...list].sort((a, b) => {
-        const ao = isOverdue(a['Due Date']) ? -1 : 0;
-        const bo = isOverdue(b['Due Date']) ? -1 : 0;
-        if (ao !== bo) return ao - bo;
-        const ap = priOrder[(a['Priority']||'').toLowerCase()] ?? 3;
-        const bp = priOrder[(b['Priority']||'').toLowerCase()] ?? 3;
-        if (ap !== bp) return ap - bp;
-        if (a['Due Date'] && b['Due Date']) return new Date(a['Due Date']) - new Date(b['Due Date']);
-        return 0;
-      });
-
-      if (!list.length) {
-        const msgs = { active: { icon: '🎉', text: 'All caught up! No open tasks.' }, completed: { icon: '📋', text: 'No completed tasks yet.' }, all: { icon: '✏️', text: 'No tasks yet. Add one above!' } };
-        const m = msgs[todoFilter] || msgs.all;
-        document.getElementById('todoList').innerHTML = `<div class="todo-empty"><div class="todo-empty-icon">${m.icon}</div>${m.text}</div>`;
-        return;
-      }
-
-      document.getElementById('todoList').innerHTML = list.map(t => {
-        const row       = t._row;
-        const done      = (t['Status']||'').toLowerCase() === 'completed';
-        const task      = (t['Task'] || t['Item'] || '').replace(/</g,'&lt;');
-        const priority  = t['Priority'] || 'Medium';
-        const due       = t['Due Date'] || '';
-        const notes     = t['Notes'] || '';
-        const priClass  = priority.toLowerCase() === 'high' ? 'priority-high' : priority.toLowerCase() === 'low' ? 'priority-low' : 'priority-medium';
-        const overdue   = !done && isOverdue(due);
-        const soon      = !done && !overdue && isDueSoon(due);
-        const dueClass  = overdue ? 'overdue' : soon ? 'due-soon' : '';
-        const dueLabel  = overdue ? `⚠ ${fmtDue(due)}` : due ? `📅 ${fmtDue(due)}` : '';
-        return `
-          <div class="todo-item${done ? ' todo-done' : ''}${overdue ? ' todo-overdue' : ''}" id="todo-item-${row}">
-            <button class="todo-check${done ? ' checked' : ''}" title="${done ? 'Mark active' : 'Mark complete'}"
-              onclick="toggleTodoDone(${row},'${done ? 'Active' : 'Completed'}')">
-              ${done ? '✓' : ''}
-            </button>
-            <div class="todo-body">
-              <div class="todo-text${done ? ' done' : ''}">${task}</div>
-              <div class="todo-meta">
-                <span class="priority-badge ${priClass}">${priority}</span>
-                ${dueLabel ? `<span class="todo-due ${dueClass}">${dueLabel}</span>` : ''}
-                ${notes ? `<span style="font-size:11px;color:var(--text3)">· ${notes.replace(/</g,'&lt;')}</span>` : ''}
-              </div>
-            </div>
-            <button class="del-btn" title="Delete task" onclick="confirmDeleteTodo(${row},'${task.replace(/'/g,"\\'")}')">🗑</button>
-          </div>`;
-      }).join('');
-    }
-
-    async function addTodo() {
-      const input = document.getElementById('todoInput');
-      const task  = input.value.trim();
-      if (!task) { input.focus(); return; }
-      const priority = document.getElementById('todoPriority').value;
-      const due      = document.getElementById('todoDue').value;
-      input.value    = '';
-      document.getElementById('todoDue').value = '';
-      try {
-        const res  = await fetch('/api/sgc/ops/todos', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task, priority, due }),
-        });
-        const data = await res.json();
-        if (data.ok) { showToast(task + ' added ✓', 'success'); await loadTodos(); }
-        else showToast('Failed: ' + (data.error || 'Unknown'), 'error');
-      } catch (e) { showToast('Error: ' + e.message, 'error'); }
-    }
-
-    async function toggleTodoDone(row, newStatus) {
-      // Optimistic UI
-      const el = document.getElementById('todo-item-' + row);
-      if (el) el.style.opacity = '0.4';
-      try {
-        const res  = await fetch('/api/sgc/ops/todos', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ row, field: 'Status', value: newStatus }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          showToast(newStatus === 'Completed' ? '✓ Marked complete' : 'Moved back to active', 'success');
-          await loadTodos();
-        } else showToast('Update failed: ' + (data.error || 'Unknown'), 'error');
-      } catch (e) { showToast('Error: ' + e.message, 'error'); }
-    }
-
-    function confirmDeleteTodo(row, name) {
-      openConfirm(
-        'Delete Task?',
-        `"${name}" will be permanently removed.`,
-        'Delete',
-        async () => {
-          const res  = await fetch('/api/sgc/ops/todos', {
-            method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ row }),
-          });
-          const data = await res.json();
-          if (data.ok) { showToast('Task deleted', 'success'); await loadTodos(); }
-          else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
-        }
-      );
-    }
-    // ── END TO-DO ─────────────────────────────────────────────────────────────
 
     function loadAll() {
       document.getElementById('lastUpdated').textContent = 'Refreshing...';
