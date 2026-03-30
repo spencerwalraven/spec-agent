@@ -3083,37 +3083,9 @@ app.patch('/api/sgc/ops/subs', async (req, res) => {
   try {
     const { row, field, value } = req.body;
     if (!row || !field) return res.status(400).json({ error: 'row and field required' });
-
-    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
-    const { google } = require('googleapis');
-    const auth = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
-    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-    const sheets = google.sheets({ version: 'v4', auth });
-
-    // Read header row to find column position dynamically
-    const headerRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: SGC_SHEET_ID,
-      range: '2025 SubCons!1:1',
-    });
-    const headers = headerRes.data.values?.[0] || [];
-    const colIndex = headers.findIndex(h => h.trim().toLowerCase() === field.trim().toLowerCase());
-    if (colIndex === -1) return res.status(400).json({ error: `Column "${field}" not found in sheet` });
-
-    // Convert col index to letter (supports A-Z)
-    const colLetter = String.fromCharCode(65 + colIndex);
-    const range = `2025 SubCons!${colLetter}${row}`;
-
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SGC_SHEET_ID,
-      range,
-      valueInputOption: 'RAW',
-      requestBody: { values: [[value]] },
-    });
-
-    res.json({ ok: true, range, value });
+    const agent = require('./src/agents/sgc-admin-agent');
+    await agent.sgcUpdateCell('2025 SubCons', row, field, value);
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

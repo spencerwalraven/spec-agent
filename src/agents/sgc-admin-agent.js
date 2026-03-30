@@ -383,4 +383,4 @@ class SGCAdminAgent extends BaseAgent {
   }
 }
 
-module.exports = Object.assign(new SGCAdminAgent(), { sgcReadTab });
+module.exports = Object.assign(new SGCAdminAgent(), { sgcReadTab, sgcUpdateCell });
