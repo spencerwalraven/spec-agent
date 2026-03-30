@@ -3500,19 +3500,26 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
   }
 });
 
+// In-memory store for last Tally payload (for debugging)
+let _lastTallyDebug = null;
+app.get('/api/sgc/ops/debug/tally', (req, res) => res.json(_lastTallyDebug || { message: 'No submission received yet' }));
+
 // ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
 app.post('/api/sgc/field-report', async (req, res) => {
   try {
     const payload = req.body;
-    const fields  = (payload?.data?.fields || []);
 
-    // Log full raw payload for Railway debugging
-    logger.info('SGC-FieldReport', `Full payload keys: ${Object.keys(payload?.data || {}).join(', ')}`);
-    logger.info('SGC-FieldReport', `Raw fields (${fields.length}): ${fields.map(f => `[${f.type}] label="${f.label}" title="${f.title}" = ${JSON.stringify(f.value)}`).join(' | ')}`);
+    // Store raw payload for debug inspection
+    _lastTallyDebug = { receivedAt: new Date().toISOString(), payload };
 
-    // Robust getter — searches by label OR title substring, skips metadata-only types
+    // Tally can nest fields under data.fields OR data.responses — try both
+    const fields = payload?.data?.fields || payload?.data?.responses || payload?.fields || [];
+
+    // Log everything
+    logger.info('SGC-FieldReport', `Payload keys: ${Object.keys(payload || {}).join(', ')} | data keys: ${Object.keys(payload?.data || {}).join(', ')}`);
+    logger.info('SGC-FieldReport', `Fields (${fields.length}): ${JSON.stringify(fields.map(f => ({ type: f.type, label: f.label, key: f.key, value: f.value })))}`);
+
     const SKIP_TYPES = ['HIDDEN_FIELDS', 'CALCULATED_FIELDS', 'FORM_TITLE', 'PAYMENT'];
-    const questionFields = fields.filter(f => !SKIP_TYPES.includes(f.type));
 
     const extractValue = (f) => {
       if (!f) return '';
@@ -3522,13 +3529,14 @@ app.post('/api/sgc/field-report', async (req, res) => {
       return String(v ?? '').trim();
     };
 
-    const get = (...labels) => {
-      for (const label of labels) {
-        const lc = label.toLowerCase();
-        // Try matching label OR title property (Tally uses both in different versions)
+    // Search by label OR key substring, skip metadata types
+    const get = (...terms) => {
+      for (const term of terms) {
+        const lc = term.toLowerCase();
         const f = fields.find(f => {
-          const text = ((f.label || '') + ' ' + (f.title || '')).toLowerCase();
-          return text.trim() && !SKIP_TYPES.includes(f.type) && text.includes(lc);
+          if (SKIP_TYPES.includes(f.type)) return false;
+          const text = [(f.label||''), (f.title||''), (f.key||'')].join(' ').toLowerCase();
+          return text.includes(lc);
         });
         if (f) {
           const str = extractValue(f);
@@ -3538,24 +3546,32 @@ app.post('/api/sgc/field-report', async (req, res) => {
       return '';
     };
 
-    // Position-based fallback (used when label matching fails entirely)
-    // Tally form question order: [0]=Name, [1]=Date, [2]=Work Done, [3]=Issues, [4]=Admin
+    // Position-based fallback
+    const questionFields = fields.filter(f => !SKIP_TYPES.includes(f.type));
     const getByPos = (idx) => extractValue(questionFields[idx]);
 
-    // Map to the actual Tally form questions Serene built:
-    // "Your Name" | "Date" | "Completed that day" | "Any issues" | "Anything admin needs to follow-up on"
-    const name = get('your name', 'full name', 'name', 'who are you', 'employee', 'worker')
-              || getByPos(0);
-    const date = get('date', 'work date', 'today', 'when')
-              || getByPos(1);
-    const work = get('completed', 'accomplish', 'what did', 'work done', 'finish', 'today\'s work', 'describe')
-              || getByPos(2);
-    const issues = get('issue', 'delay', 'problem', 'concern', 'obstacle', 'anything wrong')
-                || getByPos(3);
-    const admin = get('admin', 'follow up', 'follow-up', 'needs to know', 'anything admin', 'office')
-               || getByPos(4);
+    // Name heuristic: find first field value that looks like a human name
+    // (2+ words of letters, not a UUID, not too long)
+    const isUUID = s => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    const looksLikeName = s => {
+      if (!s || s.length < 2 || s.length > 60 || isUUID(s)) return false;
+      return /^[a-zA-ZÀ-ÿ\s'\-\.]+$/.test(s.trim());
+    };
+    const nameByHeuristic = () => {
+      for (const f of questionFields) {
+        const v = extractValue(f);
+        if (looksLikeName(v)) return v;
+      }
+      return '';
+    };
 
-    logger.info('SGC-FieldReport', `Mapped → name="${name}" date="${date}" work="${work}" issues="${issues}" admin="${admin}"`);
+    const name   = get('your name', 'full name', 'name', 'who are you', 'employee', 'worker') || getByPos(0) || nameByHeuristic();
+    const date   = get('date', 'work date', 'today', 'when') || getByPos(1);
+    const work   = get('completed', 'accomplish', 'what did', 'work done', 'finish', 'describe') || getByPos(2);
+    const issues = get('issue', 'delay', 'problem', 'concern', 'obstacle', 'anything wrong') || getByPos(3);
+    const admin  = get('admin', 'follow up', 'follow-up', 'needs to know', 'anything admin', 'office') || getByPos(4);
+
+    logger.info('SGC-FieldReport', `Mapped → name="${name}" work="${work}" issues="${issues}" admin="${admin}"`);
 
     const report = {
       'Submitted At':         new Date().toISOString(),
