@@ -282,6 +282,7 @@ const PUBLIC_PREFIXES = [
   '/api/sgc/',
   '/sgc-ops',
   '/api/sgc/field-report',
+  '/api/google/reconnect',
 ];
 
 app.use((req, res, next) => {
@@ -3245,6 +3246,58 @@ app.post('/api/sgc/field-report', async (req, res) => {
   } catch (e) {
     logger.error('SGC-FieldReport', `Webhook error: ${e.message}`);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── GOOGLE RE-AUTH ───────────────────────────────────────────────────────────
+app.get('/api/google/reconnect', (req, res) => {
+  const { google } = require('googleapis');
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${process.env.APP_URL}/api/google/reconnect/callback`
+  );
+  const url = auth.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/calendar',
+    ],
+  });
+  res.redirect(url);
+});
+
+app.get('/api/google/reconnect/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.status(400).send('Missing code');
+    const { google } = require('googleapis');
+    const auth = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `${process.env.APP_URL}/api/google/reconnect/callback`
+    );
+    const { tokens } = await auth.getToken(code);
+    const refreshToken = tokens.refresh_token;
+    if (refreshToken) {
+      process.env.GOOGLE_REFRESH_TOKEN = refreshToken;
+    }
+    res.send(`
+      <html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
+        <h2 style="color:#C9A84C">✅ Google Reconnected!</h2>
+        <p>New refresh token obtained successfully.</p>
+        ${refreshToken ? `
+          <p>Copy this token and paste it into Railway as <strong>GOOGLE_REFRESH_TOKEN</strong>:</p>
+          <textarea style="width:100%;height:80px;background:#1c1c1c;color:#C9A84C;border:1px solid #2a2a2a;padding:10px;border-radius:8px;font-size:12px">${refreshToken}</textarea>
+          <p style="color:#888;font-size:13px">After pasting in Railway, redeploy and everything will work again.</p>
+        ` : '<p style="color:#ef4444">No refresh token returned — make sure the app is Published in Google Cloud Console, then try again.</p>'}
+        <a href="/sgc-ops" style="color:#C9A84C">← Back to Dashboard</a>
+      </body></html>
+    `);
+  } catch (e) {
+    res.status(500).send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#ef4444"><h2>Error</h2><p>${e.message}</p></body></html>`);
   }
 });
 
