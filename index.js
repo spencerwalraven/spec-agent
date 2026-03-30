@@ -3370,9 +3370,12 @@ app.get('/api/sgc/ops/field-reports', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');
     const rows = await agent.sgcReadTab('Field Reports');
-    res.json({ reports: rows });
+    // Include worker list so the front-end can build the weekly grid
+    let workers = [];
+    try { workers = JSON.parse(process.env.SGC_WORKERS || '[]'); } catch (_) {}
+    res.json({ reports: rows, workers });
   } catch (e) {
-    res.json({ reports: [] });
+    res.json({ reports: [], workers: [] });
   }
 });
 
@@ -3399,15 +3402,36 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
     const missing = workers.filter(w => !submittedNames.some(n => n.includes(w.name.toLowerCase())));
     const incomplete = todayReports.filter(r => !(r['Name'] && r['Work Completed Today']));
 
-    // Send reminder summary to Serene
     const { notifyOwner } = require('./src/tools/notify');
-    const submittedList = todayReports.map(r => `  ✓ ${r['Name']}`).join('\n') || '  (none yet)';
-    const missingList   = missing.length ? missing.map(w => `  ✗ ${w.name}`).join('\n') : '  None — all submitted!';
+    const { sendEmail }   = require('./src/tools/gmail');
+
+    // Send individual reminder emails to each missing worker (if they have an email)
+    const tallyFormUrl = process.env.SGC_TALLY_URL || 'https://tally.so/r/your-form';
+    const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    let workerEmailsSent = 0;
+
+    for (const w of missing) {
+      if (!w.email) continue;
+      try {
+        await sendEmail({
+          to: w.email,
+          subject: `⏰ Reminder: Please fill out your field report for ${dayName}`,
+          body: `Hi ${w.name.split(' ')[0]},\n\nWe haven't received your field report for today (${dayName}) yet.\n\nIt only takes 2 minutes — please fill it out here:\n${tallyFormUrl}\n\nThank you!\nScottsdale General Contracting`,
+        });
+        workerEmailsSent++;
+      } catch (emailErr) {
+        logger.warn('SGC-Remind', `Failed to email ${w.name}: ${emailErr.message}`);
+      }
+    }
+
+    // Send reminder summary to Serene
+    const submittedList  = todayReports.map(r => `  ✓ ${r['Name']}`).join('\n') || '  (none yet)';
+    const missingList    = missing.length ? missing.map(w => `  ✗ ${w.name}`).join('\n') : '  None — all submitted!';
     const incompleteList = incomplete.length ? incomplete.map(r => `  ⚠ ${r['Name']} (missing fields)`).join('\n') : '';
 
     await notifyOwner({
       subject: `📋 SGC Field Report Summary — ${todayStr}`,
-      message: `Daily Field Report Check\n\nSubmitted Today (${todayReports.length}):\n${submittedList}\n\nMissing (${missing.length}):\n${missingList}${incompleteList ? `\n\nIncomplete:\n${incompleteList}` : ''}\n\nYou can view all reports at your SGC dashboard.`,
+      message: `Daily Field Report Check\n\nSubmitted Today (${todayReports.length}):\n${submittedList}\n\nMissing (${missing.length}):\n${missingList}${incompleteList ? `\n\nIncomplete:\n${incompleteList}` : ''}${workerEmailsSent > 0 ? `\n\nReminder emails sent to ${workerEmailsSent} worker(s).` : ''}\n\nView all reports at your SGC dashboard.`,
       urgent: missing.length > 0,
       eventType: 'fieldReportReminder',
     });
@@ -3417,7 +3441,8 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
       submitted: todayReports.length,
       missing: missing.map(w => w.name),
       incomplete: incomplete.map(r => r['Name']),
-      message: `Summary sent. ${todayReports.length} submitted, ${missing.length} missing.`,
+      workerEmailsSent,
+      message: `Summary sent to Serene. ${todayReports.length} submitted, ${missing.length} missing${workerEmailsSent > 0 ? `, ${workerEmailsSent} reminder email${workerEmailsSent > 1 ? 's' : ''} sent to workers` : ''}.`,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -3430,40 +3455,64 @@ app.post('/api/sgc/field-report', async (req, res) => {
     const payload = req.body;
     const fields  = (payload?.data?.fields || []);
 
-    // Log every incoming field so we can debug in Railway logs
-    logger.info('SGC-FieldReport', `Raw fields: ${fields.map(f => `[${f.type}] "${f.label}" = ${JSON.stringify(f.value)}`).join(' | ')}`);
+    // Log full raw payload for Railway debugging
+    logger.info('SGC-FieldReport', `Full payload keys: ${Object.keys(payload?.data || {}).join(', ')}`);
+    logger.info('SGC-FieldReport', `Raw fields (${fields.length}): ${fields.map(f => `[${f.type}] label="${f.label}" title="${f.title}" = ${JSON.stringify(f.value)}`).join(' | ')}`);
 
-    // Robust getter — searches by label substring, skips metadata-only types
+    // Robust getter — searches by label OR title substring, skips metadata-only types
     const SKIP_TYPES = ['HIDDEN_FIELDS', 'CALCULATED_FIELDS', 'FORM_TITLE', 'PAYMENT'];
+    const questionFields = fields.filter(f => !SKIP_TYPES.includes(f.type));
+
+    const extractValue = (f) => {
+      if (!f) return '';
+      let v = f.value;
+      if (Array.isArray(v)) v = v.filter(x => x != null && x !== '').join(', ');
+      else if (v != null && typeof v === 'object') v = Object.values(v).filter(Boolean).join(', ');
+      return String(v ?? '').trim();
+    };
+
     const get = (...labels) => {
       for (const label of labels) {
-        const f = fields.find(f =>
-          f.label &&
-          !SKIP_TYPES.includes(f.type) &&
-          f.label.toLowerCase().includes(label.toLowerCase())
-        );
+        const lc = label.toLowerCase();
+        // Try matching label OR title property (Tally uses both in different versions)
+        const f = fields.find(f => {
+          const text = ((f.label || '') + ' ' + (f.title || '')).toLowerCase();
+          return text.trim() && !SKIP_TYPES.includes(f.type) && text.includes(lc);
+        });
         if (f) {
-          let v = f.value;
-          if (Array.isArray(v)) v = v.filter(x => x != null && x !== '').join(', ');
-          if (v != null && typeof v === 'object') v = Object.values(v).filter(Boolean).join(', ');
-          const str = String(v ?? '').trim();
+          const str = extractValue(f);
           if (str) return str;
         }
       }
       return '';
     };
 
+    // Position-based fallback (used when label matching fails entirely)
+    // Tally form question order: [0]=Name, [1]=Date, [2]=Work Done, [3]=Issues, [4]=Admin
+    const getByPos = (idx) => extractValue(questionFields[idx]);
+
     // Map to the actual Tally form questions Serene built:
-    // "Your Name" / "Name"  |  "Date"  |  "What did you complete today?" / "Completed that day"
-    // "Any issues"          |  "Anything admin needs to follow-up on"
-    const name = get('your name', 'name', 'who');
+    // "Your Name" | "Date" | "Completed that day" | "Any issues" | "Anything admin needs to follow-up on"
+    const name = get('your name', 'full name', 'name', 'who are you', 'employee', 'worker')
+              || getByPos(0);
+    const date = get('date', 'work date', 'today', 'when')
+              || getByPos(1);
+    const work = get('completed', 'accomplish', 'what did', 'work done', 'finish', 'today\'s work', 'describe')
+              || getByPos(2);
+    const issues = get('issue', 'delay', 'problem', 'concern', 'obstacle', 'anything wrong')
+                || getByPos(3);
+    const admin = get('admin', 'follow up', 'follow-up', 'needs to know', 'anything admin', 'office')
+               || getByPos(4);
+
+    logger.info('SGC-FieldReport', `Mapped → name="${name}" date="${date}" work="${work}" issues="${issues}" admin="${admin}"`);
+
     const report = {
-      'Submitted At':        new Date().toISOString(),
-      'Name':                name || payload?.data?.respondentId || 'Unknown',
-      'Date':                get('date', 'work date', 'today'),
-      'Work Completed Today': get('completed', 'what did you complete', 'work completed', 'accomplish'),
-      'Issues':              get('issue', 'delay', 'problem', 'concern'),
-      'Admin Follow Up':     get('admin', 'follow up', 'follow-up', 'needs to know', 'anything admin'),
+      'Submitted At':         new Date().toISOString(),
+      'Name':                 name || 'Unknown',
+      'Date':                 date,
+      'Work Completed Today': work,
+      'Issues':               issues,
+      'Admin Follow Up':      admin,
     };
 
     // Write to Google Sheet "Field Reports" tab

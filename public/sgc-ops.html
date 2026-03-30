@@ -193,50 +193,92 @@
     .dot-gray   { background: var(--text3); }
 
     /* ── FIELD REPORTS ── */
-    .report-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 14px;
+    /* ── WEEKLY REPORT TRACKER ── */
+    .week-nav {
+      display: flex; align-items: center; gap: 10px;
     }
-    .report-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      cursor: pointer;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      user-select: none;
+    .week-nav-btn {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 12px; color: var(--text2);
+      font-size: 13px; cursor: pointer; transition: all 0.15s;
     }
-    .report-card:hover { border-color: rgba(201,168,76,0.4); box-shadow: 0 2px 12px rgba(201,168,76,0.08); }
-    .report-card.expanded { border-color: rgba(201,168,76,0.55); }
-    .report-card-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
+    .week-nav-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .week-label { font-weight: 600; font-size: 13px; color: var(--text); min-width: 200px; text-align: center; }
+    .week-table-wrap { overflow-x: auto; }
+    .week-table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); overflow: hidden;
     }
-    .report-card-chevron {
-      color: var(--text3);
-      font-size: 13px;
-      transition: transform 0.2s;
-      margin-left: 8px;
-      flex-shrink: 0;
+    .week-table th {
+      background: var(--bg); padding: 10px 16px; text-align: center;
+      font-size: 11px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
     }
-    .report-card.expanded .report-card-chevron { transform: rotate(180deg); color: var(--gold); }
+    .week-table th.worker-col { text-align: left; min-width: 140px; }
+    .week-table th.today-col { color: var(--gold); }
+    .week-table td {
+      padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      text-align: center; vertical-align: middle;
+    }
+    .week-table td.worker-cell {
+      text-align: left; font-weight: 600; font-size: 13px; color: var(--text);
+    }
+    .week-table tr:last-child td { border-bottom: none; }
+    .week-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .day-cell-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; cursor: pointer; font-size: 15px;
+      transition: all 0.15s; background: none;
+    }
+    .day-cell-btn.submitted {
+      background: rgba(74,222,128,0.15); color: var(--green);
+    }
+    .day-cell-btn.submitted:hover {
+      background: rgba(74,222,128,0.3); transform: scale(1.1);
+    }
+    .day-cell-btn.missing {
+      background: rgba(239,68,68,0.12); color: var(--red);
+    }
+    .day-cell-btn.future {
+      color: var(--text3); cursor: default; opacity: 0.35;
+    }
+    .today-col td, th.today-col { /* highlighted by JS */ }
+    .report-detail-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 20px;
+    }
+    .report-detail-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 26px; max-width: 500px; width: 100%;
+      position: relative; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .report-detail-close {
+      position: absolute; top: 14px; right: 14px;
+      background: none; border: none; color: var(--text3);
+      font-size: 20px; cursor: pointer; padding: 4px 8px;
+      border-radius: 6px; line-height: 1;
+    }
+    .report-detail-close:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+    .report-detail-name { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .report-detail-meta { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+    .report-detail-field { margin-bottom: 14px; }
+    .report-detail-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--text3); margin-bottom: 4px;
+    }
+    .report-detail-value { font-size: 13px; color: var(--text); line-height: 1.5; }
     .tech-name { font-weight: 600; font-size: 14px; }
     .report-summary { font-size: 12px; color: var(--text2); }
     .report-fields { display: flex; flex-direction: column; gap: 6px; }
     .report-field {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text2);
+      display: flex; align-items: flex-start;
+      gap: 8px; font-size: 12px; color: var(--text2);
     }
     .report-dot { flex-shrink: 0; margin-top: 3px; }
-    .report-expand-body { overflow: hidden; transition: max-height 0.3s ease; }
-    .report-expand-body.collapsed { max-height: 0; }
-    .report-expand-body.open { max-height: 600px; }
     .report-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 
     /* ── INSURANCE TASKS ── */
@@ -613,17 +655,8 @@
     }
     .del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
 
-    /* ── REPORT CARD DELETE ── */
-    .report-del-btn {
-      position: absolute; top: 10px; right: 10px;
-      background: none; border: none; color: var(--text3);
-      cursor: pointer; font-size: 14px; padding: 3px 5px;
-      border-radius: 5px; line-height: 1; transition: all 0.15s;
-      opacity: 0;
-    }
-    .report-card:hover .report-del-btn { opacity: 1; }
-    .report-del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
-    .report-card { position: relative; }
+    /* ── REPORT CARD (legacy, kept for compatibility) ── */
+    .report-del-btn { display: none; }
 
     /* ── STATUS DROPDOWN (jobs + insurance) ── */
     .status-select {
@@ -900,22 +933,50 @@
     <!-- FIELD REPORTS TAB -->
     <div class="tab-panel" id="tab-reports">
       <div class="stats-row" id="reportStats">
-        <div class="stat-card stat-gold"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Total Submissions</div></div>
         <div class="stat-card stat-green"><div class="stat-value" id="statToday">—</div><div class="stat-label">Submitted Today</div></div>
-        <div class="stat-card stat-yellow"><div class="stat-value" id="statWeek">—</div><div class="stat-label">This Week</div></div>
+        <div class="stat-card stat-yellow"><div class="stat-value" id="statMissing">—</div><div class="stat-label">Missing Today</div></div>
+        <div class="stat-card stat-gold"><div class="stat-value" id="statWeek">—</div><div class="stat-label">This Week Total</div></div>
       </div>
       <div class="section-header">
-        <div>
-          <div class="section-title">Daily Field Reports</div>
-          <div class="section-sub">Tally form submissions · Click <strong style="color:var(--gold)">Send Reminders</strong> to email today's summary</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div>
+            <div class="section-title">Weekly Field Report Tracker</div>
+            <div class="section-sub">Each worker · Mon–Fri · Click ✓ to view report details</div>
+          </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="search-bar" id="reportSearch" placeholder="Search by name..." oninput="filterReports()" />
+          <div class="week-nav">
+            <button class="week-nav-btn" onclick="changeWeek(-1)">← Prev</button>
+            <span class="week-label" id="weekLabel">Loading…</span>
+            <button class="week-nav-btn" onclick="changeWeek(1)" id="weekNextBtn">Next →</button>
+          </div>
           <button class="add-row-btn" id="remindBtn" onclick="sendReminders()">🔔 Send Reminders</button>
         </div>
       </div>
-      <div id="reportGrid" class="report-grid">
+      <div id="reportGrid" class="week-table-wrap">
         <div class="loading"><div class="spinner"></div>Loading field reports...</div>
+      </div>
+    </div>
+
+    <!-- REPORT DETAIL MODAL -->
+    <div class="report-detail-modal" id="reportDetailModal" style="display:none" onclick="if(event.target===this)closeReportDetail()">
+      <div class="report-detail-box">
+        <button class="report-detail-close" onclick="closeReportDetail()">✕</button>
+        <div class="report-detail-name" id="rdName">—</div>
+        <div class="report-detail-meta" id="rdMeta">—</div>
+        <hr class="report-divider" style="margin:12px 0 16px"/>
+        <div class="report-detail-field">
+          <div class="report-detail-label">Work Completed Today</div>
+          <div class="report-detail-value" id="rdWork">—</div>
+        </div>
+        <div class="report-detail-field" id="rdIssuesWrap">
+          <div class="report-detail-label">Issues / Delays</div>
+          <div class="report-detail-value" id="rdIssues" style="color:var(--red)">—</div>
+        </div>
+        <div class="report-detail-field" id="rdAdminWrap" style="display:none">
+          <div class="report-detail-label">Admin Follow-Up Needed</div>
+          <div class="report-detail-value" id="rdAdmin" style="color:var(--yellow)">—</div>
+        </div>
       </div>
     </div>
 
@@ -1175,7 +1236,6 @@
 
   <script>
     let allSubs = [];
-    let allReports = [];
     let subSortField = null;
     let subSortAsc   = true;
     let activeFilter = 'all';
@@ -1545,15 +1605,155 @@
       }
     }
 
-    // ── REPORT CARD EXPAND / COLLAPSE ──
-    function toggleReportCard(cardId) {
-      const card = document.getElementById(cardId);
-      const body = document.getElementById(cardId + '-body');
-      if (!card || !body) return;
-      const isOpen = body.classList.contains('open');
-      body.classList.toggle('open', !isOpen);
-      body.classList.toggle('collapsed', isOpen);
-      card.classList.toggle('expanded', !isOpen);
+    // ── WEEKLY REPORT TRACKER ──
+    let allReports = [];
+    let workersList = [];
+    let weekOffset = 0;
+
+    function getWeekDates(offset) {
+      const now = new Date();
+      const dow = now.getDay(); // 0=Sun
+      // Monday of current week
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+      monday.setHours(0, 0, 0, 0);
+      return Array.from({ length: 5 }, (_, i) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        return d;
+      });
+    }
+
+    function changeWeek(dir) {
+      weekOffset += dir;
+      // Don't allow going past current week
+      if (weekOffset > 0) weekOffset = 0;
+      document.getElementById('weekNextBtn').disabled = weekOffset === 0;
+      renderWeeklyGrid();
+    }
+
+    function workerMatchesReport(worker, report) {
+      const rName = (report['Name'] || '').toLowerCase().trim();
+      const wName = (worker.name || '').toLowerCase().trim();
+      if (!rName || rName === 'unknown') return false;
+      const wFirst = wName.split(' ')[0];
+      return rName === wName || rName.includes(wName) || wName.includes(rName) ||
+             rName.startsWith(wFirst) || wName.startsWith(rName.split(' ')[0]);
+    }
+
+    function getReportForWorkerDay(worker, dayDate) {
+      return allReports.find(r => {
+        if (!workerMatchesReport(worker, r)) return false;
+        const submittedAt = r['Submitted At'];
+        if (!submittedAt) return false;
+        const rDate = new Date(submittedAt);
+        return rDate.toDateString() === dayDate.toDateString();
+      });
+    }
+
+    function renderWeeklyGrid() {
+      const days = getWeekDates(weekOffset);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const dayNames = ['Mon','Tue','Wed','Thu','Fri'];
+      const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+
+      // Update week label
+      const start = days[0], end = days[4];
+      document.getElementById('weekLabel').textContent =
+        `${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+
+      // Stats for this week
+      let weekSubmitted = 0, todaySubmitted = 0, todayMissing = 0;
+      for (const r of allReports) {
+        const rDate = r['Submitted At'] ? new Date(r['Submitted At']) : null;
+        if (!rDate) continue;
+        const rDay = new Date(rDate); rDay.setHours(0,0,0,0);
+        if (rDay >= days[0] && rDay <= days[4]) weekSubmitted++;
+        if (rDay.toDateString() === today.toDateString()) todaySubmitted++;
+      }
+      for (const w of workersList) {
+        if (!getReportForWorkerDay(w, today)) todayMissing++;
+      }
+      document.getElementById('statToday').textContent = todaySubmitted;
+      document.getElementById('statMissing').textContent = workersList.length ? todayMissing : '—';
+      document.getElementById('statWeek').textContent = weekSubmitted;
+
+      if (!workersList.length) {
+        document.getElementById('reportGrid').innerHTML = `
+          <div class="empty" style="padding:32px;text-align:center">
+            <div style="font-size:28px;margin-bottom:10px">👷</div>
+            <div style="font-weight:600;margin-bottom:6px">No workers configured yet</div>
+            <div style="color:var(--text3);font-size:13px">Add <strong>SGC_WORKERS</strong> to your Railway environment variables:<br>
+            <code style="font-size:11px;background:var(--bg);padding:4px 8px;border-radius:6px;margin-top:8px;display:inline-block">
+              [{"name":"Joe Smith","email":"joe@example.com"}]</code>
+            </div>
+          </div>`;
+        return;
+      }
+
+      // Build table
+      let html = `<table class="week-table"><thead><tr>
+        <th class="worker-col">Worker</th>`;
+      days.forEach((d, i) => {
+        const isToday = d.toDateString() === today.toDateString();
+        html += `<th class="${isToday ? 'today-col' : ''}" style="${isToday ? 'color:var(--gold)' : ''}">${dayNames[i]}<br><span style="font-weight:400;font-size:10px">${fmt(d)}</span></th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      for (const worker of workersList) {
+        html += `<tr><td class="worker-cell">${worker.name}</td>`;
+        for (const day of days) {
+          const isFuture = day > today;
+          const isToday = day.toDateString() === today.toDateString();
+          const report = getReportForWorkerDay(worker, day);
+
+          let cellHtml;
+          if (isFuture) {
+            cellHtml = `<button class="day-cell-btn future" title="Future">—</button>`;
+          } else if (report) {
+            const safeR = encodeURIComponent(JSON.stringify({
+              Name: report['Name'], SubmittedAt: report['Submitted At'],
+              Work: report['Work Completed Today'], Issues: report['Issues'],
+              Admin: report['Admin Follow Up']
+            }));
+            cellHtml = `<button class="day-cell-btn submitted" onclick='openReportDetail(${JSON.stringify({
+              name: report['Name'],
+              submittedAt: report['Submitted At'],
+              work: report['Work Completed Today'] || '',
+              issues: report['Issues'] || '',
+              admin: report['Admin Follow Up'] || ''
+            })})' title="View report">✓</button>`;
+          } else {
+            const label = isToday ? 'Not submitted yet' : 'Missing';
+            cellHtml = `<button class="day-cell-btn missing" title="${label}">✗</button>`;
+          }
+          html += `<td style="${isToday ? 'background:rgba(201,168,76,0.04)' : ''}">${cellHtml}</td>`;
+        }
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+      document.getElementById('reportGrid').innerHTML = html;
+    }
+
+    function openReportDetail(r) {
+      document.getElementById('rdName').textContent = r.name || 'Unknown';
+      const when = r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+      document.getElementById('rdMeta').textContent = `Submitted ${when}`;
+      document.getElementById('rdWork').textContent = r.work || 'Not filled in';
+      document.getElementById('rdWork').style.color = r.work ? 'var(--text)' : 'var(--text3)';
+      document.getElementById('rdIssues').textContent = r.issues || 'None reported';
+      document.getElementById('rdIssues').style.color = r.issues ? 'var(--red)' : 'var(--text3)';
+      if (r.admin) {
+        document.getElementById('rdAdmin').textContent = r.admin;
+        document.getElementById('rdAdminWrap').style.display = '';
+      } else {
+        document.getElementById('rdAdminWrap').style.display = 'none';
+      }
+      document.getElementById('reportDetailModal').style.display = 'flex';
+    }
+
+    function closeReportDetail() {
+      document.getElementById('reportDetailModal').style.display = 'none';
     }
 
     // ── DELETE INSURANCE TASK ──
@@ -1727,125 +1927,21 @@
       try {
         const res  = await fetch('/api/sgc/ops/field-reports');
         const data = await res.json();
-        const reports = data.reports || [];
+        allReports   = data.reports  || [];
+        workersList  = data.workers  || [];
 
-        // Stats
-        const today = new Date().toLocaleDateString('en-US');
-        const todayReports = reports.filter(r => {
-          if (!r['Submitted At']) return false;
-          return new Date(r['Submitted At']).toLocaleDateString('en-US') === today;
-        });
-        const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-        const weekReports = reports.filter(r => r['Submitted At'] && new Date(r['Submitted At']) >= weekStart);
+        // Badge = today's submissions
+        const todayStr = new Date().toDateString();
+        const todayCount = allReports.filter(r =>
+          r['Submitted At'] && new Date(r['Submitted At']).toDateString() === todayStr
+        ).length;
+        document.getElementById('reportsBadge').textContent = todayCount || '—';
 
-        document.getElementById('statTotal').textContent = reports.length;
-        document.getElementById('statToday').textContent = todayReports.length;
-        document.getElementById('statWeek').textContent  = weekReports.length;
-        document.getElementById('reportsBadge').textContent = todayReports.length || '—';
-
-        if (!reports.length) {
-          document.getElementById('reportGrid').innerHTML = '<div class="empty">No field reports yet. Submit the Tally form to see reports here.</div>';
-          return;
-        }
-
-        allReports = reports;
-        renderReports();
+        renderWeeklyGrid();
       } catch (e) {
         document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
         showToast('Failed to load reports: ' + e.message, 'error');
       }
-    }
-
-    function filterReports() { renderReports(); }
-
-    function renderReports() {
-        const q = (document.getElementById('reportSearch')?.value || '').toLowerCase();
-        const reports = q ? allReports.filter(r => (r['Name']||'').toLowerCase().includes(q)) : allReports;
-
-        // Show most recent first
-        const sorted = [...reports].reverse();
-        document.getElementById('reportGrid').innerHTML = sorted.map((r, idx) => {
-          const submittedAt = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
-
-          // Only check fields that are actually in Serene's Tally form
-          const name      = r['Name'] || '';
-          const work      = r['Work Completed Today'] || '';
-          const issues    = r['Issues'] || r['Issues or Delays'] || r['Issues / Concerns'] || '';
-          const adminNote = r['Admin Follow Up'] || '';
-          const dateStr   = r['Date'] || '';
-
-          const hasName = !!name && name !== 'Unknown';
-          const hasWork = !!work;
-          const isComplete = hasName && hasWork;
-          const pillClass  = isComplete ? 'pill-green' : 'pill-yellow';
-          const pillLabel  = isComplete ? 'Complete' : 'Incomplete';
-
-          // What's missing (shown in collapsed card subtitle for incomplete)
-          const missing = [];
-          if (!hasName) missing.push('name');
-          if (!hasWork) missing.push('work summary');
-          const missingStr = missing.length ? `Missing: ${missing.join(', ')}` : '';
-
-          const cardId = `report-card-${idx}`;
-          const safeName = name.replace(/'/g,"\\'");
-          return `
-            <div class="report-card" id="${cardId}" onclick="toggleReportCard('${cardId}')">
-              <button class="report-del-btn" title="Delete report" onclick="event.stopPropagation();confirmDeleteReport(${r._row},'${safeName}')">🗑</button>
-              <div class="report-card-top">
-                <div>
-                  <div class="tech-name">${name || '<span style="color:var(--text3)">Unknown</span>'}</div>
-                  <div class="report-summary" style="margin-top:2px">${submittedAt}${dateStr && dateStr !== submittedAt ? ' · ' + dateStr : ''}${missingStr ? '<br><span style="color:var(--yellow);font-size:11px">⚠ ' + missingStr + '</span>' : ''}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span class="pill ${pillClass}">${pillLabel}</span>
-                  <span class="report-card-chevron">▼</span>
-                </div>
-              </div>
-              <div class="report-expand-body collapsed" id="${cardId}-body">
-                <hr class="report-divider"/>
-                <div class="report-fields">
-                  <div class="report-field">
-                    <span class="dot report-dot ${hasWork ? 'dot-green' : 'dot-red'}"></span>
-                    <div>
-                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Work Completed Today</div>
-                      <span style="color:var(--text)">${work || '<em style="color:var(--text3)">Not filled in</em>'}</span>
-                    </div>
-                  </div>
-                  <div class="report-field">
-                    <span class="dot report-dot ${issues ? 'dot-red' : 'dot-gray'}"></span>
-                    <div>
-                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Issues / Delays</div>
-                      <span style="${issues ? 'color:var(--red)' : ''}">${issues || '<em style="color:var(--text3)">None reported</em>'}</span>
-                    </div>
-                  </div>
-                  ${adminNote ? `
-                  <div class="report-field">
-                    <span class="dot report-dot dot-yellow"></span>
-                    <div>
-                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Admin Follow-Up Needed</div>
-                      <span style="color:var(--yellow)">${adminNote}</span>
-                    </div>
-                  </div>` : ''}
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-        if (!sorted.length) document.getElementById('reportGrid').innerHTML = '<div class="empty">No reports match your search.</div>';
-    }
-
-    function confirmDeleteReport(row, name) {
-      openConfirm(
-        'Delete Field Report?',
-        `This report from "${name}" will be permanently removed from the sheet.`,
-        'Delete',
-        async () => {
-          const res  = await fetch('/api/sgc/ops/field-reports', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
-          const data = await res.json();
-          if (data.ok) { showToast('Report deleted', 'success'); await loadReports(); }
-          else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
-        }
-      );
     }
 
     async function sendReminders() {
@@ -1855,9 +1951,9 @@
         const res  = await fetch('/api/sgc/ops/field-reports/remind');
         const data = await res.json();
         if (data.ok) {
-          const msg = data.missing?.length
-            ? `Summary sent ✓  ·  ${data.submitted} submitted, ${data.missing.length} missing: ${data.missing.join(', ')}`
-            : `Summary sent ✓  ·  All ${data.submitted} submissions received today!`;
+          let msg = `Summary sent to Serene ✓  ·  ${data.submitted} submitted`;
+          if (data.missing?.length) msg += `, ${data.missing.length} missing: ${data.missing.join(', ')}`;
+          if (data.workerEmailsSent) msg += `  ·  ${data.workerEmailsSent} reminder email${data.workerEmailsSent>1?'s':''} sent`;
           showToast(msg, data.missing?.length ? 'info' : 'success');
         } else {
           showToast('Reminder failed: ' + (data.error || 'Unknown'), 'error');
