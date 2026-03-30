@@ -3717,7 +3717,7 @@ app.post('/api/sgc/field-report', async (req, res) => {
       'Name':                 name || 'Unknown',
       'Date':                 date,
       'Work Completed Today': work,
-      'Issues':               issues,
+      'Issues or Delays':     issues,
       'Admin Follow Up':      admin,
     };
 
@@ -3732,48 +3732,42 @@ app.post('/api/sgc/field-report', async (req, res) => {
       auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
       const sheets = google.sheets({ version: 'v4', auth });
 
-      const headers = Object.keys(report);
-      const values  = Object.values(report);
-
-      // Ensure "Field Reports" tab exists with headers
+      // Read existing headers so we write values into the correct columns
+      let sheetHeaders = [];
       try {
-        const check = await sheets.spreadsheets.values.get({
+        const hr = await sheets.spreadsheets.values.get({
           spreadsheetId: SGC_SHEET_ID,
-          range: 'Field Reports!A1:Z1',
+          range: 'Field Reports!1:1',
         });
-        if (!check.data.values || !check.data.values[0]?.length) {
-          // Tab exists but has no headers — write them
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: SGC_SHEET_ID,
-            range: 'Field Reports!A1',
-            valueInputOption: 'RAW',
-            requestBody: { values: [headers] },
-          });
-        }
-      } catch (_) {
-        // Tab doesn't exist — create it, then add headers
+        sheetHeaders = hr.data.values?.[0] || [];
+      } catch (_) {}
+
+      if (!sheetHeaders.length) {
+        // Tab missing or empty — create it and write headers
         try {
           await sheets.spreadsheets.batchUpdate({
             spreadsheetId: SGC_SHEET_ID,
             requestBody: { requests: [{ addSheet: { properties: { title: 'Field Reports' } } }] },
           });
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: SGC_SHEET_ID,
-            range: 'Field Reports!A1',
-            valueInputOption: 'RAW',
-            requestBody: { values: [headers] },
-          });
-        } catch (createErr) {
-          logger.warn('SGC-FieldReport', `Tab create failed: ${createErr.message}`);
-        }
+        } catch (_) {}
+        sheetHeaders = Object.keys(report);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SGC_SHEET_ID,
+          range: 'Field Reports!A1',
+          valueInputOption: 'RAW',
+          requestBody: { values: [sheetHeaders] },
+        });
       }
+
+      // Build row aligned to existing column order; unknown columns get ''
+      const row = sheetHeaders.map(h => report[h] ?? '');
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: SGC_SHEET_ID,
         range: 'Field Reports!A1',
         valueInputOption: 'RAW',
         insertDataOption: 'INSERT_ROWS',
-        requestBody: { values: [values] },
+        requestBody: { values: [row] },
       });
     }
 

@@ -1827,7 +1827,7 @@
           name: report['Name'] || '',
           submittedAt: report['Submitted At'] || '',
           work: report['Work Completed Today'] || '',
-          issues: report['Issues'] || '',
+          issues: report['Issues or Delays'] || '',
           admin: report['Admin Follow Up'] || ''
         });
         return `<button class="day-cell-btn submitted" onclick='openReportDetail(${d.replace(/'/g,"&#39;")})' title="View report">${label}</button>`;
@@ -2257,7 +2257,7 @@
         const name    = r['Name'] || 'Unknown';
         const when    = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
         const work    = r['Work Completed Today'] || '';
-        const issues  = r['Issues'] || '';
+        const issues  = r['Issues or Delays'] || '';
         const admin   = r['Admin Follow Up'] || '';
         const row     = r._row;
         const safeName = name.replace(/'/g, "\\'");
