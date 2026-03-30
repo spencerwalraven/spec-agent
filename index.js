@@ -3376,27 +3376,94 @@ app.get('/api/sgc/ops/field-reports', async (req, res) => {
   }
 });
 
+// ─── SGC FIELD REPORT REMINDER ────────────────────────────────────────────────
+app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const rows  = await agent.sgcReadTab('Field Reports');
+
+    // Today's reports (match date portion of Submitted At)
+    const todayStr = new Date().toLocaleDateString('en-US');
+    const todayReports = rows.filter(r => {
+      const sub = r['Submitted At'] || r['Date'] || '';
+      return sub && new Date(sub).toLocaleDateString('en-US') === todayStr;
+    });
+
+    const submittedNames = todayReports.map(r => (r['Name'] || '').trim().toLowerCase()).filter(Boolean);
+
+    // Worker list — set SGC_WORKERS as JSON in Railway env, e.g.:
+    // [{"name":"Joe","email":"joe@example.com"},{"name":"Elias","email":"elias@example.com"}]
+    let workers = [];
+    try { workers = JSON.parse(process.env.SGC_WORKERS || '[]'); } catch (_) {}
+
+    const missing = workers.filter(w => !submittedNames.some(n => n.includes(w.name.toLowerCase())));
+    const incomplete = todayReports.filter(r => !(r['Name'] && r['Work Completed Today']));
+
+    // Send reminder summary to Serene
+    const { notifyOwner } = require('./src/tools/notify');
+    const submittedList = todayReports.map(r => `  ✓ ${r['Name']}`).join('\n') || '  (none yet)';
+    const missingList   = missing.length ? missing.map(w => `  ✗ ${w.name}`).join('\n') : '  None — all submitted!';
+    const incompleteList = incomplete.length ? incomplete.map(r => `  ⚠ ${r['Name']} (missing fields)`).join('\n') : '';
+
+    await notifyOwner({
+      subject: `📋 SGC Field Report Summary — ${todayStr}`,
+      message: `Daily Field Report Check\n\nSubmitted Today (${todayReports.length}):\n${submittedList}\n\nMissing (${missing.length}):\n${missingList}${incompleteList ? `\n\nIncomplete:\n${incompleteList}` : ''}\n\nYou can view all reports at your SGC dashboard.`,
+      urgent: missing.length > 0,
+      eventType: 'fieldReportReminder',
+    });
+
+    res.json({
+      ok: true,
+      submitted: todayReports.length,
+      missing: missing.map(w => w.name),
+      incomplete: incomplete.map(r => r['Name']),
+      message: `Summary sent. ${todayReports.length} submitted, ${missing.length} missing.`,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
 app.post('/api/sgc/field-report', async (req, res) => {
   try {
     const payload = req.body;
-    // Parse Tally webhook format
     const fields  = (payload?.data?.fields || []);
-    const get     = (label) => {
-      const f = fields.find(f => f.label && f.label.toLowerCase().includes(label.toLowerCase()));
-      return f ? (Array.isArray(f.value) ? f.value.join(', ') : String(f.value || '')) : '';
+
+    // Log every incoming field so we can debug in Railway logs
+    logger.info('SGC-FieldReport', `Raw fields: ${fields.map(f => `[${f.type}] "${f.label}" = ${JSON.stringify(f.value)}`).join(' | ')}`);
+
+    // Robust getter — searches by label substring, skips metadata-only types
+    const SKIP_TYPES = ['HIDDEN_FIELDS', 'CALCULATED_FIELDS', 'FORM_TITLE', 'PAYMENT'];
+    const get = (...labels) => {
+      for (const label of labels) {
+        const f = fields.find(f =>
+          f.label &&
+          !SKIP_TYPES.includes(f.type) &&
+          f.label.toLowerCase().includes(label.toLowerCase())
+        );
+        if (f) {
+          let v = f.value;
+          if (Array.isArray(v)) v = v.filter(x => x != null && x !== '').join(', ');
+          if (v != null && typeof v === 'object') v = Object.values(v).filter(Boolean).join(', ');
+          const str = String(v ?? '').trim();
+          if (str) return str;
+        }
+      }
+      return '';
     };
 
+    // Map to the actual Tally form questions Serene built:
+    // "Your Name" / "Name"  |  "Date"  |  "What did you complete today?" / "Completed that day"
+    // "Any issues"          |  "Anything admin needs to follow-up on"
+    const name = get('your name', 'name', 'who');
     const report = {
-      'Submitted At': new Date().toISOString(),
-      'Name':         get('name'),
-      'Date':         get('date'),
-      'Job Name / Address': get('job'),
-      'Work Completed Today': get('work completed'),
-      'Issues or Delays': get('issues'),
-      'Materials Purchased': get('materials'),
-      'Plan for Tomorrow': get('plan'),
-      'Admin Follow Up': get('admin') || get('follow up'),
+      'Submitted At':        new Date().toISOString(),
+      'Name':                name || payload?.data?.respondentId || 'Unknown',
+      'Date':                get('date', 'work date', 'today'),
+      'Work Completed Today': get('completed', 'what did you complete', 'work completed', 'accomplish'),
+      'Issues':              get('issue', 'delay', 'problem', 'concern'),
+      'Admin Follow Up':     get('admin', 'follow up', 'follow-up', 'needs to know', 'anything admin'),
     };
 
     // Write to Google Sheet "Field Reports" tab
@@ -3455,7 +3522,7 @@ app.post('/api/sgc/field-report', async (req, res) => {
       });
     }
 
-    logger.info('SGC-FieldReport', `Report received from ${report['Name']} for ${report['Job Name / Address']}`);
+    logger.info('SGC-FieldReport', `Report received from "${report['Name']}" — Work: "${report['Work Completed Today']?.slice(0,60)}"`);
     res.json({ ok: true });
   } catch (e) {
     logger.error('SGC-FieldReport', `Webhook error: ${e.message}`);

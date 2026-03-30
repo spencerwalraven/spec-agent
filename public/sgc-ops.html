@@ -907,9 +907,12 @@
       <div class="section-header">
         <div>
           <div class="section-title">Daily Field Reports</div>
-          <div class="section-sub">AI monitors submissions at 6pm · Sends follow-up emails automatically if missing or incomplete</div>
+          <div class="section-sub">Tally form submissions · Click <strong style="color:var(--gold)">Send Reminders</strong> to email today's summary</div>
         </div>
-        <input class="search-bar" id="reportSearch" placeholder="Search by name..." oninput="filterReports()" />
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="search-bar" id="reportSearch" placeholder="Search by name..." oninput="filterReports()" />
+          <button class="add-row-btn" id="remindBtn" onclick="sendReminders()">🔔 Send Reminders</button>
+        </div>
       </div>
       <div id="reportGrid" class="report-grid">
         <div class="loading"><div class="spinner"></div>Loading field reports...</div>
@@ -1762,25 +1765,36 @@
         // Show most recent first
         const sorted = [...reports].reverse();
         document.getElementById('reportGrid').innerHTML = sorted.map((r, idx) => {
-          const submittedAt  = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
-          const hasWork      = !!r['Work Completed Today'];
-          const hasMaterials = !!r['Materials Purchased'];
-          const hasPlan      = !!r['Plan for Tomorrow'];
-          const allDone      = hasWork && hasMaterials && hasPlan;
-          const pillClass    = allDone ? 'pill-green' : 'pill-yellow';
-          const pillLabel    = allDone ? 'Complete' : 'Incomplete';
-          const jobLabel     = r['Job Name \\ Address'] || r['Job Name / Address'] || '';
-          const issues       = r['Issues / Concerns'] || r['Issues'] || '';
-          const hoursWorked  = r['Hours Worked'] || r['Hours'] || '';
-          const crewCount    = r['Crew Size'] || r['Number of Workers'] || '';
-          const cardId       = `report-card-${idx}`;
+          const submittedAt = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+          // Only check fields that are actually in Serene's Tally form
+          const name      = r['Name'] || '';
+          const work      = r['Work Completed Today'] || '';
+          const issues    = r['Issues'] || r['Issues or Delays'] || r['Issues / Concerns'] || '';
+          const adminNote = r['Admin Follow Up'] || '';
+          const dateStr   = r['Date'] || '';
+
+          const hasName = !!name && name !== 'Unknown';
+          const hasWork = !!work;
+          const isComplete = hasName && hasWork;
+          const pillClass  = isComplete ? 'pill-green' : 'pill-yellow';
+          const pillLabel  = isComplete ? 'Complete' : 'Incomplete';
+
+          // What's missing (shown in collapsed card subtitle for incomplete)
+          const missing = [];
+          if (!hasName) missing.push('name');
+          if (!hasWork) missing.push('work summary');
+          const missingStr = missing.length ? `Missing: ${missing.join(', ')}` : '';
+
+          const cardId = `report-card-${idx}`;
+          const safeName = name.replace(/'/g,"\\'");
           return `
             <div class="report-card" id="${cardId}" onclick="toggleReportCard('${cardId}')">
-              <button class="report-del-btn" title="Delete report" onclick="event.stopPropagation();confirmDeleteReport(${r._row},'${(r['Name']||'Unknown').replace(/'/g,"\\'")}')">🗑</button>
+              <button class="report-del-btn" title="Delete report" onclick="event.stopPropagation();confirmDeleteReport(${r._row},'${safeName}')">🗑</button>
               <div class="report-card-top">
                 <div>
-                  <div class="tech-name">${r['Name'] || 'Unknown'}</div>
-                  <div class="report-summary" style="margin-top:2px">${submittedAt}${jobLabel ? ' · ' + jobLabel : ''}</div>
+                  <div class="tech-name">${name || '<span style="color:var(--text3)">Unknown</span>'}</div>
+                  <div class="report-summary" style="margin-top:2px">${submittedAt}${dateStr && dateStr !== submittedAt ? ' · ' + dateStr : ''}${missingStr ? '<br><span style="color:var(--yellow);font-size:11px">⚠ ' + missingStr + '</span>' : ''}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px">
                   <span class="pill ${pillClass}">${pillLabel}</span>
@@ -1792,18 +1806,26 @@
                 <div class="report-fields">
                   <div class="report-field">
                     <span class="dot report-dot ${hasWork ? 'dot-green' : 'dot-red'}"></span>
-                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Work Completed</div><span style="color:var(--text)">${r['Work Completed Today'] || 'No work logged'}</span></div>
+                    <div>
+                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Work Completed Today</div>
+                      <span style="color:var(--text)">${work || '<em style="color:var(--text3)">Not filled in</em>'}</span>
+                    </div>
                   </div>
                   <div class="report-field">
-                    <span class="dot report-dot ${hasMaterials ? 'dot-green' : 'dot-gray'}"></span>
-                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Materials</div><span>${r['Materials Purchased'] || 'None logged'}</span></div>
+                    <span class="dot report-dot ${issues ? 'dot-red' : 'dot-gray'}"></span>
+                    <div>
+                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Issues / Delays</div>
+                      <span style="${issues ? 'color:var(--red)' : ''}">${issues || '<em style="color:var(--text3)">None reported</em>'}</span>
+                    </div>
                   </div>
+                  ${adminNote ? `
                   <div class="report-field">
-                    <span class="dot report-dot ${hasPlan ? 'dot-green' : 'dot-gray'}"></span>
-                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Plan for Tomorrow</div><span>${r['Plan for Tomorrow'] || 'No plan logged'}</span></div>
-                  </div>
-                  ${issues ? `<div class="report-field"><span class="dot report-dot dot-red"></span><div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Issues / Concerns</div><span style="color:var(--red)">${issues}</span></div></div>` : ''}
-                  ${(hoursWorked || crewCount) ? `<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:var(--text2)">${hoursWorked ? `<span>⏱ <strong style="color:var(--text)">${hoursWorked}</strong> hrs</span>` : ''}${crewCount ? `<span>👷 <strong style="color:var(--text)">${crewCount}</strong> workers</span>` : ''}</div>` : ''}
+                    <span class="dot report-dot dot-yellow"></span>
+                    <div>
+                      <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Admin Follow-Up Needed</div>
+                      <span style="color:var(--yellow)">${adminNote}</span>
+                    </div>
+                  </div>` : ''}
                 </div>
               </div>
             </div>
@@ -1824,6 +1846,27 @@
           else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
         }
       );
+    }
+
+    async function sendReminders() {
+      const btn = document.getElementById('remindBtn');
+      btn.textContent = '⏳ Sending…'; btn.disabled = true;
+      try {
+        const res  = await fetch('/api/sgc/ops/field-reports/remind');
+        const data = await res.json();
+        if (data.ok) {
+          const msg = data.missing?.length
+            ? `Summary sent ✓  ·  ${data.submitted} submitted, ${data.missing.length} missing: ${data.missing.join(', ')}`
+            : `Summary sent ✓  ·  All ${data.submitted} submissions received today!`;
+          showToast(msg, data.missing?.length ? 'info' : 'success');
+        } else {
+          showToast('Reminder failed: ' + (data.error || 'Unknown'), 'error');
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.textContent = '🔔 Send Reminders'; btn.disabled = false;
+      }
     }
 
     // ── CHAT DRAWER ──
