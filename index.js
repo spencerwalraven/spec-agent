@@ -2266,48 +2266,41 @@ function proposalResponsePage(type, job, companyName = 'Your Contractor') {
 // ─── ANALYTICS: JOB PROFITABILITY ─────────────────────────────────────────────
 app.get('/api/analytics/profitability', async (req, res) => {
   try {
-    const [jobs, phases] = await Promise.all([readTab('Jobs'), readTab('Job Phases')]);
+    const { query: dbQuery } = require('./src/db');
+    const jobRows = await dbQuery(`
+      SELECT j.id, j.job_ref, j.title, j.service, j.status, j.client_name,
+        j.estimated_value, j.actual_value, j.material_cost, j.labor_cost,
+        COALESCE(
+          (SELECT SUM(COALESCE(estimated_cost,0)) FROM job_phases WHERE job_id = j.id), 0
+        ) as phase_est_cost,
+        COALESCE(
+          (SELECT SUM(COALESCE(actual_cost,0)) FROM job_phases WHERE job_id = j.id), 0
+        ) as phase_actual_cost,
+        (SELECT COUNT(*) FROM job_phases WHERE job_id = j.id) as total_phases,
+        (SELECT COUNT(*) FROM job_phases WHERE job_id = j.id AND status = 'completed') as phases_done
+      FROM jobs j WHERE j.company_id = 1 AND j.estimated_value > 0
+      ORDER BY j.estimated_value DESC
+    `);
 
-    const results = jobs
-      .filter(j => g(j, 'Job ID'))
-      .map(j => {
-        const jobId       = g(j, 'Job ID');
-        const clientName  = `${g(j,'First Name','')} ${g(j,'Last Name','')}`.trim();
-        const projectType = g(j, 'Service Type', 'Project Type');
-        const jobStatus   = g(j, 'Job Status', 'Status');
-        const contractVal = parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0;
+    const results = jobRows.rows.map(j => {
+      const contractVal = parseFloat(j.estimated_value) || 0;
+      const estCost = parseFloat(j.phase_est_cost) || parseFloat(j.material_cost || 0) + parseFloat(j.labor_cost || 0);
+      const actualCost = parseFloat(j.phase_actual_cost) || 0;
+      const margin = contractVal > 0 ? Math.round(((contractVal - (actualCost || estCost)) / contractVal) * 100) : null;
 
-        // Sum estimated cost from phases
-        const jobPhases   = phases.filter(p => g(p, 'Job ID') === jobId);
-        const estCost     = jobPhases.reduce((sum, p) => {
-          return sum + (parseFloat((g(p,'Estimated Cost','Est Cost') || '0').replace(/[^0-9.]/g,'')) || 0);
-        }, 0);
-        const actualCost  = jobPhases.reduce((sum, p) => {
-          return sum + (parseFloat((g(p,'Actual Cost','Actual') || '0').replace(/[^0-9.]/g,'')) || 0);
-        }, 0);
+      return {
+        jobId: j.job_ref, clientName: j.client_name || '', projectType: j.service || j.title,
+        jobStatus: j.status, contractVal, estCost, actualCost, margin,
+        overBudget: actualCost > 0 && estCost > 0 && actualCost > estCost,
+        totalPhases: parseInt(j.total_phases), phasesDone: parseInt(j.phases_done),
+      };
+    });
 
-        const margin      = contractVal > 0 ? Math.round(((contractVal - (actualCost || estCost)) / contractVal) * 100) : null;
-        const overBudget  = actualCost > 0 && estCost > 0 && actualCost > estCost;
-        const phasesDone  = jobPhases.filter(p => /complete/i.test(g(p,'Status',''))).length;
-
-        return {
-          jobId, clientName, projectType, jobStatus,
-          contractVal, estCost, actualCost,
-          margin, overBudget,
-          totalPhases: jobPhases.length,
-          phasesDone,
-        };
-      })
-      .filter(j => j.contractVal > 0 || j.totalPhases > 0)
-      .sort((a, b) => b.contractVal - a.contractVal);
-
-    // Summary stats
-    const total       = results.reduce((s, j) => s + j.contractVal, 0);
-    const totalEst    = results.reduce((s, j) => s + j.estCost, 0);
+    const total = results.reduce((s, j) => s + j.contractVal, 0);
+    const totalEst = results.reduce((s, j) => s + j.estCost, 0);
     const totalActual = results.reduce((s, j) => s + j.actualCost, 0);
-    const avgMargin   = results.filter(j => j.margin !== null).length > 0
-      ? Math.round(results.filter(j => j.margin !== null).reduce((s, j) => s + j.margin, 0) / results.filter(j => j.margin !== null).length)
-      : null;
+    const withMargin = results.filter(j => j.margin !== null);
+    const avgMargin = withMargin.length > 0 ? Math.round(withMargin.reduce((s, j) => s + j.margin, 0) / withMargin.length) : null;
 
     res.json({ jobs: results, summary: { total, totalEst, totalActual, avgMargin, jobCount: results.length } });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2316,37 +2309,31 @@ app.get('/api/analytics/profitability', async (req, res) => {
 // ─── ANALYTICS: LEAD SOURCES ───────────────────────────────────────────────────
 app.get('/api/analytics/lead-sources', async (req, res) => {
   try {
-    const [leads, jobs] = await Promise.all([readTab('Leads'), readTab('Jobs')]);
+    const { query: dbQuery } = require('./src/db');
+    const leadRows = await dbQuery(`SELECT source, status FROM leads WHERE company_id = 1`);
+    const jobRows = await dbQuery(`SELECT source, estimated_value FROM jobs WHERE company_id = 1 AND estimated_value > 0`);
 
     const sourceMap = {};
-
-    leads.forEach(l => {
-      const source = g(l, 'How did you hear about us?', 'Lead Source', 'Source', 'Referral Source') || 'Unknown';
-      const status = (g(l, 'Lead Status', 'Status') || '').toLowerCase();
-      const converted = /convert/.test(status);
-
-      if (!sourceMap[source]) {
-        sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0, jobs: [] };
-      }
+    leadRows.rows.forEach(l => {
+      const source = l.source || 'Unknown';
+      const converted = /convert/i.test(l.status || '');
+      if (!sourceMap[source]) sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0 };
       sourceMap[source].leads++;
       if (converted) sourceMap[source].converted++;
     });
 
-    // Match converted leads to jobs for revenue
-    jobs.forEach(j => {
-      const source = g(j, 'Lead Source', 'How did you hear about us?', 'Source') || 'Unknown';
-      const value  = parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0;
-      if (value > 0) {
-        if (!sourceMap[source]) sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0, jobs: [] };
-        sourceMap[source].totalValue += value;
-      }
+    jobRows.rows.forEach(j => {
+      const source = j.source || 'Unknown';
+      const value = parseFloat(j.estimated_value) || 0;
+      if (!sourceMap[source]) sourceMap[source] = { source, leads: 0, converted: 0, totalValue: 0 };
+      sourceMap[source].totalValue += value;
     });
 
     const results = Object.values(sourceMap)
       .map(s => ({
         ...s,
         conversionRate: s.leads > 0 ? Math.round((s.converted / s.leads) * 100) : 0,
-        avgJobValue:    s.converted > 0 ? Math.round(s.totalValue / s.converted) : 0,
+        avgJobValue: s.converted > 0 ? Math.round(s.totalValue / s.converted) : 0,
       }))
       .sort((a, b) => b.totalValue - a.totalValue);
 
@@ -2357,46 +2344,28 @@ app.get('/api/analytics/lead-sources', async (req, res) => {
 // ─── ANALYTICS: TEAM PERFORMANCE ──────────────────────────────────────────────
 app.get('/api/analytics/team', async (req, res) => {
   try {
-    const [team, jobs, phases] = await Promise.all([
-      readTab('Team'), readTab('Jobs'), readTab('Job Phases'),
-    ]);
+    const { query: dbQuery } = require('./src/db');
+    const teamRows = await dbQuery(`SELECT id, name, role, hourly_rate FROM team WHERE company_id = 1 AND status = 'active'`);
+    const phaseRows = await dbQuery(`SELECT assigned_to, status, estimated_cost, actual_cost FROM job_phases WHERE job_id IN (SELECT id FROM jobs WHERE company_id = 1)`);
+    const clockRows = await dbQuery(`SELECT team_member_name, hours FROM time_clock WHERE company_id = 1`);
 
-    const teamStats = team.map(t => {
-      const name   = g(t, 'Name', 'Team Member');
-      const role   = g(t, 'Role', 'Position');
+    const teamStats = teamRows.rows.map(t => {
+      const name = t.name;
+      const role = t.role;
       const active = g(t, 'Active', 'Is Active');
 
-      // Jobs this person is assigned to (as salesperson or crew)
-      const assignedJobs = jobs.filter(j =>
-        g(j,'Salesperson','Sales Rep','Assigned Rep') === name
-      );
-      const closedJobs = assignedJobs.filter(j =>
-        /contract|signed|active|progress|complete/i.test(g(j,'Job Status','Status','Contract Status'))
-      );
-      const totalRevenue = closedJobs.reduce((s, j) =>
-        s + (parseFloat((g(j,'Total Job Value','Contract Amount','Job Value') || '0').replace(/[^0-9.]/g,'')) || 0), 0
-      );
-
-      // Phases assigned to this person
-      const assignedPhases = phases.filter(p =>
-        (g(p,'Assigned Name','Assigned To') || '').toLowerCase().includes((name || '').toLowerCase())
-      );
-      const donePhases = assignedPhases.filter(p => /complete/i.test(g(p,'Status','')));
-      const ratings    = assignedPhases
-        .map(p => parseFloat(g(p,'Phase Rating','Rating') || ''))
-        .filter(n => !isNaN(n));
-      const avgRating  = ratings.length > 0
-        ? Math.round((ratings.reduce((s, n) => s + n, 0) / ratings.length) * 10) / 10
-        : null;
+      const assignedPhases = phaseRows.rows.filter(p => p.assigned_to === name);
+      const donePhases = assignedPhases.filter(p => p.status === 'completed');
+      const totalHours = clockRows.rows.filter(c => c.team_member_name === name).reduce((s, c) => s + (parseFloat(c.hours) || 0), 0);
+      const hourlyRate = parseFloat(t.hourly_rate) || 0;
 
       return {
-        name, role, active,
-        totalLeadsAssigned:   assignedJobs.length,
-        jobsClosed:           closedJobs.length,
-        totalRevenue,
-        phasesAssigned:       assignedPhases.length,
-        phasesDone:           donePhases.length,
-        avgRating,
+        name, role, active: true,
+        phasesAssigned: assignedPhases.length,
+        phasesDone: donePhases.length,
+        totalHours: Math.round(totalHours * 10) / 10,
+        hourlyRate,
+        laborCost: Math.round(totalHours * hourlyRate),
       };
     });
 
