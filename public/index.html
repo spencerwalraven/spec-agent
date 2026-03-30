@@ -78,19 +78,21 @@
   .page{
     position:absolute;inset:0;
     overflow-y:auto;-webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth;
     padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 20px);
     display:none;
   }
-  .page.active{display:block}
+  .page.active{display:block;animation:pageIn .3s ease}
+  @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
   /* ── BOTTOM NAV ───────────────────────────────────────────────── */
   .bottom-nav{
     position:fixed;bottom:0;left:0;right:0;z-index:200;
     height:calc(var(--nav-h) + var(--safe-b));
     padding-bottom:var(--safe-b);
-    background:rgba(8,8,8,.96);
-    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-    border-top:1px solid var(--border);
+    background:rgba(10,10,15,0.85);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-top:1px solid rgba(255,255,255,0.06);
     display:flex;align-items:stretch;
   }
   .nav-item{
@@ -124,11 +126,15 @@
   /* ── KPI GRID ─────────────────────────────────────────────────── */
   .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
   .kpi-card{
-    background:var(--card);border:1px solid var(--border);
-    border-radius:var(--r);padding:14px;
+    background:var(--card);border:1px solid rgba(255,255,255,0.06);
+    border-radius:14px;padding:14px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.15);
+    transition:transform .2s ease,box-shadow .2s ease;
   }
+  .kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.25)}
   .kpi-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:6px}
-  .kpi-value{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  .kpi-value{font-size:26px;font-weight:800;letter-spacing:-.5px;animation:countIn .5s cubic-bezier(.22,1,.36,1)}
+  @keyframes countIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
   .kpi-value.gold{color:var(--gold)}
   .kpi-value.green{color:var(--green)}
   .kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
@@ -146,11 +152,12 @@
     display:flex;align-items:center;gap:12px;
     padding:14px 16px;
     background:var(--card);border-radius:var(--r);
-    border:1px solid var(--border);
+    border:1px solid var(--border);border-left:3px solid transparent;
     margin-bottom:8px;
     -webkit-tap-highlight-color:transparent;
-    transition:background .1s;cursor:pointer;
+    transition:all .15s ease;cursor:pointer;
   }
+  .list-item:hover{background:rgba(255,255,255,0.04);border-left-color:var(--gold)}
   .list-item:active{background:var(--card2)}
   .item-avatar{
     width:44px;height:44px;border-radius:12px;
@@ -459,8 +466,9 @@
   .modal-overlay.open{display:flex}
   .modal-sheet{
     width:100%;max-height:92dvh;
-    background:var(--surface);border-radius:22px 22px 0 0;
+    background:rgba(13,13,20,0.92);border-radius:22px 22px 0 0;
     border-top:1px solid var(--border);
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
     overflow-y:auto;-webkit-overflow-scrolling:touch;
     transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);
   }
@@ -496,8 +504,9 @@
     transition:opacity .15s;
   }
   .btn:active{opacity:.7}
-  .btn-primary{background:var(--gold);color:#000;border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .btn-primary:active{opacity:.8}
+  .btn-primary{background:var(--gold);color:#000;border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .2s}
+  .btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 16px rgba(74,140,63,.25)}
+  .btn-primary:active{transform:scale(.97);filter:brightness(1)}
   .btn-secondary{background:var(--card2);color:var(--text);border:1px solid var(--border)}
   .btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25)}
   .btn-green{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
@@ -568,16 +577,18 @@
 
   /* ── TOAST ────────────────────────────────────────────────────── */
   #toast{
-    position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 12px);
-    left:50%;transform:translateX(-50%) translateY(16px);
+    position:fixed;top:calc(var(--safe-t) + 16px);
+    right:16px;left:auto;
+    transform:translateX(120%);
     background:var(--card2);border:1px solid var(--border);
-    border-radius:99px;padding:10px 20px;
+    border-radius:14px;padding:12px 20px;
     font-size:14px;font-weight:600;
     white-space:nowrap;z-index:1000;
-    opacity:0;transition:all .25s;pointer-events:none;
-    box-shadow:0 4px 24px rgba(0,0,0,.6);
+    opacity:0;transition:all .35s cubic-bezier(.22,1,.36,1);pointer-events:none;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   }
-  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.show{opacity:1;transform:translateX(0)}
   #toast.toast-success{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4);color:var(--green)}
   #toast.toast-error{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#f87171}
 
@@ -892,6 +903,32 @@
     border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer;
   }
   .approval-badge-row.has-pending{display:flex}
+
+  /* ── PHASE CARD STATUS BORDERS ──────────────────────────────── */
+  .phase-item.done{border-left:3px solid var(--green);padding-left:10px}
+  .phase-item.in-progress{border-left:3px solid var(--yellow);padding-left:10px;animation:phasePulse 2s ease-in-out infinite}
+  .phase-item.pending{border-left:3px dashed var(--text3);padding-left:10px;opacity:.55}
+  @keyframes phasePulse{0%,100%{border-left-color:var(--yellow)}50%{border-left-color:rgba(245,158,11,.4)}}
+
+  /* ── ALERT BADGE PULSE ─────────────────────────────────────── */
+  .alert-badge{animation:badgePulse 2s ease-in-out infinite}
+  @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 4px rgba(239,68,68,0)}}
+
+  /* ── SMOOTHER SKELETON SHIMMER ─────────────────────────────── */
+  .skeleton,.skeleton-line,.skeleton-avatar,.skel-avatar,.skel-line{
+    background:linear-gradient(90deg,var(--card) 25%,rgba(255,255,255,0.06) 50%,var(--card) 75%);
+    background-size:200% 100%;
+    animation:shimmerSmooth 1.6s ease-in-out infinite;
+  }
+  @keyframes shimmerSmooth{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* ── TEAM / JOB CARD HOVER ─────────────────────────────────── */
+  .team-item{transition:all .15s ease;border-left:3px solid transparent}
+  .team-item:hover{background:rgba(255,255,255,0.04);border-left-color:var(--gold)}
+  .mktg-card{transition:all .15s ease;border-left:3px solid transparent}
+  .mktg-card:hover{background:rgba(255,255,255,0.04);border-left-color:var(--gold)}
+  .alert-item{transition:all .15s ease}
+  .alert-item:hover{background:rgba(255,255,255,0.03)}
 </style>
 </head>
 <body>
