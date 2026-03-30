@@ -3838,11 +3838,16 @@ app.get('/api/google/reconnect/callback', async (req, res) => {
 });
 
 // ─── SGC QUICKBOOKS OAUTH ─────────────────────────────────────────────────────
+function sgcQbBaseUrl(req) {
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  if (process.env.APP_URL) return process.env.APP_URL;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
 app.get('/api/sgc/quickbooks/connect', (req, res) => {
   try {
     const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const redirectUri = `${sgcQbBaseUrl(req)}/api/sgc/quickbooks/callback`;
     const url = sgcQb.getAuthUrl(redirectUri);
     res.redirect(url);
   } catch (e) {
@@ -3856,8 +3861,7 @@ app.get('/api/sgc/quickbooks/callback', async (req, res) => {
     if (error) return res.send(`QuickBooks error: ${error}`);
     if (!code || !realmId) return res.status(400).send('Missing code or realmId');
     const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const redirectUri = `${sgcQbBaseUrl(req)}/api/sgc/quickbooks/callback`;
     const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
     res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
       <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
