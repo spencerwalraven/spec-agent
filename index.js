@@ -3129,6 +3129,17 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
   }
 });
 
+// ─── SGC FIELD REPORTS GET (Dashboard) ────────────────────────────────────────
+app.get('/api/sgc/ops/field-reports', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const rows = await agent.sgcReadTab('Field Reports');
+    res.json({ reports: rows });
+  } catch (e) {
+    res.json({ reports: [] });
+  }
+});
+
 // ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
 app.post('/api/sgc/field-report', async (req, res) => {
   try {
@@ -3166,13 +3177,14 @@ app.post('/api/sgc/field-report', async (req, res) => {
       const headers = Object.keys(report);
       const values  = Object.values(report);
 
-      // Check if sheet tab exists, create headers if first row
+      // Ensure "Field Reports" tab exists with headers
       try {
         const check = await sheets.spreadsheets.values.get({
           spreadsheetId: SGC_SHEET_ID,
           range: 'Field Reports!A1:Z1',
         });
         if (!check.data.values || !check.data.values[0]?.length) {
+          // Tab exists but has no headers — write them
           await sheets.spreadsheets.values.update({
             spreadsheetId: SGC_SHEET_ID,
             range: 'Field Reports!A1',
@@ -3181,7 +3193,21 @@ app.post('/api/sgc/field-report', async (req, res) => {
           });
         }
       } catch (_) {
-        // Tab might not exist — try to create it
+        // Tab doesn't exist — create it, then add headers
+        try {
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SGC_SHEET_ID,
+            requestBody: { requests: [{ addSheet: { properties: { title: 'Field Reports' } } }] },
+          });
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SGC_SHEET_ID,
+            range: 'Field Reports!A1',
+            valueInputOption: 'RAW',
+            requestBody: { values: [headers] },
+          });
+        } catch (createErr) {
+          logger.warn('SGC-FieldReport', `Tab create failed: ${createErr.message}`);
+        }
       }
 
       await sheets.spreadsheets.values.append({

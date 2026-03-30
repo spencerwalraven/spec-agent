@@ -354,22 +354,10 @@
 
     <!-- FIELD REPORTS TAB -->
     <div class="tab-panel" id="tab-reports">
-      <div class="demo-banner">
-        ⚡ Field report monitoring is being set up via Tally + Buildertrend. Daily AI follow-up emails will go live by end of week.
-      </div>
-      <div class="stats-row">
-        <div class="stat-card stat-green">
-          <div class="stat-value">5</div>
-          <div class="stat-label">Field Techs Being Tracked</div>
-        </div>
-        <div class="stat-card stat-yellow">
-          <div class="stat-value">—</div>
-          <div class="stat-label">Reports Submitted Today</div>
-        </div>
-        <div class="stat-card stat-red">
-          <div class="stat-value">—</div>
-          <div class="stat-label">Missing / Incomplete</div>
-        </div>
+      <div class="stats-row" id="reportStats">
+        <div class="stat-card stat-gold"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Total Submissions</div></div>
+        <div class="stat-card stat-green"><div class="stat-value" id="statToday">—</div><div class="stat-label">Submitted Today</div></div>
+        <div class="stat-card stat-yellow"><div class="stat-value" id="statWeek">—</div><div class="stat-label">This Week</div></div>
       </div>
       <div class="section-header">
         <div>
@@ -377,63 +365,8 @@
           <div class="section-sub">AI monitors submissions at 6pm · Sends follow-up emails automatically if missing or incomplete</div>
         </div>
       </div>
-      <div class="report-grid">
-        <!-- Tech cards for demo -->
-        <div class="report-card">
-          <div class="report-card-top">
-            <span class="tech-name">Joe Robb</span>
-            <span class="pill pill-yellow">Pending</span>
-          </div>
-          <div class="report-fields">
-            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
-            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
-            <div class="report-field"><span class="dot dot-red"></span> Materials Purchased</div>
-            <div class="report-field"><span class="dot dot-red"></span> Plan for Tomorrow</div>
-          </div>
-        </div>
-        <div class="report-card">
-          <div class="report-card-top">
-            <span class="tech-name">Elias Fuentes</span>
-            <span class="pill pill-green">Submitted</span>
-          </div>
-          <div class="report-fields">
-            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
-            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
-            <div class="report-field"><span class="dot dot-green"></span> Materials Purchased</div>
-            <div class="report-field"><span class="dot dot-green"></span> Plan for Tomorrow</div>
-          </div>
-        </div>
-        <div class="report-card">
-          <div class="report-card-top">
-            <span class="tech-name">Gerardo Garcia</span>
-            <span class="pill pill-red">Missing</span>
-          </div>
-          <div class="report-fields">
-            <div class="report-field"><span class="dot dot-gray"></span> Hours Worked</div>
-            <div class="report-field"><span class="dot dot-gray"></span> Work Completed</div>
-            <div class="report-field"><span class="dot dot-gray"></span> Materials Purchased</div>
-            <div class="report-field"><span class="dot dot-gray"></span> Plan for Tomorrow</div>
-          </div>
-        </div>
-        <div class="report-card">
-          <div class="report-card-top">
-            <span class="tech-name">Matthew Romani</span>
-            <span class="pill pill-green">Submitted</span>
-          </div>
-          <div class="report-fields">
-            <div class="report-field"><span class="dot dot-green"></span> Hours Worked</div>
-            <div class="report-field"><span class="dot dot-green"></span> Work Completed</div>
-            <div class="report-field"><span class="dot dot-green"></span> Materials Purchased</div>
-            <div class="report-field"><span class="dot dot-green"></span> Plan for Tomorrow</div>
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:20px; padding:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); font-size:13px; color:var(--text2);">
-        <strong style="color:var(--gold);">🤖 AI Action Log — Today</strong><br><br>
-        <span style="color:var(--text3);">6:00 PM</span> &nbsp;·&nbsp; Checked submissions for all 4 techs<br>
-        <span style="color:var(--text3);">6:01 PM</span> &nbsp;·&nbsp; <span style="color:var(--red)">Gerardo Garcia</span> — no report submitted. Sent follow-up email.<br>
-        <span style="color:var(--text3);">6:01 PM</span> &nbsp;·&nbsp; <span style="color:var(--yellow)">Joe Robb</span> — report incomplete (missing materials + plan). Sent reminder.<br>
-        <span style="color:var(--text3);">6:02 PM</span> &nbsp;·&nbsp; Serene notified of 2 outstanding reports.
+      <div id="reportGrid" class="report-grid">
+        <div class="loading"><div class="spinner"></div>Loading field reports...</div>
       </div>
     </div>
 
@@ -640,9 +573,64 @@
       }
     }
 
+    async function loadReports() {
+      try {
+        const res  = await fetch('/api/sgc/ops/field-reports');
+        const data = await res.json();
+        const reports = data.reports || [];
+
+        // Stats
+        const today = new Date().toLocaleDateString('en-US');
+        const todayReports = reports.filter(r => {
+          if (!r['Submitted At']) return false;
+          return new Date(r['Submitted At']).toLocaleDateString('en-US') === today;
+        });
+        const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weekReports = reports.filter(r => r['Submitted At'] && new Date(r['Submitted At']) >= weekStart);
+
+        document.getElementById('statTotal').textContent = reports.length;
+        document.getElementById('statToday').textContent = todayReports.length;
+        document.getElementById('statWeek').textContent  = weekReports.length;
+        document.getElementById('reportsBadge').textContent = todayReports.length || '—';
+
+        if (!reports.length) {
+          document.getElementById('reportGrid').innerHTML = '<div class="empty">No field reports yet. Submit the Tally form to see reports here.</div>';
+          return;
+        }
+
+        // Show most recent first
+        const sorted = [...reports].reverse();
+        document.getElementById('reportGrid').innerHTML = sorted.map(r => {
+          const submittedAt = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+          const hasWork      = !!r['Work Completed Today'];
+          const hasMaterials = !!r['Materials Purchased'];
+          const hasPlan      = !!r['Plan for Tomorrow'];
+          const allDone      = hasWork && hasMaterials && hasPlan;
+          const pillClass    = allDone ? 'pill-green' : 'pill-yellow';
+          const pillLabel    = allDone ? 'Complete' : 'Incomplete';
+          return `
+            <div class="report-card">
+              <div class="report-card-top">
+                <span class="tech-name">${r['Name'] || 'Unknown'}</span>
+                <span class="pill ${pillClass}">${pillLabel}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${submittedAt}${r['Date'] ? ' · ' + r['Date'] : ''}${r['Job Name \\ Address'] || r['Job Name / Address'] ? '<br>' + (r['Job Name \\ Address'] || r['Job Name / Address']) : ''}</div>
+              <div class="report-fields">
+                <div class="report-field"><span class="dot ${hasWork ? 'dot-green' : 'dot-red'}"></span> <span style="color:var(--text)">${r['Work Completed Today'] || 'No work logged'}</span></div>
+                <div class="report-field"><span class="dot ${hasMaterials ? 'dot-green' : 'dot-gray'}"></span> <span>${r['Materials Purchased'] || 'No materials'}</span></div>
+                <div class="report-field"><span class="dot ${hasPlan ? 'dot-green' : 'dot-gray'}"></span> <span>${r['Plan for Tomorrow'] || 'No plan logged'}</span></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
+      }
+    }
+
     function loadAll() {
       document.getElementById('lastUpdated').textContent = 'Refreshing...';
-      Promise.all([loadSubs(), loadInsurance(), loadJobs()]).then(() => {
+      Promise.all([loadSubs(), loadInsurance(), loadJobs(), loadReports()]).then(() => {
         const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         document.getElementById('lastUpdated').textContent = `Updated ${now}`;
       });
