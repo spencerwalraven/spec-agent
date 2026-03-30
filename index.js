@@ -3290,6 +3290,81 @@ app.post('/api/sgc/ops/subs', async (req, res) => {
   }
 });
 
+// ─── SGC TO-DO LIST ───────────────────────────────────────────────────────────
+app.get('/api/sgc/ops/todos', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const todos = await agent.sgcReadTab('To-Do');
+    res.json({ todos });
+  } catch (e) {
+    res.json({ todos: [] }); // Tab may not exist yet — return empty
+  }
+});
+
+app.post('/api/sgc/ops/todos', async (req, res) => {
+  try {
+    const { task, priority, due, notes } = req.body;
+    if (!task) return res.status(400).json({ error: 'task required' });
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    const { google } = require('googleapis');
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Auto-create the To-Do tab with headers if it doesn't exist
+    let headers;
+    try {
+      const r = await sheets.spreadsheets.values.get({ spreadsheetId: SGC_SHEET_ID, range: 'To-Do!1:1' });
+      headers = r.data.values?.[0] || [];
+    } catch (_) {
+      const sp = await sheets.spreadsheets.get({ spreadsheetId: SGC_SHEET_ID });
+      if (!sp.data.sheets.find(s => s.properties.title === 'To-Do')) {
+        await sheets.spreadsheets.batchUpdate({ spreadsheetId: SGC_SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title: 'To-Do' } } }] } });
+      }
+      headers = ['Task', 'Status', 'Priority', 'Due Date', 'Notes', 'Created'];
+      await sheets.spreadsheets.values.update({ spreadsheetId: SGC_SHEET_ID, range: 'To-Do!A1', valueInputOption: 'RAW', requestBody: { values: [headers] } });
+    }
+
+    const fieldMap = {
+      'Task': task, 'Status': 'Active', 'Priority': priority || 'Medium',
+      'Due Date': due || '', 'Notes': notes || '',
+      'Created': new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    };
+    const rowValues = headers.length ? headers.map(h => fieldMap[h] ?? '') : Object.values(fieldMap);
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SGC_SHEET_ID, range: 'To-Do!A1',
+      valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [rowValues] },
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.patch('/api/sgc/ops/todos', async (req, res) => {
+  try {
+    const { row, field, value } = req.body;
+    if (!row || !field) return res.status(400).json({ error: 'row and field required' });
+    const agent = require('./src/agents/sgc-admin-agent');
+    await agent.sgcUpdateCell('To-Do', row, field, value);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/sgc/ops/todos', async (req, res) => {
+  try {
+    const row = parseInt(req.body?.row || req.query?.row);
+    if (!row) return res.status(400).json({ error: 'row required' });
+    await deleteSheetRow('To-Do', row);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SGC FIELD REPORTS GET (Dashboard) ────────────────────────────────────────
 app.get('/api/sgc/ops/field-reports', async (req, res) => {
   try {
