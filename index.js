@@ -3056,6 +3056,111 @@ app.get('/sgc', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc.h
 // ─── SGC OPS DASHBOARD ────────────────────────────────────────────────────────
 app.get('/sgc-ops', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc-ops.html')));
 
+// ─── SGC MONDAY MEETING PREP ─────────────────────────────────────────────────
+app.get('/api/sgc/ops/meeting', async (req, res) => {
+  try {
+    const agent  = require('./src/agents/sgc-admin-agent');
+    const sgcQB  = require('./src/tools/sgc-quickbooks');
+
+    // Run sheet reads in parallel
+    const [subs, insuranceTasks] = await Promise.all([
+      agent.sgcReadTab('2025 SubCons'),
+      agent.sgcReadTab('Insurance Tasks'),
+    ]);
+
+    // ── Section 3: Compliance Summary (from sheet) ──
+    const total      = subs.length;
+    const missingW9  = subs.filter(s => !['yes','Yes','YES'].includes((s['W9 Received '] || s['W9 Received'] || '').trim())).length;
+    const missingBT  = subs.filter(s => !['yes','Yes','YES'].includes((s['BT Onboarding'] || s['Buildertrend'] || '').trim())).length;
+    const needs1099  = subs.filter(s => ['yes','Yes','YES'].includes((s['1099 needed'] || s['1099 Needed'] || '').trim())).length;
+    const sent1099   = subs.filter(s => ['yes','Yes','YES'].includes((s['1099 Sent'] || '').trim())).length;
+    const compliant  = subs.filter(s => {
+      const w9 = (s['W9 Received '] || s['W9 Received'] || '').trim().toLowerCase();
+      const bt = (s['BT Onboarding'] || s['Buildertrend'] || '').trim().toLowerCase();
+      return w9 === 'yes' && bt === 'yes';
+    }).length;
+    const compliance = { total, missingW9, missingBT, needs1099, sent1099, compliant };
+
+    // ── Section 4: Upcoming Expirations (from Insurance Tasks) ──
+    const now = new Date(); now.setHours(0,0,0,0);
+    const expirations = { past: [], d30: [], d60: [], d90: [], beyond: [] };
+    for (const task of insuranceTasks) {
+      const dueRaw = task['Due Date'] || task['Expiration'] || task['Date'] || '';
+      if (!dueRaw) continue;
+      const due = new Date(dueRaw); if (isNaN(due)) continue;
+      due.setHours(0,0,0,0);
+      const days = Math.ceil((due - now) / 86400000);
+      const item = { task: task['Task'] || task['Item'] || 'Unnamed', due: dueRaw, days, status: task['Status'] || '' };
+      if (days < 0)       expirations.past.push(item);
+      else if (days <= 30) expirations.d30.push(item);
+      else if (days <= 60) expirations.d60.push(item);
+      else if (days <= 90) expirations.d90.push(item);
+      else                 expirations.beyond.push(item);
+    }
+
+    // ── Sections 1, 2, 5: QuickBooks ──
+    let invoices = null, expenses = null, materials = null, qbError = null;
+    if (sgcQB.isConnected()) {
+      try {
+        // Open invoices with aging
+        const rawInvoices = await sgcQB.listOpenInvoices();
+        const today = new Date(); today.setHours(0,0,0,0);
+        invoices = rawInvoices.map(inv => {
+          const due = inv.DueDate ? new Date(inv.DueDate) : null;
+          const daysOverdue = due ? Math.ceil((today - due) / 86400000) : 0;
+          let bucket = 'Current';
+          if (daysOverdue > 90)      bucket = '90+';
+          else if (daysOverdue > 60) bucket = '61–90';
+          else if (daysOverdue > 30) bucket = '31–60';
+          else if (daysOverdue > 0)  bucket = '1–30';
+          return {
+            customer:    inv.CustomerRef?.name || 'Unknown',
+            amount:      inv.Balance || 0,
+            due:         inv.DueDate || '',
+            daysOverdue: Math.max(0, daysOverdue),
+            bucket,
+            invoiceNum:  inv.DocNumber || '',
+          };
+        });
+
+        // Expenses this week
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+        const wStr = weekAgo.toISOString().split('T')[0];
+        const expRes = await sgcQB.qbRequest('GET', `/query?query=select * from Purchase where TxnDate >= '${wStr}' ORDERBY TxnDate DESC MAXRESULTS 50`);
+        const rawExp = expRes?.QueryResponse?.Purchase || [];
+        expenses = rawExp.map(e => ({
+          date:     e.TxnDate || '',
+          vendor:   e.EntityRef?.name || e.PaymentMethodRef?.name || 'Unknown',
+          amount:   e.TotalAmt || 0,
+          memo:     e.PrivateNote || e.Memo || '',
+          account:  e.AccountRef?.name || '',
+          needsInfo: !e.PrivateNote && !e.Memo,
+        }));
+
+        // Material receipts (purchases with material/supply accounts)
+        const matRes = await sgcQB.qbRequest('GET', `/query?query=select * from Purchase where TxnDate >= '${wStr}' MAXRESULTS 50`);
+        const rawMat = matRes?.QueryResponse?.Purchase || [];
+        materials = rawMat
+          .filter(e => (e.Line || []).some(l => /material|supply|lumber|concrete|hardware/i.test(l.AccountBasedExpenseLineDetail?.AccountRef?.name || '')))
+          .map(e => ({
+            date:   e.TxnDate,
+            vendor: e.EntityRef?.name || 'Unknown',
+            amount: e.TotalAmt || 0,
+            memo:   e.PrivateNote || '',
+          }));
+      } catch (qbErr) {
+        qbError = qbErr.message;
+      }
+    } else {
+      qbError = 'not_connected';
+    }
+
+    res.json({ compliance, expirations, invoices, expenses, materials, qbError });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/sgc/ops/subs', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');

@@ -280,6 +280,70 @@
     }
     .report-dot { flex-shrink: 0; margin-top: 3px; }
     .report-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    /* ── MONDAY MEETING PREP ── */
+    .meeting-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .meeting-card-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .meeting-card-icon { font-size: 20px; flex-shrink: 0; }
+    .meeting-card-title { font-weight: 700; font-size: 14px; color: var(--text); }
+    .meeting-card-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+    .meeting-card-body { padding: 14px 16px; }
+    .meeting-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .meeting-table th {
+      text-align: left; padding: 5px 10px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .4px; color: var(--text3);
+      border-bottom: 1px solid var(--border);
+    }
+    .meeting-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .meeting-table tr:last-child td { border-bottom: none; }
+    .meeting-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .aging-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 10px; white-space: nowrap;
+    }
+    .aging-current { background: rgba(74,222,128,0.12); color: var(--green); }
+    .aging-30      { background: rgba(250,204,21,0.12);  color: var(--yellow); }
+    .aging-60      { background: rgba(249,115,22,0.12);  color: #f97316; }
+    .aging-90      { background: rgba(239,68,68,0.12);   color: var(--red); }
+    .exp-bucket { margin-bottom: 12px; }
+    .exp-bucket-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .4px; margin-bottom: 6px;
+    }
+    .exp-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 8px; border-radius: 6px; font-size: 12px;
+      background: var(--bg); margin-bottom: 3px;
+    }
+    .qb-connect-prompt {
+      text-align: center; padding: 20px;
+      color: var(--text3); font-size: 13px;
+    }
+    .qb-connect-btn {
+      display: inline-block; margin-top: 10px; padding: 8px 20px;
+      background: rgba(201,168,76,0.15); color: var(--gold);
+      border: 1px solid rgba(201,168,76,0.3); border-radius: 8px;
+      font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer;
+    }
+    .meeting-stat-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px;
+    }
+    .meeting-stat {
+      background: var(--bg); border-radius: 8px; padding: 10px 12px; text-align: center;
+    }
+    .meeting-stat-val { font-size: 22px; font-weight: 800; color: var(--gold); }
+    .meeting-stat-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+    .needs-info-flag {
+      font-size: 10px; background: rgba(250,204,21,0.12); color: var(--yellow);
+      padding: 1px 6px; border-radius: 8px; font-weight: 700;
+    }
+
     /* ── WORKER ROSTER ── */
     .worker-row {
       display: flex; align-items: center; gap: 10px;
@@ -917,6 +981,9 @@
     <button class="tab-btn" onclick="switchTab('todo')">
       To-Do <span class="tab-badge" id="todoBadge" style="background:var(--gold);color:#111">—</span>
     </button>
+    <button class="tab-btn" onclick="switchTab('meeting')">
+      📋 Monday Prep
+    </button>
   </div>
 
   <!-- CONTENT -->
@@ -1170,6 +1237,95 @@
       </div>
     </div>
 
+    <!-- MONDAY MEETING PREP TAB -->
+    <div class="tab-panel" id="tab-meeting">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <div class="section-title">Monday Meeting Prep</div>
+          <div class="section-sub">Admin prepares ahead of the weekly team meeting</div>
+        </div>
+        <button class="add-row-btn" onclick="loadMeeting(true)" id="meetingRefreshBtn">⟳ Refresh</button>
+      </div>
+
+      <div style="display:grid;gap:16px">
+
+        <!-- 1. Open Invoices & Aging -->
+        <div class="meeting-card" id="mc-invoices">
+          <div class="meeting-card-header">
+            <span class="meeting-card-icon">💰</span>
+            <div>
+              <div class="meeting-card-title">Open Invoices &amp; Aging Report</div>
+              <div class="meeting-card-sub">Source: QuickBooks</div>
+            </div>
+          </div>
+          <div class="meeting-card-body" id="mc-invoices-body">
+            <div class="loading"><div class="spinner"></div>Loading…</div>
+          </div>
+        </div>
+
+        <!-- 2. Expenses This Week -->
+        <div class="meeting-card" id="mc-expenses">
+          <div class="meeting-card-header">
+            <span class="meeting-card-icon">🧾</span>
+            <div>
+              <div class="meeting-card-title">Expenses Coded This Week</div>
+              <div class="meeting-card-sub">Source: QuickBooks · Flagged items need memo/category</div>
+            </div>
+          </div>
+          <div class="meeting-card-body" id="mc-expenses-body">
+            <div class="loading"><div class="spinner"></div>Loading…</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <!-- 3. Compliance Summary -->
+          <div class="meeting-card" id="mc-compliance">
+            <div class="meeting-card-header">
+              <span class="meeting-card-icon">✅</span>
+              <div>
+                <div class="meeting-card-title">Subcontractor Compliance</div>
+                <div class="meeting-card-sub">Source: Sub Compliance sheet</div>
+              </div>
+            </div>
+            <div class="meeting-card-body" id="mc-compliance-body">
+              <div class="loading"><div class="spinner"></div>Loading…</div>
+            </div>
+          </div>
+
+          <!-- 4. Upcoming Expirations -->
+          <div class="meeting-card" id="mc-expirations">
+            <div class="meeting-card-header">
+              <span class="meeting-card-icon">📅</span>
+              <div>
+                <div class="meeting-card-title">Upcoming Expirations</div>
+                <div class="meeting-card-sub">Source: Insurance Tasks · 30/60/90 day view</div>
+              </div>
+            </div>
+            <div class="meeting-card-body" id="mc-expirations-body">
+              <div class="loading"><div class="spinner"></div>Loading…</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 5. Material Receipts -->
+        <div class="meeting-card" id="mc-materials">
+          <div class="meeting-card-header">
+            <span class="meeting-card-icon">🪵</span>
+            <div>
+              <div class="meeting-card-title">Material Receipts</div>
+              <div class="meeting-card-sub">Source: QuickBooks expenses · Manual cross-reference with CompanyCam</div>
+            </div>
+          </div>
+          <div class="meeting-card-body" id="mc-materials-body">
+            <div class="loading"><div class="spinner"></div>Loading…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /content -->
 
   <!-- ADD SUB MODAL -->
@@ -1358,12 +1514,13 @@
 
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        const tabs = ['subs', 'reports', 'insurance', 'jobs', 'todo'];
+        const tabs = ['subs', 'reports', 'insurance', 'jobs', 'todo', 'meeting'];
         b.classList.toggle('active', tabs[i] === name);
       });
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       document.getElementById('tab-' + name).classList.add('active');
       if (name === 'todo') loadTodos();
+      if (name === 'meeting') loadMeeting();
     }
 
     function statusPill(val, row, field) {
@@ -2281,6 +2438,185 @@
           }
         }
       );
+    }
+
+    // ── MONDAY MEETING PREP ──
+    let meetingLoaded = false;
+
+    async function loadMeeting(force = false) {
+      if (meetingLoaded && !force) return;
+      const btn = document.getElementById('meetingRefreshBtn');
+      if (btn) { btn.textContent = '⟳ Loading…'; btn.disabled = true; }
+      ['invoices','expenses','compliance','expirations','materials'].forEach(id =>
+        document.getElementById(`mc-${id}-body`).innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>'
+      );
+      try {
+        const data = await fetch('/api/sgc/ops/meeting').then(r => r.json());
+        renderMeetingInvoices(data);
+        renderMeetingExpenses(data);
+        renderMeetingCompliance(data);
+        renderMeetingExpirations(data);
+        renderMeetingMaterials(data);
+        meetingLoaded = true;
+      } catch (e) {
+        ['invoices','expenses','compliance','expirations','materials'].forEach(id =>
+          document.getElementById(`mc-${id}-body`).innerHTML = `<div class="empty">Error: ${e.message}</div>`
+        );
+      } finally {
+        if (btn) { btn.textContent = '⟳ Refresh'; btn.disabled = false; }
+      }
+    }
+
+    const $fmt = n => '$' + Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    function qbNotConnected(id) {
+      document.getElementById(`mc-${id}-body`).innerHTML = `
+        <div class="qb-connect-prompt">
+          <div style="font-size:24px;margin-bottom:8px">🔌</div>
+          <div>QuickBooks is not connected</div>
+          <a class="qb-connect-btn" href="/api/sgc/quickbooks/connect" target="_blank">Connect QuickBooks</a>
+        </div>`;
+    }
+
+    function renderMeetingInvoices({ invoices, qbError }) {
+      const el = document.getElementById('mc-invoices-body');
+      if (qbError) { qbNotConnected('invoices'); return; }
+      if (!invoices?.length) { el.innerHTML = '<div class="empty">No open invoices 🎉</div>'; return; }
+
+      const total = invoices.reduce((s, i) => s + i.amount, 0);
+      const buckets = { 'Current': [], '1–30': [], '31–60': [], '61–90': [], '90+': [] };
+      for (const inv of invoices) (buckets[inv.bucket] = buckets[inv.bucket] || []).push(inv);
+
+      const agingClass = b => ({ 'Current':'aging-current','1–30':'aging-30','31–60':'aging-60','61–90':'aging-90','90+':'aging-90' })[b] || '';
+
+      el.innerHTML = `
+        <div style="font-size:13px;color:var(--text3);margin-bottom:12px">
+          Total AR: <strong style="color:var(--gold);font-size:16px">${$fmt(total)}</strong>
+          &nbsp;·&nbsp; ${invoices.length} open invoice${invoices.length>1?'s':''}
+        </div>
+        <table class="meeting-table">
+          <thead><tr><th>Customer</th><th>Invoice #</th><th>Due</th><th>Aging</th><th style="text-align:right">Balance</th></tr></thead>
+          <tbody>
+            ${invoices.map(inv => `
+              <tr>
+                <td style="font-weight:600">${inv.customer}</td>
+                <td style="color:var(--text3)">#${inv.invoiceNum}</td>
+                <td style="color:var(--text3)">${inv.due || '—'}</td>
+                <td><span class="aging-badge ${agingClass(inv.bucket)}">${inv.bucket}</span></td>
+                <td style="text-align:right;font-weight:600;color:${inv.daysOverdue>30?'var(--red)':'var(--text)'}">${$fmt(inv.amount)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    function renderMeetingExpenses({ expenses, qbError }) {
+      const el = document.getElementById('mc-expenses-body');
+      if (qbError) { qbNotConnected('expenses'); return; }
+      if (!expenses?.length) { el.innerHTML = '<div class="empty">No expenses this week</div>'; return; }
+
+      const total      = expenses.reduce((s, e) => s + e.amount, 0);
+      const needsInfo  = expenses.filter(e => e.needsInfo);
+
+      el.innerHTML = `
+        <div style="font-size:13px;color:var(--text3);margin-bottom:12px">
+          This week: <strong style="color:var(--gold)">${$fmt(total)}</strong>
+          &nbsp;·&nbsp; ${expenses.length} transactions
+          ${needsInfo.length ? `&nbsp;·&nbsp; <span style="color:var(--yellow);font-weight:600">⚠ ${needsInfo.length} need info</span>` : ''}
+        </div>
+        <table class="meeting-table">
+          <thead><tr><th>Date</th><th>Vendor</th><th>Account</th><th>Memo</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            ${expenses.map(e => `
+              <tr style="${e.needsInfo ? 'background:rgba(250,204,21,0.04)' : ''}">
+                <td style="color:var(--text3)">${e.date}</td>
+                <td style="font-weight:600">${e.vendor}</td>
+                <td style="color:var(--text3)">${e.account || '—'}</td>
+                <td>${e.memo ? e.memo.slice(0,40) : '<span class="needs-info-flag">⚠ Needs info</span>'}</td>
+                <td style="text-align:right">${$fmt(e.amount)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    function renderMeetingCompliance({ compliance }) {
+      const el = document.getElementById('mc-compliance-body');
+      if (!compliance) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+      const { total, missingW9, missingBT, needs1099, sent1099, compliant } = compliance;
+      el.innerHTML = `
+        <div class="meeting-stat-row">
+          <div class="meeting-stat">
+            <div class="meeting-stat-val" style="color:var(--green)">${compliant}</div>
+            <div class="meeting-stat-lbl">Fully Compliant</div>
+          </div>
+          <div class="meeting-stat">
+            <div class="meeting-stat-val" style="color:${missingW9>0?'var(--red)':'var(--green)'}">${missingW9}</div>
+            <div class="meeting-stat-lbl">Missing W-9</div>
+          </div>
+          <div class="meeting-stat">
+            <div class="meeting-stat-val" style="color:${missingBT>0?'var(--yellow)':'var(--green)'}">${missingBT}</div>
+            <div class="meeting-stat-lbl">Not on BT</div>
+          </div>
+          <div class="meeting-stat">
+            <div class="meeting-stat-val" style="color:var(--gold)">${sent1099}/${needs1099}</div>
+            <div class="meeting-stat-lbl">1099 Sent</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)">
+          ${total} total subcontractors · <a onclick="switchTab('subs')" style="color:var(--gold);cursor:pointer">View full list →</a>
+        </div>`;
+    }
+
+    function renderMeetingExpirations({ expirations }) {
+      const el = document.getElementById('mc-expirations-body');
+      if (!expirations) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+
+      const { past, d30, d60, d90 } = expirations;
+      const allEmpty = !past.length && !d30.length && !d60.length && !d90.length;
+      if (allEmpty) { el.innerHTML = '<div class="empty" style="color:var(--green)">✓ No expirations in the next 90 days</div>'; return; }
+
+      const bucket = (items, label, color) => !items.length ? '' : `
+        <div class="exp-bucket">
+          <div class="exp-bucket-label" style="color:${color}">${label} (${items.length})</div>
+          ${items.map(i => `
+            <div class="exp-row">
+              <span style="font-weight:600">${i.task}</span>
+              <span style="color:${color};font-size:11px">${i.days < 0 ? Math.abs(i.days) + ' days ago' : 'in ' + i.days + ' days'}</span>
+            </div>`).join('')}
+        </div>`;
+
+      el.innerHTML =
+        bucket(past, '⚠ Expired', 'var(--red)') +
+        bucket(d30,  '🔴 Within 30 Days', 'var(--red)') +
+        bucket(d60,  '🟠 31–60 Days', '#f97316') +
+        bucket(d90,  '🟡 61–90 Days', 'var(--yellow)');
+    }
+
+    function renderMeetingMaterials({ materials, qbError }) {
+      const el = document.getElementById('mc-materials-body');
+      if (qbError) { qbNotConnected('materials'); return; }
+
+      const total = (materials||[]).reduce((s, m) => s + m.amount, 0);
+      el.innerHTML = `
+        ${materials?.length ? `
+          <div style="font-size:13px;color:var(--text3);margin-bottom:12px">
+            Material purchases this week: <strong style="color:var(--gold)">${$fmt(total)}</strong>
+          </div>
+          <table class="meeting-table">
+            <thead><tr><th>Date</th><th>Vendor</th><th>Memo</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody>
+              ${materials.map(m => `
+                <tr>
+                  <td style="color:var(--text3)">${m.date}</td>
+                  <td style="font-weight:600">${m.vendor}</td>
+                  <td style="color:var(--text3)">${m.memo || '—'}</td>
+                  <td style="text-align:right">${$fmt(m.amount)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>` : '<div style="color:var(--text3);font-size:13px">No material purchases found this week in QuickBooks.</div>'}
+        <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">📸 CompanyCam Cross-Reference</div>
+          <div style="font-size:12px;color:var(--text2)">Manually verify receipts in CompanyCam match QB entries above. Flag any purchases missing photo documentation.</div>
+        </div>`;
     }
 
     // ── CHAT DRAWER ──
