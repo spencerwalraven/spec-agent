@@ -3112,6 +3112,44 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
   }
 });
 
+// ─── SGC ADD NEW SUBCONTRACTOR ────────────────────────────────────────────────
+app.post('/api/sgc/ops/subs', async (req, res) => {
+  try {
+    const { name, trade, w9, btOnboarded, needs1099, sent1099, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    const { google } = require('googleapis');
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const headerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SGC_SHEET_ID,
+      range: '2025 SubCons!1:1',
+    });
+    const headers = headerRes.data.values?.[0] || [];
+    const fieldMap = {
+      'Name': name, 'Company Name': name, 'SUB': name,
+      'Trade': trade||'', 'Specialty': trade||'', 'TRADE': trade||'',
+      'W9 Received': w9||'No', 'W9 Received ': w9||'No', 'W-9': w9||'No',
+      'BT Onboarding': btOnboarded||'No', 'Buildertrend': btOnboarded||'No',
+      '1099 needed': needs1099||'No', '1099 Needed': needs1099||'No',
+      '1099 Sent': sent1099||'No',
+      'NOTES': notes||'', 'Notes': notes||'',
+    };
+    const rowValues = headers.map(h => fieldMap[h] !== undefined ? fieldMap[h] : '');
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SGC_SHEET_ID,
+      range: '2025 SubCons!A1',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [rowValues] },
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SGC FIELD REPORTS GET (Dashboard) ────────────────────────────────────────
 app.get('/api/sgc/ops/field-reports', async (req, res) => {
   try {

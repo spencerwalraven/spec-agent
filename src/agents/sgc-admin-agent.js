@@ -63,7 +63,10 @@ async function sgcUpdateCell(tabName, rowNumber, columnHeader, value) {
     range: `${tabName}!1:1`,
   });
   const headers = (hRes.data.values || [[]])[0] || [];
-  const colIdx = headers.indexOf(columnHeader);
+  let colIdx = headers.indexOf(columnHeader);
+  if (colIdx === -1) {
+    colIdx = headers.findIndex(h => h.trim().toLowerCase() === columnHeader.trim().toLowerCase());
+  }
   if (colIdx === -1) throw new Error(`Column "${columnHeader}" not found in ${tabName}`);
   let letter = '';
   let idx = colIdx + 1;

@@ -410,6 +410,115 @@
     .search-bar:focus { border-color: var(--gold); }
     .search-bar::placeholder { color: var(--text3); }
 
+    /* ── EDITABLE CELLS ── */
+    .editable-cell {
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.15s;
+      display: inline-block;
+      min-width: 30px;
+    }
+    .editable-cell:hover { background: rgba(201,168,76,0.12); color: var(--gold); }
+    .editable-input {
+      background: var(--card2);
+      border: 1px solid var(--gold);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      width: 120px;
+    }
+    .editable-select {
+      background: var(--card2);
+      border: 1px solid var(--gold);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+    }
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 500px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--gold); }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .modal-field { display: flex; flex-direction: column; gap: 5px; }
+    .modal-field.full { grid-column: 1 / -1; }
+    .modal-label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .modal-input, .modal-select {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .modal-input:focus, .modal-select:focus { border-color: var(--gold); }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #111;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--card2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { color: var(--text); }
+    .add-row-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.3);
+      color: var(--gold);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-row-btn:hover { background: rgba(201,168,76,0.18); }
+
     /* ── DEMO BANNER ── */
     .demo-banner {
       background: rgba(201,168,76,0.1);
@@ -469,7 +578,10 @@
           <div class="section-title">Subcontractor Compliance</div>
           <div class="section-sub">W-9, Buildertrend onboarding, and 1099 status for all active subs</div>
         </div>
-        <input class="search-bar" id="subSearch" placeholder="Search subs..." oninput="filterSubs()" />
+        <div style="display:flex;gap:10px;align-items:center">
+          <input class="search-bar" id="subSearch" placeholder="Search subs..." oninput="filterSubs()" />
+          <button class="add-row-btn" onclick="openAddModal()">+ Add Sub</button>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -555,6 +667,59 @@
     </div>
 
   </div><!-- /content -->
+
+  <!-- ADD SUB MODAL -->
+  <div class="modal-overlay" id="addSubModal" onclick="if(event.target===this)closeAddModal()">
+    <div class="modal">
+      <div class="modal-title">+ Add Subcontractor</div>
+      <div class="modal-grid">
+        <div class="modal-field full">
+          <label class="modal-label">Name *</label>
+          <input class="modal-input" id="newSubName" placeholder="Full name or company name" />
+        </div>
+        <div class="modal-field full">
+          <label class="modal-label">Trade / Specialty</label>
+          <input class="modal-input" id="newSubTrade" placeholder="e.g. Electrical, Tile, Plumbing" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">W-9 Received</label>
+          <select class="modal-select" id="newSubW9">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">BT Onboarded</label>
+          <select class="modal-select" id="newSubBT">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">1099 Needed</label>
+          <select class="modal-select" id="newSub1099">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">1099 Sent</label>
+          <select class="modal-select" id="newSub1099Sent">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+        <div class="modal-field full">
+          <label class="modal-label">Notes</label>
+          <input class="modal-input" id="newSubNotes" placeholder="Any notes about this sub..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+        <button class="btn-primary" id="saveSubBtn" onclick="saveNewSub()">Add Subcontractor</button>
+      </div>
+    </div>
+  </div>
 
   <!-- CHAT OVERLAY -->
   <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
@@ -660,15 +825,110 @@
       document.getElementById('subsTable').innerHTML = subs.map(s => `
         <tr data-row="${s._row}">
           <td><strong>${s.name}</strong>${s.company && s.company !== s.name ? `<br><span style="color:var(--text2);font-size:11px">${s.company}</span>` : ''}</td>
-          <td style="color:var(--text2)">${s.trade || '—'}</td>
-          <td>${statusPill(s.w9,        s._row, 'W9 Received')}</td>
+          <td>${editCell(s.trade, s._row, 'Trade', 'text')}</td>
+          <td>${statusPill(s.w9,          s._row, 'W9 Received')}</td>
           <td>${statusPill(s.btOnboarded, s._row, 'BT Onboarding')}</td>
-          <td>${statusPill(s.needs1099, s._row, '1099 needed')}</td>
-          <td>${statusPill(s.sent1099,  s._row, '1099 Sent')}</td>
-          <td style="color:var(--gold)">${s.totalPaid ? '$' + Number(String(s.totalPaid).replace(/[$,]/g,'')).toLocaleString() : '—'}</td>
-          <td style="color:var(--text2);font-size:12px">${s.notes || '—'}</td>
+          <td>${statusPill(s.needs1099,   s._row, '1099 needed')}</td>
+          <td>${statusPill(s.sent1099,    s._row, '1099 Sent')}</td>
+          <td>${editCell(s.totalPaid, s._row, '2025 Total', 'number')}</td>
+          <td>${editCell(s.notes, s._row, 'NOTES', 'text', 160)}</td>
         </tr>
       `).join('');
+    }
+
+    // ── EDITABLE CELLS ──
+    function editCell(value, row, field, type, width) {
+      const display = (value && String(value).trim()) ? String(value).trim() : '—';
+      const w = width ? `style="width:${width}px"` : '';
+      return `<span class="editable-cell" ${w} onclick="startEdit(this,${row},'${field}','${type}')" title="Click to edit">${display.replace(/</g,'&lt;')}</span>`;
+    }
+
+    function startEdit(el, row, field, type) {
+      const raw = el.textContent === '—' ? '' : el.textContent.replace(/[$,]/g,'');
+      let input;
+      if (type === 'yesno') {
+        input = document.createElement('select');
+        input.className = 'editable-select';
+        input.innerHTML = '<option value="Yes">Yes</option><option value="No">No</option>';
+        input.value = raw;
+      } else {
+        input = document.createElement('input');
+        input.type = type === 'number' ? 'number' : 'text';
+        input.className = 'editable-input';
+        input.value = raw;
+        if (el.style.width) input.style.width = el.style.width;
+      }
+      const save = async () => {
+        const newVal = input.value.trim();
+        el.textContent = newVal || '—';
+        input.replaceWith(el);
+        if (newVal !== raw) await patchSubCell(row, field, newVal);
+      };
+      input.onblur = save;
+      input.onkeydown = e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.replaceWith(el); }
+      };
+      el.replaceWith(input);
+      input.focus();
+      if (input.select) input.select();
+    }
+
+    async function patchSubCell(row, field, value) {
+      try {
+        const res = await fetch('/api/sgc/ops/subs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ row, field, value }),
+        });
+        const data = await res.json();
+        if (!data.ok) alert('Save failed: ' + (data.error || 'Unknown error'));
+      } catch (e) {
+        alert('Save error: ' + e.message);
+      }
+    }
+
+    // ── ADD SUB MODAL ──
+    function openAddModal() {
+      document.getElementById('addSubModal').classList.add('open');
+      setTimeout(() => document.getElementById('newSubName').focus(), 50);
+    }
+
+    function closeAddModal() {
+      document.getElementById('addSubModal').classList.remove('open');
+      document.querySelectorAll('#addSubModal .modal-input').forEach(i => i.value = '');
+      document.querySelectorAll('#addSubModal .modal-select').forEach(s => s.value = 'No');
+    }
+
+    async function saveNewSub() {
+      const name = document.getElementById('newSubName').value.trim();
+      if (!name) { alert('Name is required'); return; }
+      const btn = document.getElementById('saveSubBtn');
+      btn.textContent = 'Saving...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/sgc/ops/subs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            trade:       document.getElementById('newSubTrade').value.trim(),
+            w9:          document.getElementById('newSubW9').value,
+            btOnboarded: document.getElementById('newSubBT').value,
+            needs1099:   document.getElementById('newSub1099').value,
+            sent1099:    document.getElementById('newSub1099Sent').value,
+            notes:       document.getElementById('newSubNotes').value.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) { closeAddModal(); await loadSubs(); }
+        else alert('Failed: ' + (data.error || 'Unknown'));
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        btn.textContent = 'Add Subcontractor';
+        btn.disabled = false;
+      }
     }
 
     async function toggleCell(row, field, newValue) {
