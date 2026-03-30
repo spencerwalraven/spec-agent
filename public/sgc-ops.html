@@ -298,6 +298,26 @@
     .worker-email { font-size: 11px; color: var(--text3); }
     .worker-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 5px; transition: all 0.15s; }
     .worker-del:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+    /* ── SUBMISSION LIST ── */
+    .sub-item {
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px; overflow: hidden; cursor: pointer;
+    }
+    .sub-item-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px; background: var(--bg); user-select: none;
+    }
+    .sub-item-header:hover { background: rgba(255,255,255,0.03); }
+    .sub-item-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .sub-item-meta { font-size: 11px; color: var(--text3); margin-top:1px; }
+    .sub-item-body {
+      overflow: hidden; max-height: 0; transition: max-height 0.25s ease;
+      background: var(--card);
+    }
+    .sub-item-body.open { max-height: 400px; }
+    .sub-item-inner { padding: 12px 14px; border-top: 1px solid var(--border); }
+    .sub-field-label { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);margin-bottom:3px; }
+    .sub-field-value { font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px; }
 
     /* ── INSURANCE TASKS ── */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
@@ -998,6 +1018,23 @@
             <div id="workerList">
               <div class="loading"><div class="spinner"></div>Loading workers…</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL SUBMISSIONS ACCORDION -->
+      <div style="margin-top:10px">
+        <div onclick="toggleAllSubmissions()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:15px">📋</span>
+            <span style="font-weight:600;font-size:13px">All Submissions</span>
+            <span class="pill" id="submissionCountPill" style="background:rgba(201,168,76,0.12);color:var(--gold);font-size:10px">0 total</span>
+          </div>
+          <span id="allSubsChevron" style="color:var(--text3);font-size:13px;transition:transform 0.2s">▼</span>
+        </div>
+        <div id="allSubsBody" style="overflow:hidden;max-height:0;transition:max-height 0.3s ease">
+          <div style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:12px">
+            <div id="allSubmissionsList"></div>
           </div>
         </div>
       </div>
@@ -1702,37 +1739,60 @@
       const dayNames = ['Mon','Tue','Wed','Thu','Fri'];
       const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
 
-      // Update week label
+      // Week label
       const start = days[0], end = days[4];
       document.getElementById('weekLabel').textContent =
         `${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
 
-      // Stats for this week
-      let weekSubmitted = 0, todaySubmitted = 0, todayMissing = 0;
-      for (const r of allReports) {
-        const rDate = r['Submitted At'] ? new Date(r['Submitted At']) : null;
-        if (!rDate) continue;
-        const rDay = new Date(rDate); rDay.setHours(0,0,0,0);
-        if (rDay >= days[0] && rDay <= days[4]) weekSubmitted++;
-        if (rDay.toDateString() === today.toDateString()) todaySubmitted++;
+      // Collect all reports that fall in this week's Mon-Fri range
+      const weekReports = allReports.filter(r => {
+        if (!r['Submitted At']) return false;
+        const d = new Date(r['Submitted At']); d.setHours(0,0,0,0);
+        return d >= days[0] && d <= days[4];
+      });
+
+      // Find submissions whose name doesn't match any roster worker ("walk-ins")
+      const unmatchedSubmitters = [];
+      const seenNames = new Set();
+      for (const r of weekReports) {
+        const rName = (r['Name'] || '').trim();
+        if (!rName || rName === 'Unknown') continue;
+        const matchesRoster = workersList.some(w => workerMatchesReport(w, r));
+        if (!matchesRoster && !seenNames.has(rName.toLowerCase())) {
+          seenNames.add(rName.toLowerCase());
+          unmatchedSubmitters.push(rName);
+        }
       }
-      for (const w of workersList) {
-        if (!getReportForWorkerDay(w, today)) todayMissing++;
-      }
-      document.getElementById('statToday').textContent = todaySubmitted;
-      document.getElementById('statMissing').textContent = workersList.length ? todayMissing : '—';
-      document.getElementById('statWeek').textContent = weekSubmitted;
+
+      // Stats
+      const todayReports = weekReports.filter(r => new Date(r['Submitted At']).toDateString() === today.toDateString());
+      const todayMissing = workersList.filter(w => !getReportForWorkerDay(w, today)).length;
+      document.getElementById('statToday').textContent = todayReports.length;
+      document.getElementById('statMissing').textContent = workersList.length ? todayMissing + unmatchedSubmitters.filter(n => {
+        // is there a today submission for this unmatched name?
+        return !weekReports.find(r => (r['Name']||'').toLowerCase() === n.toLowerCase() && new Date(r['Submitted At']).toDateString() === today.toDateString());
+      }).length : todayReports.length > 0 ? 0 : '—';
+      document.getElementById('statWeek').textContent = weekReports.length;
       document.getElementById('workerCountPill').textContent = `${workersList.length} worker${workersList.length !== 1 ? 's' : ''}`;
 
-      if (!workersList.length) {
+      const makeDetailBtn = (report, label = '✓') => {
+        const d = JSON.stringify({
+          name: report['Name'] || '',
+          submittedAt: report['Submitted At'] || '',
+          work: report['Work Completed Today'] || '',
+          issues: report['Issues'] || '',
+          admin: report['Admin Follow Up'] || ''
+        });
+        return `<button class="day-cell-btn submitted" onclick='openReportDetail(${d.replace(/'/g,"&#39;")})' title="View report">${label}</button>`;
+      };
+
+      // If nothing at all to show
+      if (!workersList.length && !unmatchedSubmitters.length) {
         document.getElementById('reportGrid').innerHTML = `
           <div class="empty" style="padding:32px;text-align:center">
             <div style="font-size:28px;margin-bottom:10px">👷</div>
-            <div style="font-weight:600;margin-bottom:6px">No workers configured yet</div>
-            <div style="color:var(--text3);font-size:13px">Add <strong>SGC_WORKERS</strong> to your Railway environment variables:<br>
-            <code style="font-size:11px;background:var(--bg);padding:4px 8px;border-radius:6px;margin-top:8px;display:inline-block">
-              [{"name":"Joe Smith","email":"joe@example.com"}]</code>
-            </div>
+            <div style="font-weight:600;margin-bottom:6px">No submissions yet this week</div>
+            <div style="color:var(--text3);font-size:13px">Add workers using <strong>Manage Workers</strong> below,<br>or have your team submit their Tally field report form.</div>
           </div>`;
         return;
       }
@@ -1742,43 +1802,75 @@
         <th class="worker-col">Worker</th>`;
       days.forEach((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
-        html += `<th class="${isToday ? 'today-col' : ''}" style="${isToday ? 'color:var(--gold)' : ''}">${dayNames[i]}<br><span style="font-weight:400;font-size:10px">${fmt(d)}</span></th>`;
+        html += `<th style="${isToday ? 'color:var(--gold)' : ''}">${dayNames[i]}<br><span style="font-weight:400;font-size:10px">${fmt(d)}</span></th>`;
       });
       html += `</tr></thead><tbody>`;
 
+      // ── Roster workers ──
       for (const worker of workersList) {
         html += `<tr><td class="worker-cell">${worker.name}</td>`;
         for (const day of days) {
           const isFuture = day > today;
           const isToday = day.toDateString() === today.toDateString();
           const report = getReportForWorkerDay(worker, day);
-
-          let cellHtml;
+          let cell;
           if (isFuture) {
-            cellHtml = `<button class="day-cell-btn future" title="Future">—</button>`;
+            cell = `<button class="day-cell-btn future">—</button>`;
           } else if (report) {
-            const safeR = encodeURIComponent(JSON.stringify({
-              Name: report['Name'], SubmittedAt: report['Submitted At'],
-              Work: report['Work Completed Today'], Issues: report['Issues'],
-              Admin: report['Admin Follow Up']
-            }));
-            cellHtml = `<button class="day-cell-btn submitted" onclick='openReportDetail(${JSON.stringify({
-              name: report['Name'],
-              submittedAt: report['Submitted At'],
-              work: report['Work Completed Today'] || '',
-              issues: report['Issues'] || '',
-              admin: report['Admin Follow Up'] || ''
-            })})' title="View report">✓</button>`;
+            cell = makeDetailBtn(report);
           } else {
-            const label = isToday ? 'Not submitted yet' : 'Missing';
-            cellHtml = `<button class="day-cell-btn missing" title="${label}">✗</button>`;
+            cell = `<button class="day-cell-btn missing" title="${isToday ? 'Not submitted yet' : 'Missing'}">✗</button>`;
           }
-          html += `<td style="${isToday ? 'background:rgba(201,168,76,0.04)' : ''}">${cellHtml}</td>`;
+          html += `<td style="${isToday ? 'background:rgba(201,168,76,0.04)' : ''}">${cell}</td>`;
         }
         html += `</tr>`;
       }
+
+      // ── Unmatched submitters (submitted but not on roster) ──
+      if (unmatchedSubmitters.length) {
+        if (workersList.length) {
+          html += `<tr><td colspan="6" style="padding:6px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gold);border-bottom:1px solid var(--border)">Submitted — Not on roster</td></tr>`;
+        }
+        for (const name of unmatchedSubmitters) {
+          const safeName = encodeURIComponent(name);
+          html += `<tr style="border-left:3px solid var(--gold)">
+            <td class="worker-cell" style="padding-left:13px">
+              ${name}
+              <button onclick="quickAddWorker('${name.replace(/'/g,"\\'")}','')" title="Add to roster"
+                style="margin-left:6px;font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);cursor:pointer">+ Roster</button>
+            </td>`;
+          for (const day of days) {
+            const isFuture = day > today;
+            const isToday = day.toDateString() === today.toDateString();
+            const report = weekReports.find(r =>
+              (r['Name']||'').toLowerCase().trim() === name.toLowerCase().trim() &&
+              new Date(r['Submitted At']).toDateString() === day.toDateString()
+            );
+            let cell;
+            if (isFuture) {
+              cell = `<button class="day-cell-btn future">—</button>`;
+            } else if (report) {
+              cell = makeDetailBtn(report);
+            } else {
+              cell = `<button class="day-cell-btn missing" style="opacity:0.4" title="No submission">✗</button>`;
+            }
+            html += `<td style="${isToday ? 'background:rgba(201,168,76,0.04)' : ''}">${cell}</td>`;
+          }
+          html += `</tr>`;
+        }
+      }
+
       html += `</tbody></table>`;
       document.getElementById('reportGrid').innerHTML = html;
+    }
+
+    async function quickAddWorker(name, email) {
+      try {
+        const res  = await fetch('/api/sgc/ops/workers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email }) });
+        const data = await res.json();
+        if (data.ok) { showToast(`${name} added to roster ✓`, 'success'); await loadReports(); }
+        else showToast('Failed: ' + (data.error || 'Unknown'), 'error');
+      } catch (e) { showToast('Error: ' + e.message, 'error'); }
     }
 
     function openReportDetail(r) {
@@ -1984,6 +2076,11 @@
         document.getElementById('reportsBadge').textContent = todayCount || '—';
 
         renderWeeklyGrid();
+        // Keep submission count pill live
+        document.getElementById('submissionCountPill').textContent = `${allReports.length} total`;
+        // Re-render submissions list if it's open
+        if (allSubsOpen) renderAllSubmissions();
+        if (workerRosterOpen) renderWorkerList();
       } catch (e) {
         document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
         showToast('Failed to load reports: ' + e.message, 'error');
@@ -2087,6 +2184,73 @@
           }
         }
       );
+    }
+
+    // ── ALL SUBMISSIONS ACCORDION ──
+    let allSubsOpen = false;
+
+    function toggleAllSubmissions() {
+      allSubsOpen = !allSubsOpen;
+      const body = document.getElementById('allSubsBody');
+      const chev = document.getElementById('allSubsChevron');
+      body.style.maxHeight = allSubsOpen ? '9999px' : '0';
+      chev.style.transform = allSubsOpen ? 'rotate(180deg)' : '';
+      if (allSubsOpen) renderAllSubmissions();
+    }
+
+    function renderAllSubmissions() {
+      const el = document.getElementById('allSubmissionsList');
+      const sorted = [...allReports].reverse();
+      document.getElementById('submissionCountPill').textContent = `${sorted.length} total`;
+      if (!sorted.length) {
+        el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">No submissions yet. Have your team fill out the Tally form.</div>';
+        return;
+      }
+      el.innerHTML = sorted.map((r, i) => {
+        const name = r['Name'] || 'Unknown';
+        const when = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+        const work = r['Work Completed Today'] || '';
+        const issues = r['Issues'] || '';
+        const admin = r['Admin Follow Up'] || '';
+        const isComplete = name && name !== 'Unknown' && work;
+        const pillColor = isComplete ? 'var(--green)' : 'var(--yellow)';
+        const pillBg = isComplete ? 'rgba(74,222,128,0.12)' : 'rgba(250,204,21,0.12)';
+        const pillLabel = isComplete ? 'Complete' : 'Incomplete';
+        return `
+          <div class="sub-item" id="sub-${i}">
+            <div class="sub-item-header" onclick="toggleSubItem(${i})">
+              <div>
+                <div class="sub-item-name">${name}</div>
+                <div class="sub-item-meta">${when}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="background:${pillBg};color:${pillColor};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">${pillLabel}</span>
+                <span style="color:var(--text3);font-size:11px;transition:transform 0.2s" id="sub-chev-${i}">▼</span>
+              </div>
+            </div>
+            <div class="sub-item-body" id="sub-body-${i}">
+              <div class="sub-item-inner">
+                <div class="sub-field-label">Work Completed Today</div>
+                <div class="sub-field-value" style="color:${work ? 'var(--text)' : 'var(--text3)'}">
+                  ${work || '<em>Not filled in</em>'}
+                </div>
+                <div class="sub-field-label">Issues / Delays</div>
+                <div class="sub-field-value" style="color:${issues ? 'var(--red)' : 'var(--text3)'}">
+                  ${issues || '<em>None reported</em>'}
+                </div>
+                ${admin ? `<div class="sub-field-label">Admin Follow-Up</div>
+                <div class="sub-field-value" style="color:var(--yellow)">${admin}</div>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function toggleSubItem(i) {
+      const body = document.getElementById(`sub-body-${i}`);
+      const chev = document.getElementById(`sub-chev-${i}`);
+      const isOpen = body.classList.toggle('open');
+      chev.style.transform = isOpen ? 'rotate(180deg)' : '';
     }
 
     // ── CHAT DRAWER ──
