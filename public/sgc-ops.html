@@ -852,6 +852,7 @@
           <div class="section-title">Insurance & Compliance Tasks</div>
           <div class="section-sub">Policies, agreements, and safety programs required for SGC</div>
         </div>
+        <button class="add-row-btn" onclick="openAddTaskModal()">+ Add Task</button>
       </div>
       <div class="task-list" id="insuranceList">
         <div class="loading"><div class="spinner"></div>Loading tasks...</div>
@@ -981,6 +982,55 @@
       <div class="confirm-footer">
         <button class="btn-secondary" onclick="closeConfirm()">Cancel</button>
         <button class="btn-danger" id="confirmOkBtn" onclick="runConfirm()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD INSURANCE TASK MODAL -->
+  <div class="modal-overlay" id="addTaskModal" onclick="if(event.target===this)closeAddTaskModal()">
+    <div class="modal">
+      <div class="modal-title">+ Add Insurance Task</div>
+      <div class="modal-grid">
+        <div class="modal-field full">
+          <label class="modal-label">Task / Policy Name *</label>
+          <input class="modal-input" id="newTaskName" placeholder="e.g. General Liability Certificate" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Type</label>
+          <select class="modal-select" id="newTaskType">
+            <option value="">— Select —</option>
+            <option value="Insurance">Insurance</option>
+            <option value="Certificate">Certificate</option>
+            <option value="Agreement">Agreement</option>
+            <option value="Safety Program">Safety Program</option>
+            <option value="License">License</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Status</label>
+          <select class="modal-select" id="newTaskStatus">
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Complete">Complete</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Owner / Assigned To</label>
+          <input class="modal-input" id="newTaskOwner" placeholder="e.g. Serene" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Due Date</label>
+          <input class="modal-input" id="newTaskDue" type="date" />
+        </div>
+        <div class="modal-field full">
+          <label class="modal-label">Notes</label>
+          <input class="modal-input" id="newTaskNotes" placeholder="Any notes about this task..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
+        <button class="btn-primary" id="saveTaskBtn" onclick="saveNewTask()">Add Task</button>
       </div>
     </div>
   </div>
@@ -1406,6 +1456,49 @@
           else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
         }
       );
+    }
+
+    // ── ADD INSURANCE TASK MODAL ──
+    function openAddTaskModal() {
+      document.getElementById('addTaskModal').classList.add('open');
+      setTimeout(() => document.getElementById('newTaskName').focus(), 50);
+    }
+
+    function closeAddTaskModal() {
+      document.getElementById('addTaskModal').classList.remove('open');
+      ['newTaskName','newTaskOwner','newTaskDue','newTaskNotes'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      document.getElementById('newTaskType').value   = '';
+      document.getElementById('newTaskStatus').value = 'Not Started';
+    }
+
+    async function saveNewTask() {
+      const name = document.getElementById('newTaskName').value.trim();
+      if (!name) { showToast('Task name is required', 'error'); return; }
+      const btn = document.getElementById('saveTaskBtn');
+      btn.textContent = 'Saving…'; btn.disabled = true;
+      try {
+        const res = await fetch('/api/sgc/ops/insurance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task:   name,
+            type:   document.getElementById('newTaskType').value,
+            status: document.getElementById('newTaskStatus').value,
+            owner:  document.getElementById('newTaskOwner').value.trim(),
+            due:    document.getElementById('newTaskDue').value,
+            notes:  document.getElementById('newTaskNotes').value.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) { closeAddTaskModal(); showToast(name + ' added ✓', 'success'); await loadInsurance(); }
+        else showToast('Failed: ' + (data.error || 'Unknown'), 'error');
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.textContent = 'Add Task'; btn.disabled = false;
+      }
     }
 
     function filterSubs() { applySubFilter(); }

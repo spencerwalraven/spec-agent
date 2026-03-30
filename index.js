@@ -3194,6 +3194,40 @@ app.delete('/api/sgc/ops/subs', async (req, res) => {
   }
 });
 
+// ─── SGC ADD INSURANCE TASK ──────────────────────────────────────────────────
+app.post('/api/sgc/ops/insurance', async (req, res) => {
+  try {
+    const { task, type, owner, due, status, notes } = req.body;
+    if (!task) return res.status(400).json({ error: 'task name required' });
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    const { google } = require('googleapis');
+    const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const headerRes = await sheets.spreadsheets.values.get({ spreadsheetId: SGC_SHEET_ID, range: 'Insurance Tasks!1:1' });
+    const headers = headerRes.data.values?.[0] || [];
+    const fieldMap = {
+      'Task': task, 'Item': task, 'Description': task,
+      'Type': type || '',
+      'Owner': owner || '', 'Assigned To': owner || '',
+      'Due Date': due || '', 'Due': due || '',
+      'Status': status || 'Not Started',
+      'Notes': notes || '', 'NOTES': notes || '',
+    };
+    const rowValues = headers.map(h => fieldMap[h] !== undefined ? fieldMap[h] : '');
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SGC_SHEET_ID,
+      range: 'Insurance Tasks!A1',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [rowValues] },
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SGC DELETE INSURANCE TASK ───────────────────────────────────────────────
 app.delete('/api/sgc/ops/insurance', async (req, res) => {
   try {
