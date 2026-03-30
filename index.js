@@ -3107,7 +3107,41 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
     const agent = require('./src/agents/sgc-admin-agent');
     const jobs = await agent.sgcReadTab('SGC');
     const active = jobs.filter(j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase() === 'in progress');
-    res.json({ jobs: active.map(j => ({ job: j['#'], customer: j['Customer'], status: j['Job Status '] || j['Job Status'], thru: j['Thru'] })) });
+    res.json({ jobs: active.map(j => ({
+      _row:     j._row,
+      job:      j['#'],
+      customer: j['Customer'],
+      address:  j['Address'] || j['Job Address'] || '',
+      status:   j['Job Status '] || j['Job Status'] || '',
+      thru:     j['Thru'] || j['Target End'] || '',
+      notes:    j['Notes'] || j['NOTES'] || '',
+    })) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC INSURANCE TASK UPDATE ───────────────────────────────────────────────
+app.patch('/api/sgc/ops/insurance', async (req, res) => {
+  try {
+    const { row, field, value } = req.body;
+    if (!row || !field) return res.status(400).json({ error: 'row and field required' });
+    const agent = require('./src/agents/sgc-admin-agent');
+    await agent.sgcUpdateCell('Insurance Tasks', row, field, value);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC JOB ROW UPDATE ──────────────────────────────────────────────────────
+app.patch('/api/sgc/ops/jobs', async (req, res) => {
+  try {
+    const { row, field, value } = req.body;
+    if (!row || !field) return res.status(400).json({ error: 'row and field required' });
+    const agent = require('./src/agents/sgc-admin-agent');
+    await agent.sgcUpdateCell('SGC', row, field, value);
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

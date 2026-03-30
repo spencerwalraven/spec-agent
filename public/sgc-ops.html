@@ -43,13 +43,11 @@
       z-index: 100;
     }
     .top-bar-icon {
-      width: 40px; height: 40px;
-      background: linear-gradient(135deg, var(--gold), var(--gold2));
-      border-radius: 10px;
+      width: 44px; height: 44px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
       flex-shrink: 0;
     }
+    .top-bar-icon img, .top-bar-icon svg { width: 44px; height: 44px; }
     .top-bar-info { flex: 1; }
     .top-bar-title { font-size: 17px; font-weight: 700; }
     .top-bar-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
@@ -204,22 +202,41 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
     }
+    .report-card:hover { border-color: rgba(201,168,76,0.4); box-shadow: 0 2px 12px rgba(201,168,76,0.08); }
+    .report-card.expanded { border-color: rgba(201,168,76,0.55); }
     .report-card-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 10px;
     }
+    .report-card-chevron {
+      color: var(--text3);
+      font-size: 13px;
+      transition: transform 0.2s;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    .report-card.expanded .report-card-chevron { transform: rotate(180deg); color: var(--gold); }
     .tech-name { font-weight: 600; font-size: 14px; }
+    .report-summary { font-size: 12px; color: var(--text2); }
     .report-fields { display: flex; flex-direction: column; gap: 6px; }
     .report-field {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
       font-size: 12px;
       color: var(--text2);
     }
+    .report-dot { flex-shrink: 0; margin-top: 3px; }
+    .report-expand-body { overflow: hidden; transition: max-height 0.3s ease; }
+    .report-expand-body.collapsed { max-height: 0; }
+    .report-expand-body.open { max-height: 600px; }
+    .report-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 
     /* ── INSURANCE TASKS ── */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
@@ -538,7 +555,40 @@
 
   <!-- TOP BAR -->
   <div class="top-bar">
-    <div class="top-bar-icon">🏗️</div>
+    <div class="top-bar-icon">
+      <!-- SGC Gear Logo -->
+      <svg width="44" height="44" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="49" fill="#111"/>
+        <!-- 12 gear teeth -->
+        <g fill="white">
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(0 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(30 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(60 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(90 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(120 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(150 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(180 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(210 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(240 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(270 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(300 50 50)"/>
+          <rect x="46.5" y="2" width="7" height="13" rx="2" transform="rotate(330 50 50)"/>
+        </g>
+        <!-- Inner black circle -->
+        <circle cx="50" cy="50" r="36" fill="#111"/>
+        <!-- White inner ring -->
+        <circle cx="50" cy="50" r="36" fill="none" stroke="white" stroke-width="2"/>
+        <!-- Crossed tools: wrench -->
+        <line x1="30" y1="28" x2="72" y2="72" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+        <circle cx="29" cy="27" r="5.5" fill="none" stroke="white" stroke-width="3.5"/>
+        <circle cx="73" cy="73" r="4.5" fill="none" stroke="white" stroke-width="3"/>
+        <!-- Crossed tools: hammer -->
+        <line x1="70" y1="28" x2="28" y2="72" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+        <rect x="61" y="17" width="18" height="9" rx="2" fill="white" transform="rotate(-45 70 21.5)"/>
+        <!-- SGC text -->
+        <text x="50" y="55" text-anchor="middle" fill="white" font-size="15" font-weight="900" font-family="Arial Black, Arial, sans-serif" letter-spacing="1.5">SGC</text>
+      </svg>
+    </div>
     <div class="top-bar-info">
       <div class="top-bar-title">SGC Operations Dashboard</div>
       <div class="top-bar-sub">Scottsdale General Contracting · Admin View</div>
@@ -588,6 +638,7 @@
           <thead>
             <tr>
               <th>Subcontractor</th>
+              <th>Company</th>
               <th>Email</th>
               <th>W-9</th>
               <th>BT Onboarded</th>
@@ -598,7 +649,7 @@
             </tr>
           </thead>
           <tbody id="subsTable">
-            <tr><td colspan="8" class="loading"><div class="spinner"></div>Loading subcontractors...</td></tr>
+            <tr><td colspan="9" class="loading"><div class="spinner"></div>Loading subcontractors...</td></tr>
           </tbody>
         </table>
       </div>
@@ -657,10 +708,11 @@
               <th>Customer</th>
               <th>Status</th>
               <th>Target End</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody id="jobsTable">
-            <tr><td colspan="4" class="loading"><div class="spinner"></div>Loading jobs...</td></tr>
+            <tr><td colspan="5" class="loading"><div class="spinner"></div>Loading jobs...</td></tr>
           </tbody>
         </table>
       </div>
@@ -778,12 +830,32 @@
       return `<span class="pill pill-gray">${val}</span>`;
     }
 
-    function taskPill(status) {
-      if (!status) return '<span class="pill pill-gray">Unknown</span>';
-      const v = status.toLowerCase();
-      if (v === 'complete' || v === 'done') return '<span class="pill pill-green">Complete</span>';
-      if (v === 'in progress') return '<span class="pill pill-yellow">In Progress</span>';
-      return '<span class="pill pill-red">Not Started</span>';
+    function taskPill(status, row) {
+      const v = (status || '').toLowerCase().trim();
+      const isComplete   = v === 'complete' || v === 'done';
+      const isInProgress = v === 'in progress';
+      const cls   = isComplete ? 'pill-green' : (isInProgress ? 'pill-yellow' : 'pill-red');
+      const label = isComplete ? 'Complete' : (isInProgress ? 'In Progress' : 'Not Started');
+      if (row) {
+        const cycle = { 'complete': 'Not Started', 'done': 'Not Started', 'in progress': 'Complete', 'not started': 'In Progress', '': 'In Progress' };
+        const next  = cycle[v] || 'In Progress';
+        return `<span class="pill ${cls}" style="cursor:pointer;flex-shrink:0" title="Click to cycle status" onclick="toggleInsuranceStatus(${row},'${next}')">${label}</span>`;
+      }
+      return `<span class="pill ${cls}">${label}</span>`;
+    }
+
+    function jobStatusPill(status, row) {
+      const v = (status || '').toLowerCase().trim();
+      const isComplete = v === 'complete' || v === 'done';
+      const isHold     = v === 'on hold' || v === 'hold';
+      const cls   = isComplete ? 'pill-green' : (isHold ? 'pill-yellow' : 'pill-green');
+      const label = isComplete ? 'Complete' : (isHold ? 'On Hold' : 'In Progress');
+      if (row) {
+        const cycle = { 'in progress': 'On Hold', 'on hold': 'Complete', 'complete': 'In Progress', 'done': 'In Progress', '': 'In Progress' };
+        const next  = cycle[v] || 'In Progress';
+        return `<span class="pill ${cls}" style="cursor:pointer" title="Click to cycle status" onclick="cycleJobStatus(${row},'${next}')">${label}</span>`;
+      }
+      return `<span class="pill ${cls}">${label}</span>`;
     }
 
     function isYes(val) {
@@ -813,18 +885,19 @@
 
         renderSubs(allSubs);
       } catch (e) {
-        document.getElementById('subsTable').innerHTML = `<tr><td colspan="8" class="empty">Error loading subs: ${e.message}</td></tr>`;
+        document.getElementById('subsTable').innerHTML = `<tr><td colspan="9" class="empty">Error loading subs: ${e.message}</td></tr>`;
       }
     }
 
     function renderSubs(subs) {
       if (!subs.length) {
-        document.getElementById('subsTable').innerHTML = '<tr><td colspan="8" class="empty">No subcontractors found</td></tr>';
+        document.getElementById('subsTable').innerHTML = '<tr><td colspan="9" class="empty">No subcontractors found</td></tr>';
         return;
       }
       document.getElementById('subsTable').innerHTML = subs.map(s => `
         <tr data-row="${s._row}">
-          <td><strong>${s.name}</strong>${s.company && s.company !== s.name ? `<br><span style="color:var(--text2);font-size:11px">${s.company}</span>` : ''}</td>
+          <td><strong>${s.name || '—'}</strong></td>
+          <td style="color:var(--text2);font-size:12px">${s.company && s.company !== s.name ? s.company : (s.name || '—')}</td>
           <td style="color:var(--text2);font-size:12px">${s.email || '—'}</td>
           <td>${statusPill(s.w9,          s._row, 'W9 Received')}</td>
           <td>${statusPill(s.btOnboarded, s._row, 'BT Onboarding')}</td>
@@ -837,13 +910,14 @@
     }
 
     // ── EDITABLE CELLS ──
-    function editCell(value, row, field, type, width) {
+    function editCell(value, row, field, type, width, tab) {
       const display = (value && String(value).trim()) ? String(value).trim() : '—';
       const w = width ? `style="width:${width}px"` : '';
-      return `<span class="editable-cell" ${w} onclick="startEdit(this,${row},'${field}','${type}')" title="Click to edit">${display.replace(/</g,'&lt;')}</span>`;
+      const t = tab || 'sub';
+      return `<span class="editable-cell" ${w} onclick="startEdit(this,${row},'${field}','${type}','${t}')" title="Click to edit">${display.replace(/</g,'&lt;')}</span>`;
     }
 
-    function startEdit(el, row, field, type) {
+    function startEdit(el, row, field, type, tab) {
       const raw = el.textContent === '—' ? '' : el.textContent.replace(/[$,]/g,'');
       let input;
       if (type === 'yesno') {
@@ -862,7 +936,7 @@
         const newVal = input.value.trim();
         el.textContent = newVal || '—';
         input.replaceWith(el);
-        if (newVal !== raw) await patchSubCell(row, field, newVal);
+        if (newVal !== raw) await patchCell(tab || 'sub', row, field, newVal);
       };
       input.onblur = save;
       input.onkeydown = e => {
@@ -874,9 +948,12 @@
       if (input.select) input.select();
     }
 
-    async function patchSubCell(row, field, value) {
+    const PATCH_URLS = { sub: '/api/sgc/ops/subs', insurance: '/api/sgc/ops/insurance', job: '/api/sgc/ops/jobs' };
+
+    async function patchCell(tab, row, field, value) {
       try {
-        const res = await fetch('/api/sgc/ops/subs', {
+        const url = PATCH_URLS[tab] || PATCH_URLS.sub;
+        const res = await fetch(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ row, field, value }),
@@ -887,6 +964,9 @@
         alert('Save error: ' + e.message);
       }
     }
+
+    // Keep backward compat for sub patches
+    async function patchSubCell(row, field, value) { return patchCell('sub', row, field, value); }
 
     // ── ADD SUB MODAL ──
     function openAddModal() {
@@ -950,6 +1030,29 @@
       }
     }
 
+    // ── REPORT CARD EXPAND / COLLAPSE ──
+    function toggleReportCard(cardId) {
+      const card = document.getElementById(cardId);
+      const body = document.getElementById(cardId + '-body');
+      if (!card || !body) return;
+      const isOpen = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      body.classList.toggle('collapsed', isOpen);
+      card.classList.toggle('expanded', !isOpen);
+    }
+
+    // ── INSURANCE STATUS TOGGLE ──
+    async function toggleInsuranceStatus(row, nextStatus) {
+      await patchCell('insurance', row, 'Status', nextStatus);
+      await loadInsurance();
+    }
+
+    // ── JOB STATUS CYCLE ──
+    async function cycleJobStatus(row, nextStatus) {
+      await patchCell('job', row, 'Job Status', nextStatus);
+      await loadJobs();
+    }
+
     function filterSubs() {
       const q = document.getElementById('subSearch').value.toLowerCase();
       renderSubs(allSubs.filter(s =>
@@ -981,17 +1084,20 @@
         }
 
         document.getElementById('insuranceList').innerHTML = tasks.map(t => {
-          const name  = t['Task'] || t['Item'] || t['Description'] || Object.values(t).find(v => v && v.length > 2) || 'Unknown Task';
+          const name  = t['Task'] || t['Item'] || t['Description'] || Object.values(t).find(v => v && !String(v).startsWith('_') && String(v).length > 2) || 'Unknown Task';
           const owner = t['Owner'] || t['Assigned To'] || '';
           const due   = t['Due Date'] || t['Due'] || '';
           const type  = t['Type'] || '';
+          const row   = t._row;
+          const status = t['Status'] || '';
           return `
             <div class="task-item">
-              ${taskPill(t['Status'])}
+              ${taskPill(status, row)}
               <div class="task-info">
                 <div class="task-name">${name}</div>
                 <div class="task-meta">${[type, owner ? 'Owner: ' + owner : '', due ? 'Due: ' + due : ''].filter(Boolean).join(' · ')}</div>
               </div>
+              ${editCell(t['Notes'] || t['NOTES'] || '', row, 'Notes', 'text', 200, 'insurance')}
             </div>
           `;
         }).join('');
@@ -1011,16 +1117,17 @@
         `;
 
         if (!jobs.length) {
-          document.getElementById('jobsTable').innerHTML = '<tr><td colspan="4" class="empty">No active jobs</td></tr>';
+          document.getElementById('jobsTable').innerHTML = '<tr><td colspan="5" class="empty">No active jobs</td></tr>';
           return;
         }
 
         document.getElementById('jobsTable').innerHTML = jobs.map(j => `
           <tr>
-            <td><strong>#${j.job || '—'}</strong></td>
+            <td><strong>#${j.job || '—'}</strong>${j.address ? `<br><span style="color:var(--text3);font-size:11px">${j.address}</span>` : ''}</td>
             <td>${j.customer || '—'}</td>
-            <td><span class="pill pill-green">In Progress</span></td>
-            <td style="color:var(--text2)">${j.thru || '—'}</td>
+            <td>${jobStatusPill(j.status, j._row)}</td>
+            <td style="color:var(--text2)">${editCell(j.thru, j._row, 'Thru', 'text', 90, 'job')}</td>
+            <td>${editCell(j.notes, j._row, 'Notes', 'text', 180, 'job')}</td>
           </tr>
         `).join('');
       } catch (e) {
@@ -1055,25 +1162,49 @@
 
         // Show most recent first
         const sorted = [...reports].reverse();
-        document.getElementById('reportGrid').innerHTML = sorted.map(r => {
-          const submittedAt = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+        document.getElementById('reportGrid').innerHTML = sorted.map((r, idx) => {
+          const submittedAt  = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
           const hasWork      = !!r['Work Completed Today'];
           const hasMaterials = !!r['Materials Purchased'];
           const hasPlan      = !!r['Plan for Tomorrow'];
           const allDone      = hasWork && hasMaterials && hasPlan;
           const pillClass    = allDone ? 'pill-green' : 'pill-yellow';
           const pillLabel    = allDone ? 'Complete' : 'Incomplete';
+          const jobLabel     = r['Job Name \\ Address'] || r['Job Name / Address'] || '';
+          const issues       = r['Issues / Concerns'] || r['Issues'] || '';
+          const hoursWorked  = r['Hours Worked'] || r['Hours'] || '';
+          const crewCount    = r['Crew Size'] || r['Number of Workers'] || '';
+          const cardId       = `report-card-${idx}`;
           return `
-            <div class="report-card">
+            <div class="report-card" id="${cardId}" onclick="toggleReportCard('${cardId}')">
               <div class="report-card-top">
-                <span class="tech-name">${r['Name'] || 'Unknown'}</span>
-                <span class="pill ${pillClass}">${pillLabel}</span>
+                <div>
+                  <div class="tech-name">${r['Name'] || 'Unknown'}</div>
+                  <div class="report-summary" style="margin-top:2px">${submittedAt}${jobLabel ? ' · ' + jobLabel : ''}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="pill ${pillClass}">${pillLabel}</span>
+                  <span class="report-card-chevron">▼</span>
+                </div>
               </div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${submittedAt}${r['Date'] ? ' · ' + r['Date'] : ''}${r['Job Name \\ Address'] || r['Job Name / Address'] ? '<br>' + (r['Job Name \\ Address'] || r['Job Name / Address']) : ''}</div>
-              <div class="report-fields">
-                <div class="report-field"><span class="dot ${hasWork ? 'dot-green' : 'dot-red'}"></span> <span style="color:var(--text)">${r['Work Completed Today'] || 'No work logged'}</span></div>
-                <div class="report-field"><span class="dot ${hasMaterials ? 'dot-green' : 'dot-gray'}"></span> <span>${r['Materials Purchased'] || 'No materials'}</span></div>
-                <div class="report-field"><span class="dot ${hasPlan ? 'dot-green' : 'dot-gray'}"></span> <span>${r['Plan for Tomorrow'] || 'No plan logged'}</span></div>
+              <div class="report-expand-body collapsed" id="${cardId}-body">
+                <hr class="report-divider"/>
+                <div class="report-fields">
+                  <div class="report-field">
+                    <span class="dot report-dot ${hasWork ? 'dot-green' : 'dot-red'}"></span>
+                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Work Completed</div><span style="color:var(--text)">${r['Work Completed Today'] || 'No work logged'}</span></div>
+                  </div>
+                  <div class="report-field">
+                    <span class="dot report-dot ${hasMaterials ? 'dot-green' : 'dot-gray'}"></span>
+                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Materials</div><span>${r['Materials Purchased'] || 'None logged'}</span></div>
+                  </div>
+                  <div class="report-field">
+                    <span class="dot report-dot ${hasPlan ? 'dot-green' : 'dot-gray'}"></span>
+                    <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Plan for Tomorrow</div><span>${r['Plan for Tomorrow'] || 'No plan logged'}</span></div>
+                  </div>
+                  ${issues ? `<div class="report-field"><span class="dot report-dot dot-red"></span><div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Issues / Concerns</div><span style="color:var(--red)">${issues}</span></div></div>` : ''}
+                  ${(hoursWorked || crewCount) ? `<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:var(--text2)">${hoursWorked ? `<span>⏱ <strong style="color:var(--text)">${hoursWorked}</strong> hrs</span>` : ''}${crewCount ? `<span>👷 <strong style="color:var(--text)">${crewCount}</strong> workers</span>` : ''}</div>` : ''}
+                </div>
               </div>
             </div>
           `;
