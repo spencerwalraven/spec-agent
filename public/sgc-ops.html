@@ -2207,38 +2207,49 @@
         return;
       }
       el.innerHTML = sorted.map((r, i) => {
-        const name = r['Name'] || 'Unknown';
-        const when = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
-        const work = r['Work Completed Today'] || '';
-        const issues = r['Issues'] || '';
-        const admin = r['Admin Follow Up'] || '';
-        const isComplete = name && name !== 'Unknown' && work;
-        const pillColor = isComplete ? 'var(--green)' : 'var(--yellow)';
-        const pillBg = isComplete ? 'rgba(74,222,128,0.12)' : 'rgba(250,204,21,0.12)';
-        const pillLabel = isComplete ? 'Complete' : 'Incomplete';
+        const name    = r['Name'] || 'Unknown';
+        const when    = r['Submitted At'] ? new Date(r['Submitted At']).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—';
+        const work    = r['Work Completed Today'] || '';
+        const issues  = r['Issues'] || '';
+        const admin   = r['Admin Follow Up'] || '';
+        const row     = r._row;
+        const safeName = name.replace(/'/g, "\\'");
+
+        // "None" typed by user = no real issues — show gray, not red
+        const hasRealIssues = issues && issues.toLowerCase() !== 'none' && issues.toLowerCase() !== 'n/a' && issues.toLowerCase() !== 'no';
+        const hasRealAdmin  = admin && admin.toLowerCase() !== 'none' && admin.toLowerCase() !== 'n/a' && admin.toLowerCase() !== 'no';
+
+        const isComplete = name && name !== 'Unknown' && work && work.toLowerCase() !== 'none';
+        const pillColor  = isComplete ? 'var(--green)' : 'var(--yellow)';
+        const pillBg     = isComplete ? 'rgba(74,222,128,0.12)' : 'rgba(250,204,21,0.12)';
+        const pillLabel  = isComplete ? 'Complete' : 'Incomplete';
+
         return `
           <div class="sub-item" id="sub-${i}">
             <div class="sub-item-header" onclick="toggleSubItem(${i})">
-              <div>
+              <div style="min-width:0;flex:1">
                 <div class="sub-item-name">${name}</div>
                 <div class="sub-item-meta">${when}</div>
               </div>
-              <div style="display:flex;align-items:center;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
                 <span style="background:${pillBg};color:${pillColor};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">${pillLabel}</span>
+                <button class="worker-del" title="Delete submission"
+                  onclick="event.stopPropagation();confirmDeleteSubmission(${row},'${safeName}')">🗑</button>
                 <span style="color:var(--text3);font-size:11px;transition:transform 0.2s" id="sub-chev-${i}">▼</span>
               </div>
             </div>
             <div class="sub-item-body" id="sub-body-${i}">
               <div class="sub-item-inner">
                 <div class="sub-field-label">Work Completed Today</div>
-                <div class="sub-field-value" style="color:${work ? 'var(--text)' : 'var(--text3)'}">
-                  ${work || '<em>Not filled in</em>'}
+                <div class="sub-field-value" style="color:${work && work.toLowerCase() !== 'none' ? 'var(--text)' : 'var(--text3)'}">
+                  ${work && work.toLowerCase() !== 'none' ? work : '<em>Not filled in</em>'}
                 </div>
                 <div class="sub-field-label">Issues / Delays</div>
-                <div class="sub-field-value" style="color:${issues ? 'var(--red)' : 'var(--text3)'}">
-                  ${issues || '<em>None reported</em>'}
+                <div class="sub-field-value" style="color:${hasRealIssues ? 'var(--red)' : 'var(--text3)'}">
+                  ${hasRealIssues ? issues : '<em>None reported</em>'}
                 </div>
-                ${admin ? `<div class="sub-field-label">Admin Follow-Up</div>
+                ${hasRealAdmin ? `
+                <div class="sub-field-label">Admin Follow-Up</div>
                 <div class="sub-field-value" style="color:var(--yellow)">${admin}</div>` : ''}
               </div>
             </div>
@@ -2251,6 +2262,25 @@
       const chev = document.getElementById(`sub-chev-${i}`);
       const isOpen = body.classList.toggle('open');
       chev.style.transform = isOpen ? 'rotate(180deg)' : '';
+    }
+
+    function confirmDeleteSubmission(row, name) {
+      openConfirm(
+        'Delete Submission?',
+        `Remove this field report from "${name}"? This cannot be undone.`,
+        'Delete',
+        async () => {
+          const res  = await fetch('/api/sgc/ops/field-reports', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
+          const data = await res.json();
+          if (data.ok) {
+            showToast('Submission deleted', 'success');
+            await loadReports();
+            renderAllSubmissions();
+          } else {
+            showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
+          }
+        }
+      );
     }
 
     // ── CHAT DRAWER ──
