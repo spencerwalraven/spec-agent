@@ -594,11 +594,21 @@
       document.getElementById('tab-' + name).classList.add('active');
     }
 
-    function statusPill(val) {
-      if (!val) return '<span class="pill pill-red">Missing</span>';
-      const v = String(val).toLowerCase().trim();
-      if (v === 'yes' || v === 'true' || v === 'received')  return '<span class="pill pill-green">Yes</span>';
-      if (v === 'no'  || v === 'false') return '<span class="pill pill-red">No</span>';
+    function statusPill(val, row, field) {
+      const v = String(val || '').toLowerCase().trim();
+      const isYesVal = v === 'yes' || v === 'true' || v === 'received';
+      const isNoVal  = v === 'no'  || v === 'false' || v === '';
+
+      if (field && row) {
+        const next  = isYesVal ? 'No' : 'Yes';
+        const cls   = isYesVal ? 'pill-green' : (isNoVal ? 'pill-red' : 'pill-yellow');
+        const label = isYesVal ? 'Yes' : (isNoVal || !val ? 'No' : val);
+        return `<span class="pill ${cls}" style="cursor:pointer" title="Click to toggle" onclick="toggleCell(${row},'${field}','${next}')">${label}</span>`;
+      }
+
+      if (!val) return '<span class="pill pill-red">No</span>';
+      if (v === 'yes' || v === 'true' || v === 'received') return '<span class="pill pill-green">Yes</span>';
+      if (v === 'no' || v === 'false') return '<span class="pill pill-red">No</span>';
       if (v === 'incomplete') return '<span class="pill pill-yellow">Incomplete</span>';
       return `<span class="pill pill-gray">${val}</span>`;
     }
@@ -648,17 +658,36 @@
         return;
       }
       document.getElementById('subsTable').innerHTML = subs.map(s => `
-        <tr>
+        <tr data-row="${s._row}">
           <td><strong>${s.name}</strong>${s.company && s.company !== s.name ? `<br><span style="color:var(--text2);font-size:11px">${s.company}</span>` : ''}</td>
           <td style="color:var(--text2)">${s.trade || '—'}</td>
-          <td>${statusPill(s.w9)}</td>
-          <td>${statusPill(s.btOnboarded)}</td>
-          <td>${statusPill(s.needs1099)}</td>
-          <td>${statusPill(s.sent1099)}</td>
+          <td>${statusPill(s.w9,        s._row, 'W9 Received')}</td>
+          <td>${statusPill(s.btOnboarded, s._row, 'BT Onboarding')}</td>
+          <td>${statusPill(s.needs1099, s._row, '1099 needed')}</td>
+          <td>${statusPill(s.sent1099,  s._row, '1099 Sent')}</td>
           <td style="color:var(--gold)">${s.totalPaid ? '$' + Number(String(s.totalPaid).replace(/[$,]/g,'')).toLocaleString() : '—'}</td>
           <td style="color:var(--text2);font-size:12px">${s.notes || '—'}</td>
         </tr>
       `).join('');
+    }
+
+    async function toggleCell(row, field, newValue) {
+      try {
+        const res = await fetch('/api/sgc/ops/subs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ row, field, value: newValue }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          // Reload subs silently to reflect change
+          await loadSubs();
+        } else {
+          alert('Save failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Save failed: ' + e.message);
+      }
     }
 
     function filterSubs() {
