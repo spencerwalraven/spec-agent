@@ -588,7 +588,7 @@
           <thead>
             <tr>
               <th>Subcontractor</th>
-              <th>Trade</th>
+              <th>Email</th>
               <th>W-9</th>
               <th>BT Onboarded</th>
               <th>1099 Needed</th>
@@ -825,7 +825,7 @@
       document.getElementById('subsTable').innerHTML = subs.map(s => `
         <tr data-row="${s._row}">
           <td><strong>${s.name}</strong>${s.company && s.company !== s.name ? `<br><span style="color:var(--text2);font-size:11px">${s.company}</span>` : ''}</td>
-          <td>${editCell(s.trade, s._row, 'Trade', 'text')}</td>
+          <td style="color:var(--text2);font-size:12px">${s.email || '—'}</td>
           <td>${statusPill(s.w9,          s._row, 'W9 Received')}</td>
           <td>${statusPill(s.btOnboarded, s._row, 'BT Onboarding')}</td>
           <td>${statusPill(s.needs1099,   s._row, '1099 needed')}</td>
