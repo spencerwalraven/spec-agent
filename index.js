@@ -3106,7 +3106,10 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');
     const jobs = await agent.sgcReadTab('SGC');
-    const active = jobs.filter(j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase() === 'in progress');
+    const active = jobs.filter(j => {
+      const s = (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase();
+      return s !== 'complete' && s !== 'completed' && s !== 'closed' && s !== '';
+    });
     res.json({ jobs: active.map(j => ({
       _row:     j._row,
       job:      j['#'],
@@ -3140,7 +3143,64 @@ app.patch('/api/sgc/ops/jobs', async (req, res) => {
     const { row, field, value } = req.body;
     if (!row || !field) return res.status(400).json({ error: 'row and field required' });
     const agent = require('./src/agents/sgc-admin-agent');
-    await agent.sgcUpdateCell('SGC', row, field, value);
+    // The SGC sheet uses 'Job Status ' (trailing space) — fuzzy match handles it,
+    // but also try the exact variant first for reliability
+    const colName = field === 'Job Status' ? 'Job Status ' : field;
+    await agent.sgcUpdateCell('SGC', row, colName, value);
+    res.json({ ok: true });
+  } catch (e) {
+    // Fall back to exact name without trailing space
+    try {
+      const agent = require('./src/agents/sgc-admin-agent');
+      await agent.sgcUpdateCell('SGC', row, req.body.field, req.body.value);
+      res.json({ ok: true });
+    } catch (e2) {
+      res.status(500).json({ error: e2.message });
+    }
+  }
+});
+
+// ─── SGC ROW DELETION HELPER ─────────────────────────────────────────────────
+async function deleteSheetRow(tabName, rowNumber) {
+  const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+  const { google } = require('googleapis');
+  const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+  const sheets = google.sheets({ version: 'v4', auth });
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SGC_SHEET_ID });
+  const sheet = spreadsheet.data.sheets.find(s => s.properties.title === tabName);
+  if (!sheet) throw new Error(`Tab "${tabName}" not found`);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SGC_SHEET_ID,
+    requestBody: {
+      requests: [{ deleteDimension: { range: {
+        sheetId:    sheet.properties.sheetId,
+        dimension:  'ROWS',
+        startIndex: rowNumber - 1,   // 0-based, header = row 0
+        endIndex:   rowNumber,
+      }}}],
+    },
+  });
+}
+
+// ─── SGC DELETE SUBCONTRACTOR ─────────────────────────────────────────────────
+app.delete('/api/sgc/ops/subs', async (req, res) => {
+  try {
+    const row = parseInt(req.body?.row || req.query?.row);
+    if (!row) return res.status(400).json({ error: 'row required' });
+    await deleteSheetRow('2025 SubCons', row);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC DELETE FIELD REPORT ──────────────────────────────────────────────────
+app.delete('/api/sgc/ops/field-reports', async (req, res) => {
+  try {
+    const row = parseInt(req.body?.row || req.query?.row);
+    if (!row) return res.status(400).json({ error: 'row required' });
+    await deleteSheetRow('Field Reports', row);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

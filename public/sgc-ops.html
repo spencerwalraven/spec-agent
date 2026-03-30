@@ -179,6 +179,7 @@
     .pill-green  { background: rgba(74,222,128,0.12); color: var(--green); }
     .pill-red    { background: rgba(239,68,68,0.12);  color: var(--red); }
     .pill-yellow { background: rgba(250,204,21,0.12); color: var(--yellow); }
+    .pill-gold   { background: rgba(201,168,76,0.15); color: var(--gold); }
     .pill-gray   { background: rgba(136,136,136,0.12); color: var(--text2); }
 
     /* ── COMPLIANCE DOTS ── */
@@ -536,6 +537,104 @@
     }
     .add-row-btn:hover { background: rgba(201,168,76,0.18); }
 
+    /* ── TOAST NOTIFICATIONS ── */
+    #toastContainer {
+      position: fixed; bottom: 90px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 9999; pointer-events: none;
+    }
+    .toast {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px;
+      font-size: 13px; max-width: 320px; min-width: 200px;
+      opacity: 0; transform: translateX(20px);
+      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .toast.show { opacity: 1; transform: translateX(0); }
+    .toast-success { border-left: 3px solid var(--green); }
+    .toast-error   { border-left: 3px solid var(--red); }
+    .toast-info    { border-left: 3px solid var(--gold); }
+
+    /* ── CONFIRM MODAL ── */
+    .confirm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 3000;
+      align-items: center; justify-content: center;
+    }
+    .confirm-overlay.open { display: flex; }
+    .confirm-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px 28px; width: 360px;
+      max-width: 95vw; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .confirm-icon { font-size: 28px; margin-bottom: 12px; }
+    .confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .confirm-msg { font-size: 13px; color: var(--text2); margin-bottom: 22px; line-height: 1.5; }
+    .confirm-footer { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-danger {
+      background: var(--red); color: white; border: none;
+      padding: 10px 20px; border-radius: 8px; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-danger:hover { opacity: 0.85; }
+    .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── FILTER PILLS (sub compliance) ── */
+    .filter-pills {
+      display: flex; gap: 6px; align-items: center;
+      flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .filter-pill {
+      padding: 5px 14px; border-radius: 20px; font-size: 12px;
+      font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+      background: var(--card2); color: var(--text2);
+      transition: all 0.15s;
+    }
+    .filter-pill:hover { color: var(--text); border-color: var(--text3); }
+    .filter-pill.active {
+      background: rgba(201,168,76,0.15); color: var(--gold);
+      border-color: rgba(201,168,76,0.5);
+    }
+
+    /* ── SORTABLE TABLE HEADERS ── */
+    th.sortable {
+      cursor: pointer; user-select: none;
+    }
+    th.sortable:hover { color: var(--gold); }
+    th.sort-asc::after  { content: ' ↑'; color: var(--gold); }
+    th.sort-desc::after { content: ' ↓'; color: var(--gold); }
+
+    /* ── DELETE BUTTON ── */
+    .del-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text3); font-size: 15px; padding: 3px 6px;
+      border-radius: 5px; line-height: 1; transition: all 0.15s;
+    }
+    .del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+    /* ── REPORT CARD DELETE ── */
+    .report-del-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: none; border: none; color: var(--text3);
+      cursor: pointer; font-size: 14px; padding: 3px 5px;
+      border-radius: 5px; line-height: 1; transition: all 0.15s;
+      opacity: 0;
+    }
+    .report-card:hover .report-del-btn { opacity: 1; }
+    .report-del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+    .report-card { position: relative; }
+
+    /* ── EXPORT BUTTON ── */
+    .export-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      background: var(--card2); border: 1px solid var(--border);
+      color: var(--text2); font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .export-btn:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
+
     /* ── DEMO BANNER ── */
     .demo-banner {
       background: rgba(201,168,76,0.1);
@@ -628,28 +727,37 @@
           <div class="section-title">Subcontractor Compliance</div>
           <div class="section-sub">W-9, Buildertrend onboarding, and 1099 status for all active subs</div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center">
           <input class="search-bar" id="subSearch" placeholder="Search subs..." oninput="filterSubs()" />
+          <button class="export-btn" onclick="exportCSV()" title="Export to CSV">⬇ CSV</button>
           <button class="add-row-btn" onclick="openAddModal()">+ Add Sub</button>
         </div>
+      </div>
+      <div class="filter-pills">
+        <button class="filter-pill active" onclick="setFilter('all')">All</button>
+        <button class="filter-pill" onclick="setFilter('missing-w9')">⚠ Missing W-9</button>
+        <button class="filter-pill" onclick="setFilter('missing-bt')">⚠ Not BT</button>
+        <button class="filter-pill" onclick="setFilter('needs-1099')">📋 Needs 1099</button>
+        <button class="filter-pill" onclick="setFilter('compliant')">✓ Fully Compliant</button>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Subcontractor</th>
-              <th>Company</th>
+              <th class="sortable" onclick="sortSubs('name')">Subcontractor</th>
+              <th class="sortable" onclick="sortSubs('company')">Company</th>
               <th>Email</th>
-              <th>W-9</th>
-              <th>BT Onboarded</th>
-              <th>1099 Needed</th>
-              <th>1099 Sent</th>
-              <th>2025 Total Paid</th>
+              <th class="sortable" onclick="sortSubs('w9')">W-9</th>
+              <th class="sortable" onclick="sortSubs('btOnboarded')">BT Onboarded</th>
+              <th class="sortable" onclick="sortSubs('needs1099')">1099 Needed</th>
+              <th class="sortable" onclick="sortSubs('sent1099')">1099 Sent</th>
+              <th class="sortable" onclick="sortSubs('totalPaid')">2025 Total Paid</th>
               <th>Notes</th>
+              <th style="width:32px"></th>
             </tr>
           </thead>
           <tbody id="subsTable">
-            <tr><td colspan="9" class="loading"><div class="spinner"></div>Loading subcontractors...</td></tr>
+            <tr><td colspan="10" class="loading"><div class="spinner"></div>Loading subcontractors...</td></tr>
           </tbody>
         </table>
       </div>
@@ -667,6 +775,7 @@
           <div class="section-title">Daily Field Reports</div>
           <div class="section-sub">AI monitors submissions at 6pm · Sends follow-up emails automatically if missing or incomplete</div>
         </div>
+        <input class="search-bar" id="reportSearch" placeholder="Search by name..." oninput="filterReports()" />
       </div>
       <div id="reportGrid" class="report-grid">
         <div class="loading"><div class="spinner"></div>Loading field reports...</div>
@@ -773,6 +882,22 @@
     </div>
   </div>
 
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer"></div>
+
+  <!-- CONFIRM MODAL -->
+  <div class="confirm-overlay" id="confirmModal">
+    <div class="confirm-box">
+      <div class="confirm-icon" id="confirmIcon">🗑️</div>
+      <div class="confirm-title" id="confirmTitle">Are you sure?</div>
+      <div class="confirm-msg" id="confirmMsg">This action cannot be undone.</div>
+      <div class="confirm-footer">
+        <button class="btn-secondary" onclick="closeConfirm()">Cancel</button>
+        <button class="btn-danger" id="confirmOkBtn" onclick="runConfirm()">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CHAT OVERLAY -->
   <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
 
@@ -801,6 +926,44 @@
 
   <script>
     let allSubs = [];
+    let allReports = [];
+    let subSortField = null;
+    let subSortAsc   = true;
+    let activeFilter = 'all';
+
+    // ── TOAST ──
+    function showToast(msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = `toast toast-${type}`;
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+      }, 3500);
+    }
+
+    // ── CONFIRM MODAL ──
+    let _confirmCallback = null;
+    function openConfirm(title, msg, btnLabel, callback, icon = '🗑️') {
+      document.getElementById('confirmIcon').textContent  = icon;
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMsg').textContent   = msg;
+      document.getElementById('confirmOkBtn').textContent = btnLabel;
+      _confirmCallback = callback;
+      document.getElementById('confirmModal').classList.add('open');
+    }
+    function closeConfirm() {
+      document.getElementById('confirmModal').classList.remove('open');
+      _confirmCallback = null;
+    }
+    async function runConfirm() {
+      const btn = document.getElementById('confirmOkBtn');
+      btn.disabled = true;
+      try { if (_confirmCallback) await _confirmCallback(); }
+      finally { btn.disabled = false; closeConfirm(); }
+    }
 
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -848,8 +1011,8 @@
       const v = (status || '').toLowerCase().trim();
       const isComplete = v === 'complete' || v === 'done';
       const isHold     = v === 'on hold' || v === 'hold';
-      const cls   = isComplete ? 'pill-green' : (isHold ? 'pill-yellow' : 'pill-green');
-      const label = isComplete ? 'Complete' : (isHold ? 'On Hold' : 'In Progress');
+      const cls   = isComplete ? 'pill-green' : (isHold ? 'pill-yellow' : 'pill-gold');
+      const label = isComplete ? 'Complete' : (isHold ? 'On Hold' : (status || 'In Progress'));
       if (row) {
         const cycle = { 'in progress': 'On Hold', 'on hold': 'Complete', 'complete': 'In Progress', 'done': 'In Progress', '': 'In Progress' };
         const next  = cycle[v] || 'In Progress';
@@ -883,30 +1046,110 @@
         `;
         document.getElementById('subsBadge').textContent = missingW9 + notBT > 0 ? missingW9 : '✓';
 
-        renderSubs(allSubs);
+        applySubFilter();
       } catch (e) {
-        document.getElementById('subsTable').innerHTML = `<tr><td colspan="9" class="empty">Error loading subs: ${e.message}</td></tr>`;
+        document.getElementById('subsTable').innerHTML = `<tr><td colspan="10" class="empty">Error loading subs: ${e.message}</td></tr>`;
+        showToast('Failed to load subs: ' + e.message, 'error');
       }
     }
 
     function renderSubs(subs) {
+      // Apply sort
+      if (subSortField) {
+        subs = [...subs].sort((a, b) => {
+          let va = a[subSortField] || '', vb = b[subSortField] || '';
+          if (subSortField === 'totalPaid') {
+            va = parseFloat(String(va).replace(/[$,]/g,'')) || 0;
+            vb = parseFloat(String(vb).replace(/[$,]/g,'')) || 0;
+            return subSortAsc ? va - vb : vb - va;
+          }
+          return subSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+        });
+      }
       if (!subs.length) {
-        document.getElementById('subsTable').innerHTML = '<tr><td colspan="9" class="empty">No subcontractors found</td></tr>';
+        document.getElementById('subsTable').innerHTML = '<tr><td colspan="10" class="empty">No subcontractors found</td></tr>';
         return;
       }
       document.getElementById('subsTable').innerHTML = subs.map(s => `
         <tr data-row="${s._row}">
-          <td><strong>${s.name || '—'}</strong></td>
-          <td style="color:var(--text2);font-size:12px">${s.company && s.company !== s.name ? s.company : (s.name || '—')}</td>
-          <td style="color:var(--text2);font-size:12px">${s.email || '—'}</td>
+          <td>${editCell(s.name,    s._row, 'Name',         'text', 130, 'sub')}</td>
+          <td>${editCell(s.company && s.company !== s.name ? s.company : '', s._row, 'Company Name', 'text', 130, 'sub')}</td>
+          <td>${editCell(s.email,   s._row, 'Email',        'text', 150, 'sub')}</td>
           <td>${statusPill(s.w9,          s._row, 'W9 Received')}</td>
           <td>${statusPill(s.btOnboarded, s._row, 'BT Onboarding')}</td>
           <td>${statusPill(s.needs1099,   s._row, '1099 needed')}</td>
           <td>${statusPill(s.sent1099,    s._row, '1099 Sent')}</td>
-          <td>${editCell(s.totalPaid, s._row, '2025 Total', 'number')}</td>
-          <td>${editCell(s.notes, s._row, 'NOTES', 'text', 160)}</td>
+          <td>${editCell(s.totalPaid, s._row, '2025 Total', 'number', 90, 'sub')}</td>
+          <td>${editCell(s.notes,    s._row, 'NOTES',       'text',  160, 'sub')}</td>
+          <td><button class="del-btn" title="Delete subcontractor" onclick="confirmDeleteSub(${s._row},'${(s.name||'').replace(/'/g,"\\'")}')">🗑</button></td>
         </tr>
       `).join('');
+    }
+
+    // ── SORT COLUMNS ──
+    function sortSubs(field) {
+      if (subSortField === field) subSortAsc = !subSortAsc;
+      else { subSortField = field; subSortAsc = true; }
+      // Update header indicators
+      document.querySelectorAll('#tab-subs th').forEach(th => {
+        th.classList.remove('sort-asc','sort-desc');
+        if (th.textContent.trim().toLowerCase().startsWith(field.replace(/([A-Z])/g,' $1').toLowerCase().trim().split(' ')[0])) {
+          th.classList.add(subSortAsc ? 'sort-asc' : 'sort-desc');
+        }
+      });
+      applySubFilter();
+    }
+
+    // ── FILTER PILLS ──
+    function setFilter(f) {
+      activeFilter = f;
+      document.querySelectorAll('.filter-pill').forEach(p => {
+        p.classList.toggle('active', p.getAttribute('onclick').includes(`'${f}'`));
+      });
+      applySubFilter();
+    }
+
+    function applySubFilter() {
+      const q = (document.getElementById('subSearch').value || '').toLowerCase();
+      let filtered = allSubs.filter(s =>
+        (s.name + ' ' + s.company + ' ' + s.email + ' ' + s.trade).toLowerCase().includes(q)
+      );
+      if      (activeFilter === 'missing-w9') filtered = filtered.filter(s => !isYes(s.w9));
+      else if (activeFilter === 'missing-bt') filtered = filtered.filter(s => !isYes(s.btOnboarded));
+      else if (activeFilter === 'needs-1099') filtered = filtered.filter(s => isYes(s.needs1099) && !isYes(s.sent1099));
+      else if (activeFilter === 'compliant')  filtered = filtered.filter(s => isYes(s.w9) && isYes(s.btOnboarded));
+      renderSubs(filtered);
+    }
+
+    // ── CSV EXPORT ──
+    function exportCSV() {
+      const headers = ['Name','Company','Email','W-9','BT Onboarded','1099 Needed','1099 Sent','2025 Total Paid','Notes'];
+      const rows = allSubs.map(s =>
+        [s.name,s.company,s.email,s.w9,s.btOnboarded,s.needs1099,s.sent1099,s.totalPaid,s.notes]
+          .map(v => `"${(v||'').replace(/"/g,'""')}"`)
+          .join(',')
+      );
+      const csv  = [headers.join(','), ...rows].join('\n');
+      const url  = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      const a    = document.createElement('a');
+      a.href     = url; a.download = 'sgc-subcontractors.csv'; a.click();
+      URL.revokeObjectURL(url);
+      showToast('Exported ' + allSubs.length + ' subcontractors to CSV', 'success');
+    }
+
+    // ── DELETE SUB ──
+    function confirmDeleteSub(row, name) {
+      openConfirm(
+        'Delete Subcontractor?',
+        `"${name}" will be permanently removed from the sheet. This cannot be undone.`,
+        'Delete',
+        async () => {
+          const res  = await fetch('/api/sgc/ops/subs', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
+          const data = await res.json();
+          if (data.ok) { showToast(`${name} deleted`, 'success'); await loadSubs(); }
+          else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
+        }
+      );
     }
 
     // ── EDITABLE CELLS ──
@@ -959,9 +1202,10 @@
           body: JSON.stringify({ row, field, value }),
         });
         const data = await res.json();
-        if (!data.ok) alert('Save failed: ' + (data.error || 'Unknown error'));
+        if (data.ok) showToast(`${field} saved ✓`, 'success');
+        else showToast('Save failed: ' + (data.error || 'Unknown error'), 'error');
       } catch (e) {
-        alert('Save error: ' + e.message);
+        showToast('Save error: ' + e.message, 'error');
       }
     }
 
@@ -1001,10 +1245,10 @@
           }),
         });
         const data = await res.json();
-        if (data.ok) { closeAddModal(); await loadSubs(); }
-        else alert('Failed: ' + (data.error || 'Unknown'));
+        if (data.ok) { closeAddModal(); showToast(name + ' added ✓', 'success'); await loadSubs(); }
+        else showToast('Failed: ' + (data.error || 'Unknown'), 'error');
       } catch (e) {
-        alert('Error: ' + e.message);
+        showToast('Error: ' + e.message, 'error');
       } finally {
         btn.textContent = 'Add Subcontractor';
         btn.disabled = false;
@@ -1019,14 +1263,10 @@
           body: JSON.stringify({ row, field, value: newValue }),
         });
         const data = await res.json();
-        if (data.ok) {
-          // Reload subs silently to reflect change
-          await loadSubs();
-        } else {
-          alert('Save failed: ' + (data.error || 'Unknown error'));
-        }
+        if (data.ok) { await loadSubs(); }
+        else showToast('Save failed: ' + (data.error || 'Unknown error'), 'error');
       } catch (e) {
-        alert('Save failed: ' + e.message);
+        showToast('Save failed: ' + e.message, 'error');
       }
     }
 
@@ -1053,12 +1293,7 @@
       await loadJobs();
     }
 
-    function filterSubs() {
-      const q = document.getElementById('subSearch').value.toLowerCase();
-      renderSubs(allSubs.filter(s =>
-        (s.name + s.company + s.trade).toLowerCase().includes(q)
-      ));
-    }
+    function filterSubs() { applySubFilter(); }
 
     async function loadInsurance() {
       try {
@@ -1112,8 +1347,12 @@
         const data = await res.json();
         const jobs = data.jobs || [];
 
+        const inProgress = jobs.filter(j => (j.status||'').toLowerCase().includes('progress')).length;
+        const onHold     = jobs.filter(j => (j.status||'').toLowerCase().includes('hold')).length;
         document.getElementById('jobStats').innerHTML = `
-          <div class="stat-card stat-gold"><div class="stat-value">${jobs.length}</div><div class="stat-label">Jobs In Progress</div></div>
+          <div class="stat-card stat-gold"><div class="stat-value">${jobs.length}</div><div class="stat-label">Active Jobs</div></div>
+          <div class="stat-card stat-green"><div class="stat-value">${inProgress}</div><div class="stat-label">In Progress</div></div>
+          ${onHold ? `<div class="stat-card stat-yellow"><div class="stat-value">${onHold}</div><div class="stat-label">On Hold</div></div>` : ''}
         `;
 
         if (!jobs.length) {
@@ -1160,6 +1399,20 @@
           return;
         }
 
+        allReports = reports;
+        renderReports();
+      } catch (e) {
+        document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
+        showToast('Failed to load reports: ' + e.message, 'error');
+      }
+    }
+
+    function filterReports() { renderReports(); }
+
+    function renderReports() {
+        const q = (document.getElementById('reportSearch')?.value || '').toLowerCase();
+        const reports = q ? allReports.filter(r => (r['Name']||'').toLowerCase().includes(q)) : allReports;
+
         // Show most recent first
         const sorted = [...reports].reverse();
         document.getElementById('reportGrid').innerHTML = sorted.map((r, idx) => {
@@ -1177,6 +1430,7 @@
           const cardId       = `report-card-${idx}`;
           return `
             <div class="report-card" id="${cardId}" onclick="toggleReportCard('${cardId}')">
+              <button class="report-del-btn" title="Delete report" onclick="event.stopPropagation();confirmDeleteReport(${r._row},'${(r['Name']||'Unknown').replace(/'/g,"\\'")}')">🗑</button>
               <div class="report-card-top">
                 <div>
                   <div class="tech-name">${r['Name'] || 'Unknown'}</div>
@@ -1209,9 +1463,21 @@
             </div>
           `;
         }).join('');
-      } catch (e) {
-        document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
-      }
+        if (!sorted.length) document.getElementById('reportGrid').innerHTML = '<div class="empty">No reports match your search.</div>';
+    }
+
+    function confirmDeleteReport(row, name) {
+      openConfirm(
+        'Delete Field Report?',
+        `This report from "${name}" will be permanently removed from the sheet.`,
+        'Delete',
+        async () => {
+          const res  = await fetch('/api/sgc/ops/field-reports', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row }) });
+          const data = await res.json();
+          if (data.ok) { showToast('Report deleted', 'success'); await loadReports(); }
+          else showToast('Delete failed: ' + (data.error || 'Unknown'), 'error');
+        }
+      );
     }
 
     // ── CHAT DRAWER ──
