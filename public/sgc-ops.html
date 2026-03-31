@@ -1019,8 +1019,32 @@
             <span class="week-label" id="weekLabel">Loading…</span>
             <button class="week-nav-btn" onclick="changeWeek(1)" id="weekNextBtn">Next →</button>
           </div>
-          <button class="add-row-btn" id="remindBtn" onclick="sendReminders()">🔔 Send Reminders</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="add-row-btn" id="remindBtn" onclick="sendReminders()">🔔 Send Reminders</button>
+            <button class="refresh-btn" onclick="toggleReminderSettings()" id="reminderSettingsBtn" title="Reminder settings">⚙ Schedule</button>
+          </div>
         </div>
+      </div>
+
+      <!-- REMINDER SETTINGS PANEL -->
+      <div id="reminderSettingsPanel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:12px">⚙ Reminder Email Settings</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Send time (Arizona time)</div>
+            <input type="time" id="reminderTimeInput" class="modal-input" style="width:130px;font-size:13px;padding:6px 10px" value="18:00">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Owner summary email</div>
+            <input type="email" id="reminderOwnerEmail" class="modal-input" style="width:220px;font-size:13px;padding:6px 10px" placeholder="e.g. serene@sgc.com">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding-bottom:2px">
+            <input type="checkbox" id="reminderEnabled" style="width:16px;height:16px;cursor:pointer">
+            <label for="reminderEnabled" style="font-size:13px;color:var(--text2);cursor:pointer">Enabled</label>
+          </div>
+          <button class="add-row-btn" onclick="saveReminderSettings()" id="saveReminderBtn">Save</button>
+        </div>
+        <div id="reminderSettingsStatus" style="font-size:12px;color:var(--text2);margin-top:8px;display:none"></div>
       </div>
       <div id="reportGrid" class="week-table-wrap">
         <div class="loading"><div class="spinner"></div>Loading field reports...</div>
@@ -2234,6 +2258,52 @@
         document.getElementById('reportGrid').innerHTML = `<div class="empty">Error loading reports: ${e.message}</div>`;
         showToast('Failed to load reports: ' + e.message, 'error');
       }
+    }
+
+    // ── REMINDER SETTINGS ──
+    let _reminderSettingsOpen = false;
+
+    async function toggleReminderSettings() {
+      _reminderSettingsOpen = !_reminderSettingsOpen;
+      const panel = document.getElementById('reminderSettingsPanel');
+      panel.style.display = _reminderSettingsOpen ? 'block' : 'none';
+      if (_reminderSettingsOpen) await loadReminderSettings();
+    }
+
+    async function loadReminderSettings() {
+      try {
+        const s = await fetch('/api/sgc/ops/settings').then(r => r.json());
+        document.getElementById('reminderTimeInput').value   = s.reminderTime || '18:00';
+        document.getElementById('reminderOwnerEmail').value  = s.ownerEmail   || '';
+        document.getElementById('reminderEnabled').checked   = s.reminderEnabled !== false;
+      } catch (_) {}
+    }
+
+    async function saveReminderSettings() {
+      const btn = document.getElementById('saveReminderBtn');
+      const statusEl = document.getElementById('reminderSettingsStatus');
+      btn.textContent = 'Saving…'; btn.disabled = true;
+      statusEl.style.display = 'none';
+      try {
+        const body = {
+          reminderTime:    document.getElementById('reminderTimeInput').value,
+          ownerEmail:      document.getElementById('reminderOwnerEmail').value.trim(),
+          reminderEnabled: document.getElementById('reminderEnabled').checked,
+        };
+        const res = await fetch('/api/sgc/ops/settings', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = `✓ Saved — reminders will send at ${body.reminderTime} AZ time weekdays`;
+        showToast('Reminder settings saved', 'success');
+      } catch (e) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = 'Error: ' + e.message;
+      }
+      btn.textContent = 'Save'; btn.disabled = false;
     }
 
     async function sendReminders() {

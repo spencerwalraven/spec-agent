@@ -3274,56 +3274,99 @@ try {
   logger.warn('SGC', `Could not mount sgc-ops router: ${e.message}`);
 }
 
-// ─── SGC FIELD REPORT REMINDER — 6pm weekdays (America/Phoenix) ──────────────
-try {
-  const cron = require('node-cron');
-  // "0 18 * * 1-5" = 6:00pm Mon–Fri in server timezone
-  // Railway servers run UTC, Arizona is UTC-7 (no DST), so 6pm AZ = 1am UTC next day
-  // Use "0 1 * * 2-6" for UTC (Tue–Sat 01:00 UTC = Mon–Fri 18:00 AZ)
-  cron.schedule('0 1 * * 2-6', async () => {
-    logger.info('SGC-Cron', 'Running 6pm field report reminder…');
-    try {
-      const agent      = require('./src/agents/sgc-admin-agent');
-      const { sendEmail }   = require('./src/tools/gmail');
-      const { notifyOwner } = require('./src/tools/notify');
-      const rows = await agent.sgcReadTab('Field Reports');
-      const todayStr = new Date().toLocaleDateString('en-US');
-      const todayReports = rows.filter(r => {
-        const sub = r['Submitted At'] || r['Date'] || '';
-        return sub && new Date(sub).toLocaleDateString('en-US') === todayStr;
-      });
-      const submittedNames = todayReports.map(r => (r['Name'] || '').trim().toLowerCase());
-      const workerRows = await agent.sgcReadTab('SGC Workers').catch(() => []);
-      const workers = workerRows.map(w => ({ name: w['Name']||'', email: w['Email']||'' })).filter(w => w.name);
-      const missing  = workers.filter(w => !submittedNames.some(n => n.includes(w.name.toLowerCase())));
-      const tallyUrl = process.env.SGC_TALLY_FORM_URL || process.env.SGC_TALLY_URL || 'https://tally.so/r/2EL9Wg';
-      const dayName  = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-      let sent = 0;
-      for (const w of missing) {
-        if (!w.email) continue;
-        try {
-          await sendEmail({
-            to: w.email,
-            subject: `⏰ Reminder: Please fill out your field report for ${dayName}`,
-            body: `Hi ${w.name.split(' ')[0]},\n\nWe haven't received your field report for today yet.\n\nIt only takes 2 minutes:\n${tallyUrl}\n\nThank you!\nScottsdale General Contracting`,
-          });
-          sent++;
-        } catch (e) { logger.warn('SGC-Remind', `Email failed for ${w.name}: ${e.message}`); }
-      }
-      const missingList = missing.length ? missing.map(w => `✗ ${w.name}`).join('\n') : 'None — all submitted!';
-      await notifyOwner({
-        subject: `📋 SGC Field Report Summary — ${todayStr}`,
-        message: `Submitted: ${todayReports.length}\nMissing: ${missing.length}\n\n${missingList}${sent > 0 ? `\n\nReminder emails sent to ${sent} worker(s).` : ''}`,
-        urgent: missing.length > 0,
-        eventType: 'fieldReportReminder',
-      });
-      logger.success('SGC-Cron', `Reminder done — ${todayReports.length} submitted, ${missing.length} missing, ${sent} emails sent`);
-    } catch (e) { logger.error('SGC-Cron', `Reminder failed: ${e.message}`); }
-  }, { timezone: 'America/Phoenix' });
-  logger.info('SGC-Cron', 'Field report reminder scheduled for 6pm weekdays (Arizona time)');
-} catch (e) {
-  logger.warn('SGC-Cron', `Could not schedule reminder: ${e.message}`);
+// ─── SGC OPS SETTINGS ────────────────────────────────────────────────────────
+const SGC_SETTINGS_FILE = path.join(__dirname, 'src/data/sgc-ops-settings.json');
+
+function loadSgcSettings() {
+  try {
+    if (fs.existsSync(SGC_SETTINGS_FILE)) return JSON.parse(fs.readFileSync(SGC_SETTINGS_FILE, 'utf8'));
+  } catch (_) {}
+  return { reminderTime: '18:00', reminderEnabled: true, ownerEmail: '' };
 }
+
+function saveSgcSettings(s) {
+  try { fs.writeFileSync(SGC_SETTINGS_FILE, JSON.stringify(s, null, 2)); } catch (_) {}
+}
+
+app.get('/api/sgc/ops/settings', (req, res) => res.json(loadSgcSettings()));
+
+app.post('/api/sgc/ops/settings', (req, res) => {
+  const current = loadSgcSettings();
+  const updated = { ...current, ...req.body };
+  saveSgcSettings(updated);
+  // Reschedule cron if time or enabled changed
+  if (req.body.reminderTime !== undefined || req.body.reminderEnabled !== undefined) {
+    scheduleSgcReminder(updated);
+  }
+  res.json({ ok: true, settings: updated });
+});
+
+// ─── SGC FIELD REPORT REMINDER CRON (dynamic) ────────────────────────────────
+let _sgcReminderTask = null;
+
+async function runSgcReminder() {
+  logger.info('SGC-Cron', 'Running field report reminder…');
+  try {
+    const agent           = require('./src/agents/sgc-admin-agent');
+    const { sendEmail }   = require('./src/tools/gmail');
+    const { notifyOwner } = require('./src/tools/notify');
+    const settings = loadSgcSettings();
+    const rows = await agent.sgcReadTab('Field Reports');
+    const todayStr = new Date().toLocaleDateString('en-US');
+    const todayReports = rows.filter(r => {
+      const sub = r['Submitted At'] || r['Date'] || '';
+      return sub && new Date(sub).toLocaleDateString('en-US') === todayStr;
+    });
+    const submittedNames = todayReports.map(r => (r['Name'] || '').trim().toLowerCase());
+    const workerRows = await agent.sgcReadTab('SGC Workers').catch(() => []);
+    const workers = workerRows.map(w => ({ name: w['Name']||'', email: w['Email']||'' })).filter(w => w.name);
+    const missing  = workers.filter(w => !submittedNames.some(n => n.includes(w.name.toLowerCase())));
+    const tallyUrl = process.env.SGC_TALLY_FORM_URL || process.env.SGC_TALLY_URL || 'https://tally.so/r/2EL9Wg';
+    const dayName  = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    let sent = 0;
+    for (const w of missing) {
+      if (!w.email) continue;
+      try {
+        await sendEmail({
+          to: w.email,
+          subject: `⏰ Reminder: Please fill out your field report for ${dayName}`,
+          body: `Hi ${w.name.split(' ')[0]},\n\nWe haven't received your field report for today yet.\n\nIt only takes 2 minutes:\n${tallyUrl}\n\nThank you!\nScottsdale General Contracting`,
+        });
+        sent++;
+      } catch (e) { logger.warn('SGC-Remind', `Email failed for ${w.name}: ${e.message}`); }
+    }
+    const ownerEmail = settings.ownerEmail || process.env.SGC_OWNER_EMAIL || '';
+    const missingList = missing.length ? missing.map(w => `✗ ${w.name}`).join('\n') : 'None — all submitted!';
+    await notifyOwner({
+      subject: `📋 SGC Field Report Summary — ${todayStr}`,
+      message: `Submitted: ${todayReports.length}\nMissing: ${missing.length}\n\n${missingList}${sent > 0 ? `\n\nReminder emails sent to ${sent} worker(s).` : ''}`,
+      urgent: missing.length > 0,
+      ownerEmail: ownerEmail || undefined,
+      eventType: 'fieldReportReminder',
+    });
+    logger.success('SGC-Cron', `Done — ${todayReports.length} submitted, ${missing.length} missing, ${sent} emails sent`);
+  } catch (e) { logger.error('SGC-Cron', `Reminder failed: ${e.message}`); }
+}
+
+function scheduleSgcReminder(settings) {
+  try {
+    const cron = require('node-cron');
+    if (_sgcReminderTask) { _sgcReminderTask.stop(); _sgcReminderTask = null; }
+    if (!settings.reminderEnabled) {
+      logger.info('SGC-Cron', 'Field report reminder disabled');
+      return;
+    }
+    const [h, m] = (settings.reminderTime || '18:00').split(':').map(Number);
+    const expr = `${m} ${h} * * 1-5`; // Mon–Fri at HH:MM Arizona time
+    _sgcReminderTask = cron.schedule(expr, runSgcReminder, { timezone: 'America/Phoenix' });
+    logger.info('SGC-Cron', `Field report reminder scheduled for ${settings.reminderTime} weekdays (Arizona time)`);
+  } catch (e) {
+    logger.warn('SGC-Cron', `Could not schedule reminder: ${e.message}`);
+  }
+}
+
+// Start with saved settings
+scheduleSgcReminder(loadSgcSettings());
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
