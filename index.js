@@ -1568,85 +1568,38 @@ app.post('/webhook/sms', express.urlencoded({ extended: false }), async (req, re
 
     logger.info('SMS', `Inbound from ${from}: ${body}`);
 
-    const sheets = app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = process.env.SHEET_ID;
+    const { query: dbQ } = require('./src/db');
 
-    // Look up who sent this — check Leads tab first, then Clients tab
-    let senderName  = null;
-    let senderType  = null; // 'lead' or 'client'
-    let senderRow   = null;
-    let senderEmail = null;
-
-    // Normalize phone for comparison (strip to digits only)
+    // Look up who sent this — check Leads then Clients
+    let senderName = null, senderType = null, senderRow = null, senderEmail = null;
     const normalize = p => (p || '').replace(/\D/g, '').slice(-10);
-    const fromNorm  = normalize(from);
+    const fromNorm = normalize(from);
 
     // Search Leads
-    try {
-      const leadRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Leads!A:Z' });
-      const leadRows = leadRes.data.values || [];
-      const header   = leadRows[0] || [];
-      const phoneIdx = header.findIndex(h => /phone/i.test(h));
-      const nameIdx  = header.findIndex(h => /name/i.test(h));
-      const emailIdx = header.findIndex(h => /email/i.test(h));
-      for (let i = 1; i < leadRows.length; i++) {
-        const row = leadRows[i];
-        if (normalize(row[phoneIdx]) === fromNorm) {
-          senderName  = row[nameIdx]  || 'Unknown';
-          senderEmail = row[emailIdx] || '';
-          senderType  = 'lead';
-          senderRow   = i + 1;
+    const leadResult = await dbQ('SELECT id, name, email FROM leads WHERE company_id = $1', [COMPANY_ID]);
+    for (const lead of leadResult.rows) {
+      if (normalize(lead.phone) === fromNorm) {
+        senderName = lead.name; senderEmail = lead.email; senderType = 'lead'; senderRow = lead.id;
+        break;
+      }
+    }
+
+    // Search Clients if not found
+    if (!senderName) {
+      const clientResult = await dbQ('SELECT id, name, email, phone FROM clients WHERE company_id = $1', [COMPANY_ID]);
+      for (const client of clientResult.rows) {
+        if (normalize(client.phone) === fromNorm) {
+          senderName = client.name; senderEmail = client.email; senderType = 'client'; senderRow = client.id;
           break;
         }
       }
-    } catch(_) {}
-
-    // Search Clients if not found in leads
-    if (!senderName) {
-      try {
-        const clientRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Clients!A:Z' });
-        const clientRows = clientRes.data.values || [];
-        const header     = clientRows[0] || [];
-        const phoneIdx   = header.findIndex(h => /phone/i.test(h));
-        const nameIdx    = header.findIndex(h => /name/i.test(h));
-        const emailIdx   = header.findIndex(h => /email/i.test(h));
-        for (let i = 1; i < clientRows.length; i++) {
-          const row = clientRows[i];
-          if (normalize(row[phoneIdx]) === fromNorm) {
-            senderName  = row[nameIdx]  || 'Unknown';
-            senderEmail = row[emailIdx] || '';
-            senderType  = 'client';
-            senderRow   = i + 1;
-            break;
-          }
-        }
-      } catch(_) {}
     }
 
-    // Log to SMS Log tab
-    try {
-      const timestamp = new Date().toISOString();
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId,
-        range: 'SMS Log!A:G',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[timestamp, 'INBOUND', from, senderName || 'Unknown', body, senderType || 'unknown', '']] }
-      });
-    } catch(e) {
-      // Create header and try again
-      try {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: ssId, range: 'SMS Log!A1:G1',
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [['Timestamp', 'Direction', 'Phone', 'Name', 'Message', 'Type', 'Agent Response']] }
-        });
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: ssId, range: 'SMS Log!A:G',
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [[new Date().toISOString(), 'INBOUND', from, senderName || 'Unknown', body, senderType || 'unknown', '']] }
-        });
-      } catch(_) {}
-    }
+    // Log to conversations table
+    await dbQ(
+      `INSERT INTO conversations (company_id, contact_name, contact_phone, contact_email, direction, channel, body, status, lead_id, client_id) VALUES ($1,$2,$3,$4,'inbound','sms',$5,'received',$6,$7)`,
+      [COMPANY_ID, senderName || 'Unknown', from, senderEmail || '', body, senderType === 'lead' ? senderRow : null, senderType === 'client' ? senderRow : null]
+    ).catch(() => {});
 
     // Notify owner of inbound SMS
     try {
@@ -1691,27 +1644,21 @@ app.get('/api/weather', requireAuth, async (req, res) => {
 // GET /api/sms — get SMS conversation log
 app.get('/api/sms', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = SHEET_ID;
-    let rows = [];
-    try {
-      const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'SMS Log!A:G' });
-      rows = (r.data.values || []).slice(1).filter(r => r[0]);
-    } catch(_) {}
-
-    const messages = rows.map(r => ({
-      timestamp: r[0] || '',
-      direction: r[1] || 'OUTBOUND',
-      phone:     r[2] || '',
-      name:      r[3] || '',
-      message:   r[4] || '',
-      type:      r[5] || '',
-    })).reverse(); // Most recent first
-
+    const { query: dbQ } = require('./src/db');
+    const result = await dbQ(
+      `SELECT * FROM conversations WHERE company_id = $1 AND channel = 'sms' ORDER BY created_at DESC LIMIT 100`,
+      [COMPANY_ID]
+    );
+    const messages = result.rows.map(r => ({
+      timestamp: r.created_at ? new Date(r.created_at).toISOString() : '',
+      direction: r.direction || 'outbound',
+      phone: r.contact_phone || '',
+      name: r.contact_name || '',
+      message: r.body || '',
+      type: r.status || '',
+    }));
     res.json(messages);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/sms/send — send an SMS from the dashboard
@@ -1723,17 +1670,12 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     const sms = require('./src/tools/sms');
     await sms.sendSms(to, message);
 
-    // Log it
-    const sheets    = req.app.locals.sheets;
-    const ssId      = SHEET_ID;
-    const timestamp = new Date().toISOString();
-    try {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId, range: 'SMS Log!A:G',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[timestamp, 'OUTBOUND', to, name || '', message, '', '']] }
-      });
-    } catch(_) {}
+    // Log to Postgres
+    const { query: dbQ } = require('./src/db');
+    await dbQ(
+      `INSERT INTO conversations (company_id, contact_name, contact_phone, direction, channel, body, status) VALUES ($1,$2,$3,'outbound','sms',$4,'sent')`,
+      [COMPANY_ID, name || '', to, message]
+    ).catch(() => {});
 
     res.json({ ok: true });
   } catch(e) {
@@ -1966,58 +1908,40 @@ app.get('/status/:jobId', (req, res) => {
 // GET /api/pay/:jobId — get payment info for client pay page (public — no auth)
 app.get('/api/pay/:jobId', async (req, res) => {
   try {
-    const jobId  = (req.params.jobId || '').toUpperCase();
-    const sheets = app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = process.env.SHEET_ID;
+    const jobRef = (req.params.jobId || '').toUpperCase();
+    const { query: dbQ } = require('./src/db');
 
-    // Find job in Jobs tab
-    const jobRes  = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Jobs!A:Z' });
-    const jobRows = jobRes.data.values || [];
-    const header  = jobRows[0] || [];
+    // Find job by ref
+    const jobResult = await dbQ('SELECT * FROM jobs WHERE UPPER(job_ref) = $1 AND company_id = $2', [jobRef, COMPANY_ID]);
+    if (!jobResult.rows.length) return res.status(404).json({ error: 'Job not found' });
+    const job = jobResult.rows[0];
 
-    const idIdx        = header.findIndex(h => /job.?id/i.test(h));
-    const clientIdx    = header.findIndex(h => /client.*name|name.*client/i.test(h));
-    const typeIdx      = header.findIndex(h => /project.*type|type.*project|service/i.test(h));
-    const statusIdx    = header.findIndex(h => /^status$/i.test(h));
-    const depAmtIdx    = header.findIndex(h => /deposit.*amount|amount.*deposit/i.test(h));
-    const finalAmtIdx  = header.findIndex(h => /final.*amount|total.*amount|contract.*value/i.test(h));
-    const depPaidIdx   = header.findIndex(h => /deposit.*paid|dep.*paid/i.test(h));
-    const finalPaidIdx = header.findIndex(h => /final.*paid|invoice.*paid/i.test(h));
-    const depLinkIdx   = header.findIndex(h => /deposit.*link|stripe.*deposit/i.test(h));
-    const finalLinkIdx = header.findIndex(h => /final.*link|stripe.*final/i.test(h));
+    // Get invoices for this job
+    const invResult = await dbQ('SELECT * FROM invoices WHERE job_id = $1 AND company_id = $2 ORDER BY created_at', [job.id, COMPANY_ID]);
+    const deposit = invResult.rows.find(i => i.invoice_type === 'deposit');
+    const final = invResult.rows.find(i => i.invoice_type === 'final');
 
-    const row = jobRows.slice(1).find(r => (r[idIdx] || '').toUpperCase() === jobId);
-    if (!row) return res.status(404).json({ error: 'Job not found' });
-
-    // Get company info from Settings
-    let company = { name: 'Your Contractor', phone: '', email: '' };
-    try {
-      const settingsRes = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'Settings!A:B' });
-      const sRows = settingsRes.data.values || [];
-      const setting = (key) => (sRows.find(r => r[0] === key) || [])[1] || '';
-      company = {
-        name:  setting('Company Name') || 'Your Contractor',
-        phone: setting('Phone')        || '',
-        email: setting('Email')        || '',
-      };
-    } catch(_) {}
+    // Get company info
+    const settings = await dbSettings.readSettings();
 
     res.json({
-      jobId,
-      clientName:    row[clientIdx]    || '',
-      projectType:   row[typeIdx]      || 'Project',
-      status:        row[statusIdx]    || '',
-      depositAmount: row[depAmtIdx]    || '',
-      finalAmount:   row[finalAmtIdx]  || '',
-      depositPaid:   row[depPaidIdx]   || '',
-      finalPaid:     row[finalPaidIdx] || '',
-      depositLink:   row[depLinkIdx]   || '',
-      finalLink:     row[finalLinkIdx] || '',
-      company,
+      jobId: job.job_ref,
+      clientName: job.client_name || '',
+      projectType: job.service || job.title || 'Project',
+      status: job.status || '',
+      depositAmount: deposit?.amount || job.deposit_amount || '',
+      finalAmount: final?.amount || job.estimated_value || '',
+      depositPaid: deposit?.status === 'paid' ? 'Paid' : '',
+      finalPaid: final?.status === 'paid' ? 'Paid' : '',
+      depositLink: deposit?.stripe_payment_link || '',
+      finalLink: final?.stripe_payment_link || '',
+      company: {
+        name: settings.companyName || 'Your Company',
+        phone: settings.phone || '',
+        email: settings.email || '',
+      },
     });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── CLIENT PAY PAGE ──────────────────────────────────────────────────────────
@@ -3333,110 +3257,63 @@ async function validateSheetSchema() {
 // GET /api/recurring — list all recurring job templates
 app.get('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = SHEET_ID;
-    let rows = [];
-    try {
-      const r = await sheets.spreadsheets.values.get({
-        spreadsheetId: ssId,
-        range: 'Recurring Jobs!A:J'
-      });
-      rows = (r.data.values || []).slice(1).filter(r => r[0]);
-    } catch(e) { /* tab may not exist */ }
-
-    const items = rows.map((r, i) => ({
-      row:         i + 2,
-      clientName:  r[0] || '',
-      address:     r[1] || '',
-      serviceType: r[2] || '',
-      frequency:   r[3] || '', // Weekly / Bi-Weekly / Monthly / Quarterly
-      nextDate:    r[4] || '',
-      price:       r[5] || '',
-      assignedTo:  r[6] || '',
-      notes:       r[7] || '',
-      status:      r[8] || 'Active',
-      lastRun:     r[9] || ''
+    const { query: dbQ } = require('./src/db');
+    const result = await dbQ('SELECT * FROM recurring_jobs WHERE company_id = $1 ORDER BY next_run ASC', [COMPANY_ID]);
+    const items = result.rows.map(r => ({
+      row: r.id, id: r.id,
+      clientName: r.title || '',
+      serviceType: r.service || '',
+      frequency: r.frequency || '',
+      nextDate: r.next_run ? new Date(r.next_run).toLocaleDateString() : '',
+      price: r.estimated_value || '',
+      notes: r.template_notes || '',
+      status: r.status || 'Active',
+      lastRun: r.last_run ? new Date(r.last_run).toLocaleDateString() : ''
     }));
     res.json(items);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/recurring — create a new recurring job
 app.post('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = SHEET_ID;
-    const { clientName, address, serviceType, frequency, nextDate, price, assignedTo, notes } = req.body;
+    const { query: dbQ } = require('./src/db');
+    const { clientName, serviceType, frequency, nextDate, price, notes } = req.body;
     if (!clientName || !serviceType || !frequency) return res.status(400).json({ error: 'clientName, serviceType, frequency required' });
-
-    const row = [clientName, address||'', serviceType, frequency, nextDate||'', price||'', assignedTo||'', notes||'', 'Active', ''];
-
-    try {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId, range: 'Recurring Jobs!A:J',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [row] }
-      });
-    } catch(e) {
-      // Create header first
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: ssId, range: 'Recurring Jobs!A1:J1',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [['Client Name','Address','Service Type','Frequency','Next Date','Price','Assigned To','Notes','Status','Last Run']] }
-      });
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: ssId, range: 'Recurring Jobs!A:J',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [row] }
-      });
-    }
+    await dbQ(
+      `INSERT INTO recurring_jobs (company_id, title, service, frequency, next_run, estimated_value, template_notes, status) VALUES ($1,$2,$3,$4,$5,$6,$7,'active')`,
+      [COMPANY_ID, clientName, serviceType, frequency, nextDate || null, parseFloat(price) || null, notes || '']
+    );
     res.json({ ok: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/recurring/:row/run — manually trigger a recurring job (creates a job entry)
 app.post('/api/recurring/:row/run', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
-    const ssId   = SHEET_ID;
-    const rowNum = parseInt(req.params.row);
+    const { query: dbQ } = require('./src/db');
+    const id = parseInt(req.params.row);
+    const rj = await dbQ('SELECT * FROM recurring_jobs WHERE id = $1 AND company_id = $2', [id, COMPANY_ID]);
+    if (!rj.rows.length) return res.status(404).json({ error: 'Recurring job not found' });
+    const rec = rj.rows[0];
 
-    // Get this recurring job
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: ssId, range: `Recurring Jobs!A${rowNum}:J${rowNum}`
-    });
-    const data = (r.data.values || [[]])[0];
-    const clientName  = data[0] || '';
-    const serviceType = data[2] || '';
-    const price       = data[5] || '';
-    const assignedTo  = data[6] || '';
+    // Create a new job from the template
+    const jobRef = 'JOB-' + Date.now().toString().slice(-5);
+    const newJob = await dbQ(
+      `INSERT INTO jobs (company_id, job_ref, title, service, status, estimated_value, start_date) VALUES ($1,$2,$3,$4,'active',$5,NOW()) RETURNING id`,
+      [COMPANY_ID, jobRef, rec.title, rec.service, rec.estimated_value]
+    );
 
-    // Create a new job entry
-    const jobId    = 'JOB-' + Date.now().toString().slice(-5);
-    const today    = new Date().toISOString().split('T')[0];
-    const newJobRow = [jobId, clientName, data[1]||'', serviceType, today, '', 'Active', price, '', assignedTo, '', '', '', ''];
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: ssId, range: 'Jobs!A:N',
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [newJobRow] }
+    // Update last run
+    await dbQ('UPDATE recurring_jobs SET last_run = NOW(), next_run = next_run + INTERVAL \'1\' || $1 WHERE id = $2',
+      [rec.frequency === 'Weekly' ? ' week' : rec.frequency === 'Bi-Weekly' ? ' 2 weeks' : rec.frequency === 'Monthly' ? ' month' : ' 3 months', id]
+    ).catch(() => {
+      // Fallback: just update last_run
+      dbQ('UPDATE recurring_jobs SET last_run = NOW() WHERE id = $1', [id]);
     });
 
-    // Update last run date
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: ssId, range: `Recurring Jobs!J${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [[today]] }
-    });
-
-    res.json({ ok: true, jobId });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+    res.json({ ok: true, jobId: jobRef, newJobId: newJob.rows[0]?.id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── TASKS ─────────────────────────────────────────────────────────────────────
