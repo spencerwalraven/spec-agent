@@ -948,6 +948,40 @@ app.post('/api/timeclock/manual', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: OUTSTANDING INVOICES ────────────────────────────────────────────────
+app.get('/api/invoices/outstanding', requireAuth, async (req, res) => {
+  try {
+    const { query: dbQ } = require('./src/db');
+    const result = await dbQ(`
+      SELECT i.*, j.job_ref, j.title AS job_title, c.name AS client_name
+      FROM invoices i
+      LEFT JOIN jobs j ON i.job_id = j.id
+      LEFT JOIN clients c ON j.client_id = c.id
+      WHERE i.company_id = $1 AND i.status != 'paid'
+      ORDER BY i.due_date ASC NULLS LAST
+    `, [req.companyId || 1]);
+    const invoices = result.rows.map(r => {
+      const now = new Date();
+      const due = r.due_date ? new Date(r.due_date) : null;
+      const daysOverdue = due ? Math.max(0, Math.floor((now - due) / 86400000)) : 0;
+      return {
+        id: r.id,
+        jobId: r.job_id,
+        jobRef: r.job_ref || '',
+        jobTitle: r.job_title || '',
+        clientName: r.client_name || '',
+        invoiceType: r.invoice_type || 'invoice',
+        amount: parseFloat(r.amount) || 0,
+        status: r.status || 'pending',
+        dueDate: r.due_date ? new Date(r.due_date).toLocaleDateString() : '',
+        sentAt: r.sent_at ? new Date(r.sent_at).toLocaleDateString() : '',
+        daysOverdue,
+      };
+    });
+    res.json(invoices);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: APPROVE & SEND DOC TO CLIENT ────────────────────────────────────────
 app.post('/api/jobs/:row/approve-send', requireAuth, async (req, res) => {
   try {
@@ -1421,13 +1455,20 @@ app.post('/api/jobs/:row/site-visit', requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.row);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-    const { notes, measurements, squareFootage, qualityTier } = req.body;
+    const { notes, workAreas, squareFootage, qualityTier, lotSize,
+            clientBudget, soilConditions, accessIssues, existingConditions, clientPreferences } = req.body;
 
     const updates = {};
-    if (notes)         updates.site_visit_notes = notes;
-    if (measurements)  updates.site_visit_measurements = measurements;
-    if (squareFootage) updates.square_footage = parseInt(squareFootage);
-    if (qualityTier)   updates.quality_tier = qualityTier;
+    if (notes !== undefined)              updates.site_visit_notes = notes;
+    if (workAreas !== undefined)          updates.work_areas = workAreas;
+    if (squareFootage)                    updates.square_footage = parseInt(squareFootage) || null;
+    if (qualityTier !== undefined)        updates.quality_tier = qualityTier;
+    if (lotSize !== undefined)            updates.lot_size = lotSize;
+    if (clientBudget !== undefined)       updates.client_budget = clientBudget;
+    if (soilConditions !== undefined)     updates.soil_conditions = soilConditions;
+    if (accessIssues !== undefined)       updates.access_issues = accessIssues;
+    if (existingConditions !== undefined) updates.existing_conditions = existingConditions;
+    if (clientPreferences !== undefined)  updates.client_preferences = clientPreferences;
     updates.site_visit_date = new Date().toISOString().split('T')[0];
 
     for (const [field, value] of Object.entries(updates)) {

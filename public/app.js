@@ -726,8 +726,39 @@ async function loadDashboard() {
   // Render the status pills row
   renderDashPills(urgentCount, approvalCount, currentUser.role);
 
+  // Load outstanding invoices for owner
+  if (currentUser.role === 'owner') loadDashInvoices();
+
   // Load tasks for the dashboard tasks strip
   loadTasks();
+}
+
+async function loadDashInvoices() {
+  const el = document.getElementById('dashInvoices');
+  if (!el) return;
+  try {
+    const invoices = await api('/api/invoices/outstanding').catch(() => []);
+    if (!invoices || !invoices.length) {
+      el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">No outstanding invoices</div>';
+      return;
+    }
+    el.innerHTML = invoices.map(inv => {
+      const days = inv.daysOverdue || 0;
+      const color = days > 7 ? 'var(--red, #ef4444)' : days > 3 ? 'var(--gold)' : 'var(--green)';
+      const statusText = inv.status === 'paid' ? 'Paid' : days > 0 ? days + 'd overdue' : 'Sent';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text1)">${inv.clientName || 'Unknown'}</div>
+          <div style="font-size:11px;color:var(--text3)">${inv.jobRef || ''} — ${inv.invoiceType || 'Invoice'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text1)">${formatCurrency(inv.amount)}</div>
+          <div style="font-size:11px;font-weight:600;color:${color}">${statusText}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { el.innerHTML = ''; }
 }
 
 /* ─── FORMAT HELPERS ────────────────────────────────────────────── */
@@ -1404,19 +1435,43 @@ async function showJobDetail(idx) {
     </div>
 
     ${currentUser?.role !== 'field' ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:16px">
-      <div class="modal-section-label" style="margin-bottom:12px">📋 Site Visit Notes</div>
-      <div style="margin-bottom:10px">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Site Conditions & Client Preferences</div>
-        <textarea id="jmSiteNotes" placeholder="Describe the property, access, soil conditions, existing features, what the client wants..." rows="3" class="form-input" style="font-size:13px">${j.siteVisitNotes || ''}</textarea>
-      </div>
-      <div style="margin-bottom:10px">
-        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Measurements</div>
-        <textarea id="jmSiteMeasurements" placeholder="Patio: 20x25ft, Walkway: 4x60ft, Retaining wall: 40 linear ft..." rows="2" class="form-input" style="font-size:13px">${j.siteVisitMeasurements || ''}</textarea>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="modal-section-label" style="margin-bottom:12px">📋 Site Visit & Property Details</div>
+
+      <!-- Row 1: Property basics -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
         <div style="flex:1">
-          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Sq Ft</div>
-          <input id="jmSqft" type="number" placeholder="e.g. 500" class="form-input" style="font-size:13px;width:100%" value="${j.squareFootage || ''}">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Lot Size</div>
+          <input id="jmLotSize" placeholder="e.g. 0.5 acres" class="form-input" style="font-size:13px;width:100%" value="${j.lotSize || ''}">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Work Area (sq ft)</div>
+          <input id="jmSqft" type="number" placeholder="e.g. 800" class="form-input" style="font-size:13px;width:100%" value="${j.squareFootage || ''}">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Client Budget</div>
+          <input id="jmClientBudget" placeholder="e.g. $25,000" class="form-input" style="font-size:13px;width:100%" value="${j.clientBudget || ''}">
+        </div>
+      </div>
+
+      <!-- Row 2: Work areas -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Work Areas & Dimensions</div>
+        <textarea id="jmWorkAreas" placeholder="Patio: 20x25ft&#10;Walkway: 4x60ft&#10;Retaining wall: 40 linear ft x 4ft high&#10;Planting beds: 200 sq ft" rows="3" class="form-input" style="font-size:13px">${j.workAreas || j.siteVisitMeasurements || ''}</textarea>
+      </div>
+
+      <!-- Row 3: Conditions -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Soil Conditions</div>
+          <select id="jmSoil" class="form-input" style="font-size:13px;width:100%">
+            <option value="">Select...</option>
+            <option value="Good - well drained" ${j.soilConditions?.includes('Good')?'selected':''}>Good - well drained</option>
+            <option value="Clay - poor drainage" ${j.soilConditions?.includes('Clay')?'selected':''}>Clay - poor drainage</option>
+            <option value="Rocky" ${j.soilConditions?.includes('Rocky')?'selected':''}>Rocky</option>
+            <option value="Sandy" ${j.soilConditions?.includes('Sandy')?'selected':''}>Sandy</option>
+            <option value="Wet / swampy" ${j.soilConditions?.includes('Wet')?'selected':''}>Wet / swampy</option>
+            <option value="Unknown - needs testing" ${j.soilConditions?.includes('Unknown')?'selected':''}>Unknown - needs testing</option>
+          </select>
         </div>
         <div style="flex:1">
           <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Preferred Tier</div>
@@ -1429,13 +1484,37 @@ async function showJobDetail(idx) {
           </select>
         </div>
       </div>
+
+      <!-- Row 4: Access & Existing -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Access Issues</div>
+        <input id="jmAccess" placeholder="Narrow gate, steep slope, power lines, HOA restrictions..." class="form-input" style="font-size:13px;width:100%" value="${j.accessIssues || ''}">
+      </div>
+
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Existing Conditions to Remove</div>
+        <input id="jmExisting" placeholder="Old concrete patio, dead trees, overgrown shrubs..." class="form-input" style="font-size:13px;width:100%" value="${j.existingConditions || ''}">
+      </div>
+
+      <!-- Row 5: Client preferences & notes -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Client Preferences</div>
+        <textarea id="jmPreferences" placeholder="Specific materials, plant types, colors, style (modern, natural, formal)..." rows="2" class="form-input" style="font-size:13px">${j.clientPreferences || ''}</textarea>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Additional Notes</div>
+        <textarea id="jmSiteNotes" placeholder="Anything else relevant — pets, sprinkler system, neighbor concerns..." rows="2" class="form-input" style="font-size:13px">${j.siteVisitNotes || ''}</textarea>
+      </div>
+
+      <!-- Action buttons -->
       <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save Notes</button>
+        <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save</button>
         ${!propLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndProposal('+_currentJobRow+')">📄 Generate Proposal</button>'
         : j.selectedTier && !estLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate('+_currentJobRow+')">🤖 Generate Estimate</button>'
-        : '<div style="flex:1;text-align:center;padding:10px;font-size:12px;color:var(--text3)">'+(propLink && !j.selectedTier ? '⏳ Waiting for client to select tier' : '✅ Docs generated')+'</div>'}
+        : '<div style="flex:1;text-align:center;padding:10px;font-size:12px;color:var(--text3)">'+(propLink && !j.selectedTier ? 'Waiting for client to select tier' : 'Docs generated')+'</div>'}
       </div>
-      ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: '+j.siteVisitDate+'</div>' : ''}
+      ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">Last site visit: '+j.siteVisitDate+'</div>' : ''}
     </div>` : ''}
 
     ${currentUser?.role !== 'field' && (j.tierBudget || j.tierMidrange || j.tierHighend || j.tierLuxury) ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
@@ -1580,18 +1659,26 @@ async function saveJobNotes(jobRow) {
 }
 
 async function saveSiteVisit(jobRow) {
-  const notes = document.getElementById('jmSiteNotes')?.value?.trim();
-  const measurements = document.getElementById('jmSiteMeasurements')?.value?.trim();
-  const sqft = document.getElementById('jmSqft')?.value?.trim();
-  const quality = document.getElementById('jmQuality')?.value;
+  const data = {
+    notes: document.getElementById('jmSiteNotes')?.value?.trim() || '',
+    workAreas: document.getElementById('jmWorkAreas')?.value?.trim() || '',
+    squareFootage: document.getElementById('jmSqft')?.value?.trim() || '',
+    qualityTier: document.getElementById('jmQuality')?.value || '',
+    lotSize: document.getElementById('jmLotSize')?.value?.trim() || '',
+    clientBudget: document.getElementById('jmClientBudget')?.value?.trim() || '',
+    soilConditions: document.getElementById('jmSoil')?.value || '',
+    accessIssues: document.getElementById('jmAccess')?.value?.trim() || '',
+    existingConditions: document.getElementById('jmExisting')?.value?.trim() || '',
+    clientPreferences: document.getElementById('jmPreferences')?.value?.trim() || '',
+  };
   try {
     const res = await fetch(`/api/jobs/${jobRow}/site-visit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes, measurements, squareFootage: sqft, qualityTier: quality }),
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Save failed');
-    toast('✅ Site visit notes saved!');
+    toast('✅ Site visit saved!');
   } catch (e) {
     toast('❌ ' + e.message, 3000);
   }
