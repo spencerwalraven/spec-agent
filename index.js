@@ -1569,8 +1569,9 @@ app.post('/webhook/sms', express.urlencoded({ extended: false }), async (req, re
 
     logger.info('SMS', `Inbound from ${from}: ${body}`);
 
-    const sheets = app.locals.sheets;
+    const sheets = getSheets();
     const ssId   = process.env.SHEET_ID;
+    if (!ssId) return;
 
     // Look up who sent this — check Leads tab first, then Clients tab
     let senderName  = null;
@@ -1692,8 +1693,8 @@ app.get('/api/weather', requireAuth, async (req, res) => {
 // GET /api/sms — get SMS conversation log
 app.get('/api/sms', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
+    const sheets = getSheets();
+    const ssId   = process.env.SHEET_ID;
     let rows = [];
     try {
       const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'SMS Log!A:G' });
@@ -1725,8 +1726,8 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     await sms.sendSms(to, message);
 
     // Log it
-    const sheets    = req.app.locals.sheets;
-    const ssId      = req.session.sheetId;
+    const sheets    = getSheets();
+    const ssId      = process.env.SHEET_ID;
     const timestamp = new Date().toISOString();
     try {
       await sheets.spreadsheets.values.append({
@@ -1968,7 +1969,7 @@ app.get('/status/:jobId', (req, res) => {
 app.get('/api/pay/:jobId', async (req, res) => {
   try {
     const jobId  = (req.params.jobId || '').toUpperCase();
-    const sheets = app.locals.sheets;
+    const sheets = getSheets();
     const ssId   = process.env.SHEET_ID;
 
     // Find job in Jobs tab
@@ -3992,8 +3993,8 @@ async function validateSheetSchema() {
 // GET /api/recurring — list all recurring job templates
 app.get('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
+    const sheets = getSheets();
+    const ssId   = process.env.SHEET_ID;
     let rows = [];
     try {
       const r = await sheets.spreadsheets.values.get({
@@ -4025,8 +4026,8 @@ app.get('/api/recurring', requireAuth, async (req, res) => {
 // POST /api/recurring — create a new recurring job
 app.post('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
+    const sheets = getSheets();
+    const ssId   = process.env.SHEET_ID;
     const { clientName, address, serviceType, frequency, nextDate, price, assignedTo, notes } = req.body;
     if (!clientName || !serviceType || !frequency) return res.status(400).json({ error: 'clientName, serviceType, frequency required' });
 
@@ -4060,8 +4061,8 @@ app.post('/api/recurring', requireAuth, async (req, res) => {
 // POST /api/recurring/:row/run — manually trigger a recurring job (creates a job entry)
 app.post('/api/recurring/:row/run', requireAuth, async (req, res) => {
   try {
-    const sheets = req.app.locals.sheets;
-    const ssId   = req.session.sheetId;
+    const sheets = getSheets();
+    const ssId   = process.env.SHEET_ID;
     const rowNum = parseInt(req.params.row);
 
     // Get this recurring job
