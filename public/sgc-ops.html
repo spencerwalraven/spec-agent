@@ -64,6 +64,8 @@
       transition: all 0.2s;
     }
     .refresh-btn:hover { color: var(--gold); border-color: var(--gold); }
+    .qb-btn-connected { color: var(--green) !important; border-color: var(--green) !important; }
+    .qb-btn-disconnected { color: var(--red) !important; border-color: var(--red) !important; }
 
     /* ── NAV TABS ── */
     .nav-tabs {
@@ -830,6 +832,39 @@
     }
     .export-btn:hover { color: var(--gold); border-color: rgba(201,168,76,0.4); }
 
+    /* ── DOCS UPLOAD ── */
+    .doc-btn { background:none; border:1px solid var(--border); border-radius:6px; color:var(--text2); font-size:11px; padding:3px 7px; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+    .doc-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .doc-btn.has-docs { border-color:rgba(74,222,128,0.4); color:var(--green); }
+    .doc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .doc-modal { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:480px; max-height:80vh; overflow-y:auto; }
+    .doc-modal h3 { font-size:16px; font-weight:700; margin-bottom:4px; }
+    .doc-modal-sub { font-size:12px; color:var(--text3); margin-bottom:20px; }
+    .doc-link-item { display:flex; align-items:center; justify-content:space-between; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:8px; font-size:13px; }
+    .doc-link-item a { color:var(--gold); text-decoration:none; word-break:break-all; }
+    .doc-link-item a:hover { text-decoration:underline; }
+    .doc-upload-area { border:1.5px dashed var(--border); border-radius:10px; padding:20px; text-align:center; margin-top:16px; cursor:pointer; transition:border-color 0.2s; }
+    .doc-upload-area:hover { border-color:var(--gold); }
+    .doc-type-select { width:100%; background:var(--card2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 12px; font-size:13px; margin-bottom:10px; }
+
+    /* ── BUDGET PANEL ── */
+    .budget-row-wrap { background:var(--card2); border-top:1px solid var(--border); }
+    .budget-panel { padding:16px 20px; }
+    .budget-panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .budget-panel-title { font-size:13px; font-weight:700; }
+    .budget-totals { display:flex; gap:16px; font-size:12px; }
+    .budget-total-item { text-align:center; }
+    .budget-total-label { color:var(--text3); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
+    .budget-total-value { font-size:16px; font-weight:700; margin-top:2px; }
+    .budget-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:12px; }
+    .budget-table th { color:var(--text3); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; padding:4px 8px; text-align:left; border-bottom:1px solid var(--border); }
+    .budget-table td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.03); }
+    .budget-table tr:last-child td { border-bottom:none; }
+    .budget-variance.pos { color:var(--green); }
+    .budget-variance.neg { color:var(--red); }
+    .budget-add-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .budget-add-row input, .budget-add-row select { flex:1; min-width:80px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:5px 8px; font-size:12px; }
+
     /* ── DEMO BANNER ── */
     .demo-banner {
       background: rgba(201,168,76,0.1);
@@ -890,6 +925,8 @@
     <div class="top-bar-right">
       <span class="last-updated" id="lastUpdated">Loading...</span>
       <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+      <button class="refresh-btn" id="qbStatusBtn" onclick="qbConnectClick()" title="QuickBooks">⏳ QB</button>
+      <a href="/logout" class="refresh-btn" style="text-decoration:none;color:var(--text2)" title="Sign out">⎋ Logout</a>
     </div>
   </div>
 
@@ -951,6 +988,7 @@
               <th class="sortable" onclick="sortSubs('sent1099')">1099 Sent</th>
               <th class="sortable" onclick="sortSubs('totalPaid')">2025 Total Paid</th>
               <th>Notes</th>
+              <th>Docs</th>
               <th style="width:32px"></th>
             </tr>
           </thead>
@@ -1092,10 +1130,11 @@
               <th>Status</th>
               <th>Target End</th>
               <th>Notes</th>
+              <th>Budget</th>
             </tr>
           </thead>
           <tbody id="jobsTable">
-            <tr><td colspan="5" class="loading"><div class="spinner"></div>Loading jobs...</td></tr>
+            <tr><td colspan="6" class="loading"><div class="spinner"></div>Loading jobs...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1119,6 +1158,7 @@
                   <th>Status</th>
                   <th>Target End</th>
                   <th>Notes</th>
+                  <th>Budget</th>
                 </tr>
               </thead>
               <tbody id="completedJobsTable"></tbody>
@@ -1337,6 +1377,38 @@
     </div>
   </div>
 
+  <!-- DOC UPLOAD MODAL -->
+  <div class="doc-modal-overlay" id="docModal" onclick="if(event.target===this)closeDocModal()">
+    <div class="doc-modal">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-weight:700;font-size:16px">📎 Sub Documents</div>
+        <button class="doc-btn" onclick="closeDocModal()" style="padding:4px 10px">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px" id="docModalSubName"></div>
+
+      <div id="docLinksList" style="margin-bottom:16px"></div>
+
+      <div class="doc-upload-area" id="docUploadArea" onclick="document.getElementById('docFileInput').click()">
+        <div style="font-size:24px;margin-bottom:6px">📁</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">Click to select a file</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">W-9, COI, or other sub document</div>
+        <div id="docFileName" style="font-size:12px;color:var(--gold);margin-top:8px;display:none"></div>
+      </div>
+      <input type="file" id="docFileInput" style="display:none" onchange="onDocFileSelect(event)">
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <select class="doc-type-select" id="docTypeSelect" style="flex:1">
+          <option value="W-9">W-9</option>
+          <option value="COI">COI (Certificate of Insurance)</option>
+          <option value="Contract">Contract</option>
+          <option value="Other">Other</option>
+        </select>
+        <button class="add-row-btn" id="docUploadBtn" onclick="uploadDoc()" style="opacity:0.4;pointer-events:none">Upload</button>
+      </div>
+      <div id="docUploadStatus" style="font-size:12px;color:var(--text2);margin-top:8px;display:none"></div>
+    </div>
+  </div>
+
   <!-- CHAT OVERLAY -->
   <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
 
@@ -1531,7 +1603,7 @@
         });
       }
       if (!subs.length) {
-        document.getElementById('subsTable').innerHTML = '<tr><td colspan="10" class="empty">No subcontractors found</td></tr>';
+        document.getElementById('subsTable').innerHTML = '<tr><td colspan="11" class="empty">No subcontractors found</td></tr>';
         return;
       }
       document.getElementById('subsTable').innerHTML = subs.map(s => `
@@ -1545,6 +1617,7 @@
           <td>${statusPill(s.sent1099,    s._row, '1099 Sent')}</td>
           <td>${editCell(s.totalPaid, s._row, '2025 Total', 'number', 90, 'sub')}</td>
           <td>${editCell(s.notes,    s._row, 'NOTES',       'text',  160, 'sub')}</td>
+          <td>${(_subDocLinks[s._row] = s.docLinks||'', `<button class="doc-btn${s.docLinks ? ' has-docs' : ''}" title="View/Upload documents" onclick="openDocUpload(${s._row},'${(s.name||'').replace(/'/g,"\\'")}')">📎${s.docLinks ? ' ' + s.docLinks.split('\n').filter(Boolean).length : ''}</button>`)}</td>
           <td><button class="del-btn" title="Delete subcontractor" onclick="confirmDeleteSub(${s._row},'${(s.name||'').replace(/'/g,"\\'")}')">🗑</button></td>
         </tr>
       `).join('');
@@ -2060,12 +2133,41 @@
 
     function renderJobRow(j, isCompleted) {
       return `
-        <tr style="${isCompleted ? 'opacity:0.7' : ''}">
+        <tr style="${isCompleted ? 'opacity:0.7' : ''}" data-job-row="${j._row}">
           <td><strong>#${j.job || '—'}</strong>${j.address ? `<br><span style="color:var(--text3);font-size:11px">${j.address}</span>` : ''}</td>
           <td>${j.customer || '—'}</td>
           <td>${jobStatusSelect(j.status, j._row)}</td>
           <td style="color:var(--text2)">${editCell(j.thru, j._row, 'Thru', 'text', 90, 'job')}</td>
           <td>${editCell(j.notes, j._row, 'Notes', 'text', 180, 'job')}</td>
+          <td><button class="doc-btn" title="View budget" onclick="toggleBudgetPanel(${j._row})">📊</button></td>
+        </tr>
+        <tr class="budget-row-wrap" id="budget-wrap-${j._row}" style="display:none">
+          <td colspan="6" style="padding:0">
+            <div class="budget-panel" id="budget-panel-${j._row}">
+              <div class="budget-panel-header">
+                <span style="font-weight:600;font-size:13px">Budget — Job #${j.job || j._row}</span>
+                <button class="doc-btn" onclick="toggleBudgetPanel(${j._row})" style="padding:2px 8px;font-size:11px">Close</button>
+              </div>
+              <table class="budget-table">
+                <thead><tr>
+                  <th>Phase / Description</th>
+                  <th>Budgeted</th>
+                  <th>Actual</th>
+                  <th>Variance</th>
+                  <th>Notes</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="budget-tbody-${j._row}"><tr><td colspan="6" style="color:var(--text3);font-size:12px;padding:8px 0">Loading…</td></tr></tbody>
+              </table>
+              <div class="budget-add-row" id="budget-add-${j._row}">
+                <input class="modal-input" id="ba-phase-${j._row}" placeholder="Phase" style="flex:2;min-width:100px;font-size:12px;padding:6px 10px">
+                <input class="modal-input" id="ba-budgeted-${j._row}" placeholder="Budgeted $" type="number" style="flex:1;min-width:80px;font-size:12px;padding:6px 10px">
+                <input class="modal-input" id="ba-actual-${j._row}" placeholder="Actual $" type="number" style="flex:1;min-width:80px;font-size:12px;padding:6px 10px">
+                <input class="modal-input" id="ba-notes-${j._row}" placeholder="Notes" style="flex:2;min-width:100px;font-size:12px;padding:6px 10px">
+                <button class="add-row-btn" onclick="addBudgetLine(${j._row})" style="white-space:nowrap">+ Add</button>
+              </div>
+            </div>
+          </td>
         </tr>`;
     }
 
@@ -2390,8 +2492,8 @@
             ${invoices.map(inv => `
               <tr>
                 <td style="font-weight:600">${inv.customer}</td>
-                <td style="color:var(--text3)">#${inv.invoiceNum}</td>
-                <td style="color:var(--text3)">${inv.due || '—'}</td>
+                <td style="color:var(--text3)">#${inv.invoiceNumber || '—'}</td>
+                <td style="color:var(--text3)">${inv.dueDate || '—'}</td>
                 <td><span class="aging-badge ${agingClass(inv.bucket)}">${inv.bucket}</span></td>
                 <td style="text-align:right;font-weight:600;color:${inv.daysOverdue>30?'var(--red)':'var(--text)'}">${$fmt(inv.amount)}</td>
               </tr>`).join('')}
@@ -2584,6 +2686,245 @@
       input.focus();
     }
 
+    // ── DOC UPLOAD ──
+    let _docRow = null;
+    const _subDocLinks = {}; // row -> docLinks string
+
+    function openDocUpload(row, name) {
+      _docRow = row;
+      document.getElementById('docModalSubName').textContent = name;
+      document.getElementById('docModal').style.display = 'flex';
+      document.getElementById('docFileInput').value = '';
+      document.getElementById('docFileName').style.display = 'none';
+      document.getElementById('docUploadBtn').style.opacity = '0.4';
+      document.getElementById('docUploadBtn').style.pointerEvents = 'none';
+      document.getElementById('docUploadStatus').style.display = 'none';
+
+      // Links stored as "label: url\nlabel2: url2"
+      const existingLinks = _subDocLinks[row] || '';
+      const links = existingLinks.split('\n').map(l => l.trim()).filter(Boolean);
+      const list = document.getElementById('docLinksList');
+      if (links.length) {
+        list.innerHTML = links.map((l) => {
+          const colonIdx = l.lastIndexOf(': http');
+          const label = colonIdx > 0 ? l.slice(0, colonIdx) : 'Document';
+          const url   = colonIdx > 0 ? l.slice(colonIdx + 2) : l;
+          return `<div class="doc-link-item"><span>📄 ${label}</span><a href="${url}" target="_blank" style="color:var(--gold);font-size:12px">Open ↗</a></div>`;
+        }).join('');
+      } else {
+        list.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:4px">No documents uploaded yet.</div>';
+      }
+    }
+
+    function closeDocModal() {
+      document.getElementById('docModal').style.display = 'none';
+      _docRow = null;
+    }
+
+    function onDocFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const nameEl = document.getElementById('docFileName');
+      nameEl.textContent = file.name;
+      nameEl.style.display = 'block';
+      document.getElementById('docUploadBtn').style.opacity = '1';
+      document.getElementById('docUploadBtn').style.pointerEvents = 'auto';
+    }
+
+    async function uploadDoc() {
+      const file = document.getElementById('docFileInput').files[0];
+      if (!file || !_docRow) return;
+      const docType = document.getElementById('docTypeSelect').value;
+      const statusEl = document.getElementById('docUploadStatus');
+      const btn = document.getElementById('docUploadBtn');
+      btn.textContent = 'Uploading…';
+      btn.style.opacity = '0.6';
+      btn.style.pointerEvents = 'none';
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Uploading to Google Drive…';
+
+      try {
+        // Read file as base64
+        const fileData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const res = await fetch(`/api/sgc/ops/subs/${_docRow}/docs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileData,
+            mimeType: file.type || 'application/octet-stream',
+            label: `${docType} — ${file.name}`,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '✓ Uploaded successfully';
+        showToast('Document uploaded', 'success');
+        setTimeout(() => { closeDocModal(); loadSubs(); }, 800);
+      } catch (err) {
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = 'Upload failed: ' + err.message;
+        btn.textContent = 'Upload';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+      }
+    }
+
+    // ── BUDGET PANEL ──
+    const _budgetCache = {};
+
+    async function toggleBudgetPanel(row) {
+      const wrap = document.getElementById(`budget-wrap-${row}`);
+      if (!wrap) return;
+      if (wrap.style.display !== 'none') {
+        wrap.style.display = 'none';
+        return;
+      }
+      wrap.style.display = '';
+      await loadBudget(row);
+    }
+
+    async function loadBudget(row) {
+      const tbody = document.getElementById(`budget-tbody-${row}`);
+      if (!tbody) return;
+      try {
+        const res = await fetch(`/api/sgc/ops/jobs/${row}/budget`);
+        const data = await res.json();
+        const lines = data.items || [];
+        _budgetCache[row] = lines;
+        renderBudgetTable(row, lines);
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);font-size:12px">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    function renderBudgetTable(row, lines) {
+      const tbody = document.getElementById(`budget-tbody-${row}`);
+      if (!tbody) return;
+      if (!lines.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);font-size:12px;padding:8px 0">No budget lines yet — add one below.</td></tr>';
+        return;
+      }
+      let totalBudgeted = 0, totalActual = 0;
+      tbody.innerHTML = lines.map((l, i) => {
+        const b = parseFloat(l.budgeted) || 0;
+        const a = parseFloat(l.actual) || 0;
+        const v = b - a;
+        totalBudgeted += b; totalActual += a;
+        const vClass = v >= 0 ? 'pos' : 'neg';
+        const vSign  = v >= 0 ? '+' : '';
+        return `<tr>
+          <td style="font-size:12px">${l.phase || '—'}</td>
+          <td style="font-size:12px">$${b.toLocaleString()}</td>
+          <td style="font-size:12px">$${a.toLocaleString()}</td>
+          <td class="budget-variance ${vClass}" style="font-size:12px">${vSign}$${Math.abs(v).toLocaleString()}</td>
+          <td style="font-size:12px;color:var(--text2)">${l.notes || ''}</td>
+          <td><button class="del-btn" style="font-size:11px;padding:2px 6px" onclick="deleteBudgetLine(${row},${i})">🗑</button></td>
+        </tr>`;
+      }).join('');
+      const totalV = totalBudgeted - totalActual;
+      const totalVClass = totalV >= 0 ? 'pos' : 'neg';
+      const totalVSign  = totalV >= 0 ? '+' : '';
+      tbody.innerHTML += `<tr style="border-top:1px solid var(--border);font-weight:600">
+        <td style="font-size:12px;padding-top:6px">Total</td>
+        <td style="font-size:12px;padding-top:6px">$${totalBudgeted.toLocaleString()}</td>
+        <td style="font-size:12px;padding-top:6px">$${totalActual.toLocaleString()}</td>
+        <td class="budget-variance ${totalVClass}" style="font-size:12px;padding-top:6px">${totalVSign}$${Math.abs(totalV).toLocaleString()}</td>
+        <td colspan="2"></td>
+      </tr>`;
+    }
+
+    async function addBudgetLine(row) {
+      const phase    = document.getElementById(`ba-phase-${row}`)?.value.trim();
+      const budgeted = document.getElementById(`ba-budgeted-${row}`)?.value;
+      const actual   = document.getElementById(`ba-actual-${row}`)?.value;
+      const notes    = document.getElementById(`ba-notes-${row}`)?.value.trim();
+      if (!phase) { showToast('Phase/description is required', 'error'); return; }
+      try {
+        const res = await fetch(`/api/sgc/ops/jobs/${row}/budget`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phase, budgeted: budgeted || '0', actual: actual || '0', notes }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        document.getElementById(`ba-phase-${row}`).value    = '';
+        document.getElementById(`ba-budgeted-${row}`).value = '';
+        document.getElementById(`ba-actual-${row}`).value   = '';
+        document.getElementById(`ba-notes-${row}`).value    = '';
+        showToast('Budget line added', 'success');
+        await loadBudget(row);
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function deleteBudgetLine(row, index) {
+      try {
+        const res = await fetch(`/api/sgc/ops/jobs/${row}/budget/${index}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('Budget line deleted', 'success');
+        await loadBudget(row);
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    // ── QB STATUS BUTTON ──
+    async function checkQbStatus() {
+      const btn = document.getElementById('qbStatusBtn');
+      if (!btn) return;
+      try {
+        const r = await fetch('/api/sgc/quickbooks/status');
+        const d = await r.json();
+        if (d.connected) {
+          btn.textContent = `✓ QB${d.company ? ': ' + d.company : ''}`;
+          btn.classList.add('qb-btn-connected');
+          btn.classList.remove('qb-btn-disconnected');
+          btn.title = `Connected to QuickBooks${d.company ? ': ' + d.company : ''} — click to disconnect`;
+        } else {
+          btn.textContent = '🔌 Connect QB';
+          btn.classList.add('qb-btn-disconnected');
+          btn.classList.remove('qb-btn-connected');
+          btn.title = 'QuickBooks not connected — click to connect';
+        }
+        btn._qbConnected = d.connected;
+      } catch (e) {
+        btn.textContent = '? QB';
+      }
+    }
+
+    function qbConnectClick() {
+      const btn = document.getElementById('qbStatusBtn');
+      if (btn?._qbConnected) {
+        // Already connected — offer to disconnect
+        if (!confirm('Disconnect QuickBooks?')) return;
+        fetch('/api/sgc/quickbooks/disconnect', { method: 'POST' })
+          .then(() => { showToast('QuickBooks disconnected', 'success'); checkQbStatus(); meetingLoaded = false; })
+          .catch(e => showToast('Error: ' + e.message, 'error'));
+      } else {
+        // Open OAuth popup
+        const popup = window.open('/api/sgc/quickbooks/connect', 'qb-connect', 'width=600,height=700,left=200,top=100');
+        if (!popup) { window.location.href = '/api/sgc/quickbooks/connect'; }
+      }
+    }
+
+    // Reload meeting tab when QB OAuth popup signals success
+    window.addEventListener('message', e => {
+      if (e.data === 'qb-connected') {
+        checkQbStatus();
+        meetingLoaded = false;
+        showToast('QuickBooks connected! Loading data…', 'success');
+        Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.includes('Monday'))?.click();
+        loadMeeting(true);
+      }
+    });
+
     function loadAll() {
       document.getElementById('lastUpdated').textContent = 'Refreshing...';
       Promise.all([loadSubs(), loadInsurance(), loadJobs(), loadReports()]).then(() => {
@@ -2592,6 +2933,7 @@
       });
     }
 
+    checkQbStatus();
     loadAll();
   </script>
 </body>

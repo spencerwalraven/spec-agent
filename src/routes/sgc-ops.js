@@ -123,13 +123,13 @@ module.exports = function createSgcRouter({ requireAuth, requireOwner, logger, a
           const rawInvoices = await sgcQB.listOpenInvoices();
           const today = new Date(); today.setHours(0,0,0,0);
           invoices = rawInvoices.map(inv => {
-            const due = inv.DueDate ? new Date(inv.DueDate) : null;
+            const due = inv.dueDate ? new Date(inv.dueDate) : null;
             const daysOverdue = due ? Math.ceil((today - due) / 86400000) : 0;
             let bucket = 'Current';
             if (daysOverdue > 90) bucket = '90+';
-            else if (daysOverdue > 60) bucket = '60-90';
-            else if (daysOverdue > 30) bucket = '30-60';
-            else if (daysOverdue > 0)  bucket = '1-30';
+            else if (daysOverdue > 60) bucket = '61–90';
+            else if (daysOverdue > 30) bucket = '31–60';
+            else if (daysOverdue > 0)  bucket = '1–30';
             return { ...inv, daysOverdue, bucket };
           });
 
@@ -754,8 +754,11 @@ module.exports = function createSgcRouter({ requireAuth, requireOwner, logger, a
       res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
         <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
         <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
-        <p style="color:#888">You can close this window and return to your SGC assistant.</p>
-        <script>setTimeout(() => window.close(), 3000)</script>
+        <p style="color:#888">This window will close automatically…</p>
+        <script>
+          if (window.opener) window.opener.postMessage('qb-connected', '*');
+          setTimeout(() => window.close(), 2000);
+        </script>
       </body></html>`);
     } catch (e) { res.status(500).send(`QB callback error: ${e.message}`); }
   });

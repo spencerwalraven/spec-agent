@@ -304,4 +304,5 @@ module.exports = {
   listOpenInvoices,
   getInvoiceStatus,
   findOrCreateCustomer,
+  qbRequest,
 };
