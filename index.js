@@ -3562,7 +3562,7 @@ app.get('/api/sgc/ops/field-reports/remind', async (req, res) => {
     const { sendEmail }   = require('./src/tools/gmail');
 
     // Send individual reminder emails to each missing worker (if they have an email)
-    const tallyFormUrl = process.env.SGC_TALLY_URL || 'https://tally.so/r/your-form';
+    const tallyFormUrl = process.env.SGC_TALLY_FORM_URL || process.env.SGC_TALLY_URL || 'https://tally.so/r/2EL9Wg';
     const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     let workerEmailsSent = 0;
 
