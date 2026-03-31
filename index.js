@@ -3003,10 +3003,19 @@ app.get('/api/sgc/ops/jobs', async (req, res) => {
 app.get('/api/sgc/ops/field-reports', async (req, res) => {
   try {
     const agent = require('./src/agents/sgc-admin-agent');
-    const rows = await agent.sgcReadTab('Field Reports');
-    res.json({ reports: rows });
+    const [rows, workerRows] = await Promise.all([
+      agent.sgcReadTab('Field Reports'),
+      agent.sgcReadTab('SGC Workers').catch(() => []),
+    ]);
+    const workers = workerRows.map(w => ({
+      _row:  w._row,
+      name:  w['Name']  || '',
+      email: w['Email'] || '',
+      phone: w['Phone'] || '',
+    })).filter(w => w.name);
+    res.json({ reports: rows, workers });
   } catch (e) {
-    res.json({ reports: [] });
+    res.json({ reports: [], workers: [] });
   }
 });
 
