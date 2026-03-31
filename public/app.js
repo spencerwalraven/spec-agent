@@ -2641,7 +2641,7 @@ function renderMarketing() {
     const launched = status.includes('launch') || status.includes('sent');
     const row      = m.__row || m._row;
     const typeIcon = Object.keys(icons).find(k => type.includes(k));
-    const icon     = icons[typeIcon] || icons.default;
+    const icon     = icons[typeIcon] || icons.alert || '';
 
     return `
       <div class="mktg-card">
