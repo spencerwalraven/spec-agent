@@ -3084,15 +3084,8 @@ app.get('/api/sgc/ops/meeting', async (req, res) => {
           amount: p.TotalAmt, memo: p.PrivateNote || p.Memo || '',
         }));
       } catch (qbErr) {
-        qbError = qbErr.message;
-        // If refresh token is invalid, clear stored tokens so status button updates
-        if (qbErr.message.includes('invalid_grant') || qbErr.message.includes('invalid_token')) {
-          try {
-            const tokenFile = path.join(__dirname, 'src/data/sgc-qb-tokens.json');
-            if (fs.existsSync(tokenFile)) fs.unlinkSync(tokenFile);
-          } catch (_) {}
-          qbError = 'not_connected';
-        }
+        // sgc-quickbooks sets _forceDisconnected on invalid_grant automatically
+        qbError = 'not_connected';
       }
     } else {
       qbError = 'not_connected';

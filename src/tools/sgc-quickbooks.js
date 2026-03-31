@@ -30,6 +30,11 @@ const SCOPE     = 'com.intuit.quickbooks.accounting';
 
 const TOKEN_FILE = path.join(__dirname, '../data/sgc-qb-tokens.json');
 
+// ─── IN-MEMORY DISCONNECT FLAG ────────────────────────────────────────────────
+// Set to true when invalid_grant is received so isConnected() returns false
+// even if the env-var fallback would otherwise recreate the token file.
+let _forceDisconnected = false;
+
 // ─── TOKEN STORAGE (local JSON file) ─────────────────────────────────────────
 
 function getTokens() {
@@ -79,6 +84,7 @@ function getAuthUrl(redirectUri) {
 }
 
 async function exchangeCodeForTokens(code, realmId, redirectUri) {
+  _forceDisconnected = false; // clear any previous invalidation
   const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
@@ -120,7 +126,14 @@ async function refreshAccessToken(refreshToken) {
     },
     body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
   });
-  if (!res.ok) throw new Error(`QB token refresh failed: ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    if (body.includes('invalid_grant') || body.includes('invalid_token')) {
+      _forceDisconnected = true;
+      logger.warn('SGC-QB', 'Refresh token invalid — marking QB as disconnected');
+    }
+    throw new Error(`QB token refresh failed: ${body}`);
+  }
   const data = await res.json();
   const expiresAt = new Date(Date.now() + (data.expires_in - 60) * 1000).toISOString();
   return {
@@ -146,6 +159,7 @@ async function getValidToken() {
 }
 
 function isConnected() {
+  if (_forceDisconnected) return false;
   const t = getTokens();
   return !!(t.refreshToken && t.realmId);
 }
