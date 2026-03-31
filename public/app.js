@@ -1,57 +1,3 @@
-/* ── SVG ICON LIBRARY ──────────────────────────────────────────── */
-const icons = {
-  home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-  user: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-  briefcase: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
-  users: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  menu: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
-  bell: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-  refresh: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
-  calendar: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-  dollar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-  file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-  check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-  alert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-  clock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  camera: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-  settings: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-  chart: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-  target: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
-  send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
-  package: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-  megaphone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  bot: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>',
-  repeat: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
-  clipboard: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
-  mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>',
-  phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-  shield: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-  star: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-  mappin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-  truck: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
-  flag: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
-  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
-  x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-  wrench: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-  leaf: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 17 3.5s4.3 2 3 9.5c-.6 3.5-2.5 5.7-5 7"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>',
-};
-
-// ── INIT HOOK: populate data-icon elements after DOM ready ──────
-function _initIcons() {
-  document.querySelectorAll('.sfield-svg[data-icon]').forEach(function(el) { el.innerHTML = icons[el.dataset.icon] || ''; });
-  document.querySelectorAll('.more-svg[data-icon]').forEach(function(el) { el.innerHTML = icons[el.dataset.icon] || ''; });
-  document.querySelectorAll('.trig-svg[data-icon]').forEach(function(el) { el.innerHTML = icons[el.dataset.icon] || ''; });
-  document.querySelectorAll('.photo-svg-icon[data-icon]').forEach(function(el) { el.innerHTML = icons[el.dataset.icon] || ''; });
-  var m = { navIconHome: 'home', navIconUser: 'user', navIconJobs: 'briefcase', navIconSchedule: 'calendar', navIconMore: 'menu' };
-  Object.keys(m).forEach(function(id) { var el = document.getElementById(id); if (el) el.innerHTML = icons[m[id]]; });
-  var bellEl = document.getElementById('bellIcon'); if (bellEl) bellEl.innerHTML = icons.bell;
-  var chatBtn = document.getElementById('chatBtnIcon'); if (chatBtn) chatBtn.innerHTML = icons.bot;
-  document.querySelectorAll('#searchIconPlaceholder').forEach(function(el) { el.innerHTML = icons.search; el.removeAttribute('id'); });
-  document.querySelectorAll('.chat-bot-avatar').forEach(function(el) { el.innerHTML = icons.bot; });
-  document.querySelectorAll('.tm-avatar-svg').forEach(function(el) { el.innerHTML = icons.user; });
-}
-
 /* ─── DEMO DATA (fallback when API is unreachable) ─────────────── */
 const DEMO = {
   summary: {
@@ -104,10 +50,10 @@ const DEMO = {
     { __row: 7, Name: 'Elite Electric', Role: 'Electrical Subcontractor', Email: 'info@eliteelectric.com', Phone: '555-3002', Type: 'Subcontractor', Active: 'No', 'Active Jobs': 0 },
   ],
   alerts: [
-    { type: 'urgent', icon: '!', title: 'Hot lead not contacted', desc: 'Linda Foster submitted 2 hours ago — Score 85. No contact made yet.', tag: 'Lead: Linda Foster' },
-    { type: 'urgent', icon: '!', title: 'Hot lead not contacted', desc: 'Marcus Johnson submitted yesterday — Score 88. No contact made yet.', tag: 'Lead: Marcus Johnson' },
-    { type: 'warning', icon: '!', title: 'Deposit overdue — Raj Patel', desc: 'Contract signed 5 days ago. Deposit invoice still unpaid. Job start date is April 1.', tag: 'Job: JOB-003' },
-    { type: 'info', icon: icons.clipboard, title: 'Consultation tomorrow', desc: 'Priya Mehta consultation scheduled for March 25. Prep estimate before meeting.', tag: 'Lead: Priya Mehta' },
+    { type: 'urgent', icon: '🔥', title: 'Hot lead not contacted', desc: 'Linda Foster submitted 2 hours ago — Score 85. No contact made yet.', tag: 'Lead: Linda Foster' },
+    { type: 'urgent', icon: '🔥', title: 'Hot lead not contacted', desc: 'Marcus Johnson submitted yesterday — Score 88. No contact made yet.', tag: 'Lead: Marcus Johnson' },
+    { type: 'warning', icon: '⏰', title: 'Deposit overdue — Raj Patel', desc: 'Contract signed 5 days ago. Deposit invoice still unpaid. Job start date is April 1.', tag: 'Job: JOB-003' },
+    { type: 'info', icon: '📋', title: 'Consultation tomorrow', desc: 'Priya Mehta consultation scheduled for March 25. Prep estimate before meeting.', tag: 'Lead: Priya Mehta' },
   ],
   marketing: [
     { __row: 2, 'Campaign Name': 'Spring Landscaping Promo', Type: 'seasonal', Description: 'Seasonal promotion targeting past clients for spring projects.', 'Target Audience': 'Past clients + leads', Status: 'Ready', 'Send Now': '' },
@@ -176,24 +122,24 @@ function applyRoleNav(role) {
 
   const configs = {
     owner: [
-      { page: 'dashboard', icon: icons.home, label: 'Home' },
-      { page: 'leads',     icon: icons.user, label: 'Leads',    badge: 'leadsNavBadge' },
-      { page: 'jobs',      icon: icons.briefcase, label: 'Jobs' },
-      { page: 'team',      icon: icons.users, label: 'Team' },
-      { page: 'more',      icon: icons.menu, label: 'More' },
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'team',      icon: '👥', label: 'Team' },
+      { page: 'more',      icon: '☰',  label: 'More' },
     ],
     sales: [
-      { page: 'dashboard', icon: icons.home, label: 'Home' },
-      { page: 'leads',     icon: icons.user, label: 'Leads',    badge: 'leadsNavBadge' },
-      { page: 'jobs',      icon: icons.briefcase, label: 'Jobs' },
-      { page: 'schedule',  icon: icons.calendar, label: 'Schedule' },
-      { page: 'more',      icon: icons.menu, label: 'More' },
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
+      { page: 'more',      icon: '☰',  label: 'More' },
     ],
     field: [
-      { page: 'dashboard', icon: icons.home, label: 'Home' },
-      { page: 'jobs',      icon: icons.briefcase, label: 'Jobs' },
-      { page: 'schedule',  icon: icons.calendar, label: 'Schedule' },
-      { page: 'more',      icon: icons.menu, label: 'More' },
+      { page: 'dashboard', icon: '🏠', label: 'Home' },
+      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
+      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
+      { page: 'more',      icon: '☰',  label: 'More' },
     ],
   };
 
@@ -237,46 +183,46 @@ function buildMoreMenu(role) {
 
   if (role === 'owner') {
     html += section('Daily Tools', [
-      btn('field', icons.clipboard, 'Job Estimate', 'Site visit form'),
-      btn('schedule', icons.calendar, 'Schedule', 'Calendar sync'),
-      btn('tasks', icons.check, 'Tasks', 'Action items'),
-      btn('team', icons.clock, 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
+      btn('field', '📐', 'Job Estimate', 'Site visit form'),
+      btn('schedule', '🗓️', 'Schedule', 'Calendar sync'),
+      btn('tasks', '✅', 'Tasks', 'Action items'),
+      btn('team', '⏱️', 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
     ]);
     html += section('Manage', [
-      btn('team', icons.users, 'Team', 'Members & rates'),
-      btn('clients', icons.users, 'Clients', 'Profiles & history'),
-      btn('conversations', icons.mail, 'Conversations', 'Email threads'),
-      btn('approvals', icons.shield, 'Approvals', 'Review queue'),
-      btn('marketing', icons.megaphone, 'Marketing', 'Campaigns'),
-      btn('inventory', icons.package, 'Inventory', 'Materials & equipment'),
+      btn('team', '👥', 'Team', 'Members & rates'),
+      btn('clients', '🤝', 'Clients', 'Profiles & history'),
+      btn('conversations', '💬', 'Conversations', 'Email threads'),
+      btn('approvals', '✅', 'Approvals', 'Review queue'),
+      btn('marketing', '📢', 'Marketing', 'Campaigns'),
+      btn('inventory', '📦', 'Inventory', 'Materials & equipment'),
     ]);
     html += section('Insights', [
-      btn('analytics', icons.chart, 'Analytics', 'Revenue & insights'),
-      btn('agents', icons.bot, 'AI Agents', 'Live activity'),
+      btn('analytics', '📊', 'Analytics', 'Revenue & insights'),
+      btn('agents', '🤖', 'AI Agents', 'Live activity'),
     ]);
     html += section('Admin', [
-      btn('settings', icons.settings, 'Settings', 'Company info'),
-      btn('recurring', icons.repeat, 'Recurring', 'Scheduled services'),
+      btn('settings', '⚙️', 'Settings', 'Company info'),
+      btn('recurring', '🔁', 'Recurring', 'Scheduled services'),
     ]);
 
   } else if (role === 'sales') {
     html += section('Daily Tools', [
-      btn('field', icons.clipboard, 'Job Estimate', 'Site visit form'),
-      btn('schedule', icons.calendar, 'Schedule', 'Calendar sync'),
-      btn('tasks', icons.check, 'Tasks', 'My action items'),
-      btn('alerts', icons.bell, 'Alerts', 'Notifications'),
+      btn('field', '📐', 'Job Estimate', 'Site visit form'),
+      btn('schedule', '🗓️', 'Schedule', 'Calendar sync'),
+      btn('tasks', '✅', 'Tasks', 'My action items'),
+      btn('alerts', '🔔', 'Alerts', 'Notifications'),
     ]);
     html += section('Manage', [
-      btn('clients', icons.users, 'Clients', 'Profiles & history'),
-      btn('conversations', icons.mail, 'Conversations', 'Email threads'),
-      btn('approvals', icons.shield, 'Approvals', 'Review queue'),
+      btn('clients', '🤝', 'Clients', 'Profiles & history'),
+      btn('conversations', '💬', 'Conversations', 'Email threads'),
+      btn('approvals', '✅', 'Approvals', 'Review queue'),
     ]);
 
   } else if (role === 'field') {
     html += section('Daily Tools', [
-      btn('tasks', icons.check, 'Tasks', 'My tasks'),
-      btn('team', icons.clock, 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
-      btn('alerts', icons.bell, 'Alerts', 'Notifications'),
+      btn('tasks', '✅', 'Tasks', 'My tasks'),
+      btn('team', '⏱️', 'Time Clock', 'Clock in & out', "navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"),
+      btn('alerts', '🔔', 'Alerts', 'Notifications'),
     ]);
   }
 
@@ -303,7 +249,7 @@ async function loadTodayStrip() {
       .catch(() => []);
 
     if (!events.length) {
-      el.innerHTML = '<div class="cal-evt-empty">Nothing scheduled today</div>';
+      el.innerHTML = '<div class="cal-evt-empty">📭 Nothing scheduled today</div>';
       return;
     }
 
@@ -329,7 +275,7 @@ async function loadTodayStrip() {
         </div>`;
     }).join('');
   } catch (_) {
-    el.innerHTML = '<div class="cal-evt-empty">No schedule data available</div>';
+    el.innerHTML = '<div class="cal-evt-empty">📭 No schedule data available</div>';
   }
 }
 
@@ -378,17 +324,17 @@ function renderDashPills(urgentCount, approvalCount, role) {
   const pills = [];
   if (role === 'field') {
     // Field: just show a quick link to their jobs
-    pills.push(`<button class="dash-pill blue" onclick="navigate('field')">Log Today's Update</button>`);
+    pills.push(`<button class="dash-pill blue" onclick="navigate('field')">📋 Log Today's Update</button>`);
     el.innerHTML = pills.join('');
     return;
   }
   if (urgentCount > 0) {
-    pills.push(`<button class="dash-pill red" onclick="toggleNotifPanel()">${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
+    pills.push(`<button class="dash-pill red" onclick="toggleNotifPanel()">🔥 ${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
   } else {
-    pills.push(`<div class="dash-pill green" style="cursor:default">No urgent alerts</div>`);
+    pills.push(`<div class="dash-pill green" style="cursor:default">✅ No urgent alerts</div>`);
   }
   if (approvalCount > 0) {
-    pills.push(`<button class="dash-pill gold" onclick="navigate('approvals')">${approvalCount} Pending Approval${approvalCount > 1 ? 's' : ''}</button>`);
+    pills.push(`<button class="dash-pill gold" onclick="navigate('approvals')">✅ ${approvalCount} Pending Approval${approvalCount > 1 ? 's' : ''}</button>`);
   }
   el.innerHTML = pills.join('');
 }
@@ -399,24 +345,24 @@ function renderDashQuickActions(role) {
 
   const sets = {
     owner: [
-      { icon:icons.user, name:'Leads',        desc:'View pipeline',        page:'leads' },
-      { icon:icons.briefcase, name:'Jobs',         desc:'Active projects',       page:'jobs' },
-      { icon:icons.package, name:'Inventory',    desc:'Materials & suppliers', page:'inventory' },
-      { icon:icons.megaphone, name:'Marketing',    desc:'Campaigns',             page:'marketing' },
-      { icon:icons.bot, name:'AI Agents',    desc:'Live activity',         page:'agents' },
-      { icon:icons.chart, name:'Analytics',    desc:'Revenue & trends',      page:'analytics' },
+      { icon:'👤', name:'Leads',        desc:'View pipeline',        page:'leads' },
+      { icon:'🔨', name:'Jobs',         desc:'Active projects',       page:'jobs' },
+      { icon:'📦', name:'Inventory',    desc:'Materials & suppliers', page:'inventory' },
+      { icon:'📢', name:'Marketing',    desc:'Campaigns',             page:'marketing' },
+      { icon:'🤖', name:'AI Agents',    desc:'Live activity',         page:'agents' },
+      { icon:'📊', name:'Analytics',    desc:'Revenue & trends',      page:'analytics' },
     ],
     sales: [
-      { icon:icons.user, name:'Leads',        desc:'My pipeline',      page:'leads' },
-      { icon:icons.briefcase, name:'Jobs',         desc:'Active projects',  page:'jobs' },
-      { icon:icons.check, name:'Approvals',    desc:'Review queue',     page:'approvals' },
-      { icon:icons.mail, name:'Conversations',desc:'Email threads',    page:'conversations' },
+      { icon:'👤', name:'Leads',        desc:'My pipeline',      page:'leads' },
+      { icon:'🔨', name:'Jobs',         desc:'Active projects',  page:'jobs' },
+      { icon:'✅', name:'Approvals',    desc:'Review queue',     page:'approvals' },
+      { icon:'💬', name:'Conversations',desc:'Email threads',    page:'conversations' },
     ],
     field: [
-      { icon:icons.briefcase, name:'My Jobs',      desc:'Active projects',  page:'jobs' },
-      { icon:icons.clipboard, name:'Field Update', desc:'Log progress',     page:'field' },
-      { icon:icons.calendar, name:'Schedule',    desc:'Upcoming work',    page:'schedule' },
-      { icon:icons.mail, name:'Conversations',desc:'Messages',         page:'conversations' },
+      { icon:'🔨', name:'My Jobs',      desc:'Active projects',  page:'jobs' },
+      { icon:'📋', name:'Field Update', desc:'Log progress',     page:'field' },
+      { icon:'🗓️', name:'Schedule',    desc:'Upcoming work',    page:'schedule' },
+      { icon:'💬', name:'Conversations',desc:'Messages',         page:'conversations' },
     ],
   };
 
@@ -443,8 +389,8 @@ function toast(msg, dur = 2200, type = '') {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove('show'), dur);
 }
-function toastSuccess(msg) { toast('\u2713 ' + msg, 2500, 'success'); }
-function toastError(msg)   { toast('! ' + msg, 3500, 'error'); }
+function toastSuccess(msg) { toast('✅ ' + msg, 2500, 'success'); }
+function toastError(msg)   { toast('⚠️ ' + msg, 3500, 'error'); }
 function toastInfo(msg)    { toast(msg, 2200); }
 
 /* ─── SKELETON LOADER ───────────────────────────────────────────── */
@@ -522,7 +468,7 @@ function setConnDot(state) {
   const dot = document.getElementById('connDot');
   if (!dot) return;
   dot.className = 'conn-dot ' + state;
-  dot.title = state === 'live' ? 'Connected to database'
+  dot.title = state === 'live' ? 'Connected to database ✓'
             : state === 'demo' ? 'Demo mode — not connected'
             : 'Connection error';
 }
@@ -550,7 +496,7 @@ function navigate(page) {
   // Role-based page guard
   const allowed = ROLE_PAGES[currentUser?.role];
   if (allowed && !allowed.has(page)) {
-    toast('! You don\'t have access to that page');
+    toast('⚠️ You don\'t have access to that page');
     return;
   }
 
@@ -603,7 +549,7 @@ async function refreshAll() {
   }
 
   setTimeout(() => btn.classList.remove('spinning'), 800);
-  toast(usingDemo ? 'Demo data refreshed' : 'Data refreshed');
+  toast(usingDemo ? '✓ Demo data refreshed' : '✓ Data refreshed');
 }
 
 /* ─── SETUP WIZARD ──────────────────────────────────────────────── */
@@ -845,7 +791,7 @@ function showAddLead() {
 
 async function saveNewLead() {
   const name = document.getElementById('newLeadName')?.value?.trim();
-  if (!name) { toast('\u2717 Name is required'); return; }
+  if (!name) { toast('❌ Name is required'); return; }
   const data = {
     name,
     phone:   document.getElementById('newLeadPhone')?.value?.trim() || '',
@@ -862,7 +808,7 @@ async function saveNewLead() {
     toast(`${name} added as a lead!`);
     delete loaded['leads'];
     await loadLeads();
-  } catch (e) { toast('\u2717 ' + (e.message || 'Error adding lead')); }
+  } catch (e) { toast('❌ ' + (e.message || 'Error adding lead')); }
 }
 
 /* ─── CREATE JOB ───────────────────────────────────────────────── */
@@ -882,7 +828,7 @@ async function showCreateJob() {
 
 async function saveNewJob() {
   const title = document.getElementById('newJobTitle')?.value?.trim();
-  if (!title) { toast('\u2717 Job title is required'); return; }
+  if (!title) { toast('❌ Job title is required'); return; }
   const data = {
     clientId:       document.getElementById('newJobClient')?.value || null,
     title,
@@ -899,7 +845,7 @@ async function saveNewJob() {
     toast(`Job "${title}" created!`);
     delete loaded['jobs'];
     await loadJobs();
-  } catch (e) { toast('\u2717 ' + (e.message || 'Error creating job')); }
+  } catch (e) { toast('❌ ' + (e.message || 'Error creating job')); }
 }
 
 let leadView = 'list'; // 'list' | 'pipeline'
@@ -908,7 +854,7 @@ function toggleLeadView() {
   leadView = leadView === 'list' ? 'pipeline' : 'list';
   const btn    = document.getElementById('leadViewBtn');
   const chips  = document.getElementById('leadFilterChips');
-  if (btn)   btn.textContent   = leadView === 'list' ? 'Pipeline' : 'List';
+  if (btn)   btn.textContent   = leadView === 'list' ? '🗂️ Pipeline' : '☰ List';
   if (chips) chips.style.display = leadView === 'list' ? '' : 'none';
   renderLeads();
 }
@@ -1039,7 +985,7 @@ function renderLeads() {
   if (leads.length === 0) {
     const isFiltered = leadFilter !== 'all' || search;
     el.innerHTML = `<div class="empty">
-      <div class="empty-icon">' + icons.user + '</div>
+      <div class="empty-icon">👤</div>
       <div class="empty-title">${isFiltered ? 'No leads match' : 'No leads yet'}</div>
       <div class="empty-sub">${isFiltered ? 'Clear the filter or try searching a different name' : 'New leads from your Tally form will appear here automatically'}</div>
     </div>`;
@@ -1127,7 +1073,7 @@ function showLeadDetail(idx) {
     <div class="modal-section">
       <div class="modal-section-label">Notes</div>
       <textarea class="note-editor" id="lmNoteText" placeholder="Add a note after your call…">${notes||''}</textarea>
-      <button class="save-note-btn" onclick="saveLeadNote()">Save Note/button>
+      <button class="save-note-btn" onclick="saveLeadNote()">💾 Save Note</button>
     </div>
   `;
 
@@ -1139,20 +1085,20 @@ function showLeadDetail(idx) {
   const isLost      = (status || '').toLowerCase().includes('lost');
 
   if (isConverted) {
-    convertBtn.textContent = 'Converted';
+    convertBtn.textContent = '✅ Converted';
     convertBtn.disabled = true;
     convertBtn.className = 'btn btn-green';
   } else {
-    convertBtn.textContent = 'Convert';
+    convertBtn.textContent = '🎉 Convert';
     convertBtn.disabled = false;
     convertBtn.className = 'btn btn-green';
   }
 
   if (isLost) {
-    lostBtn.textContent = 'Already Lost';
+    lostBtn.textContent = '❌ Already Lost';
     lostBtn.disabled = true;
   } else {
-    lostBtn.textContent = 'Lost';
+    lostBtn.textContent = '❌ Lost';
     lostBtn.disabled = false;
   }
 
@@ -1195,11 +1141,11 @@ async function convertLead() {
     if (lead['Lead Status'] !== undefined) lead['Lead Status'] = 'Converted';
     if (lead['leadStatus'] !== undefined) lead['leadStatus'] = 'Converted';
 
-    btn.textContent = 'Converted!';
+    btn.textContent = '✅ Converted!';
     btn.style.background = 'rgba(34,197,94,.25)';
     btn.style.color = 'var(--green)';
 
-    toast(`${name} marked as Converted!`, 3000);
+    toast(`🎉 ${name} marked as Converted!`, 3000);
 
     // Re-render list behind modal
     renderLeads();
@@ -1208,9 +1154,9 @@ async function convertLead() {
     setTimeout(() => closeModal('leadModal'), 1200);
 
   } catch(e) {
-    btn.textContent = 'Mark as Converted';
+    btn.textContent = '🎉 Mark as Converted';
     btn.disabled = false;
-    toast('! Could not update — try again');
+    toast('⚠️ Could not update — try again');
   }
 }
 
@@ -1230,13 +1176,13 @@ async function lostLead() {
     if (lead['Status'] !== undefined)      lead['Status'] = 'Lost';
     if (lead['Lead Status'] !== undefined) lead['Lead Status'] = 'Lost';
     if (lead['leadStatus'] !== undefined)  lead['leadStatus'] = 'Lost';
-    btn.textContent = 'Marked Lost';
+    btn.textContent = '❌ Marked Lost';
     toast(`${name} marked as Lost`);
     renderLeads();
     setTimeout(() => closeModal('leadModal'), 1000);
   } catch {
-    btn.textContent = 'Lost'; btn.disabled = false;
-    toast('! Could not update — try again');
+    btn.textContent = '❌ Lost'; btn.disabled = false;
+    toast('⚠️ Could not update — try again');
   }
 }
 
@@ -1260,13 +1206,13 @@ async function saveLeadNote() {
     if (lead['Agent Notes'] !== undefined) lead['Agent Notes'] = text;
     if (lead['notes'] !== undefined)       lead['notes'] = text;
     if (btn) { btn.textContent = '✓ Saved!'; btn.style.color = 'var(--green)'; }
-    toast('Note saved');
+    toast('💾 Note saved');
     setTimeout(() => {
-      if (btn) { btn.textContent = 'Save Note'; btn.disabled = false; btn.style.color = ''; }
+      if (btn) { btn.textContent = '💾 Save Note'; btn.disabled = false; btn.style.color = ''; }
     }, 2000);
   } catch {
-    if (btn) { btn.textContent = 'Save Note'; btn.disabled = false; }
-    toast('! Could not save note');
+    if (btn) { btn.textContent = '💾 Save Note'; btn.disabled = false; }
+    toast('⚠️ Could not save note');
   }
 }
 
@@ -1305,7 +1251,7 @@ function renderJobs() {
   if (jobs.length === 0) {
     const isFiltered = jobFilter !== 'all' || search;
     el.innerHTML = `<div class="empty">
-      <div class="empty-icon">' + icons.briefcase + '</div>
+      <div class="empty-icon">🔨</div>
       <div class="empty-title">${isFiltered ? 'No jobs match' : 'No active jobs'}</div>
       <div class="empty-sub">${isFiltered ? 'Try a different filter or search' : 'Jobs are created when a lead is converted. Convert a hot lead to get started.'}</div>
     </div>`;
@@ -1323,13 +1269,13 @@ function renderJobs() {
     const idx = allJobs.indexOf(j);
 
     let icons = '';
-    if (deposit && deposit.toLowerCase().includes('paid')) icons += '<span style="color:var(--green)">$</span>';
-    if (invoice && invoice.toLowerCase().includes('paid')) icons += '<span style="color:var(--green)">\u2713</span>';
-    if (invoice && invoice.toLowerCase().includes('overdue')) icons += '<span style="color:var(--yellow)">!</span>';
+    if (deposit && deposit.toLowerCase().includes('paid')) icons += '💰';
+    if (invoice && invoice.toLowerCase().includes('paid')) icons += '✅';
+    if (invoice && invoice.toLowerCase().includes('overdue')) icons += '⚠️';
 
     return `
       <div class="list-item" onclick="showJobDetail(${idx})">
-        <div class="item-avatar" style="color:var(--text2)">' + icons.briefcase + '</div>
+        <div class="item-avatar" style="font-size:22px">🔨</div>
         <div class="item-body">
           <div class="item-name">${client}</div>
           <div class="item-sub">${project}${jobId?' · '+jobId:''}</div>
@@ -1458,7 +1404,7 @@ async function showJobDetail(idx) {
     </div>
 
     ${currentUser?.role !== 'field' ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:16px">
-      <div class="modal-section-label" style="margin-bottom:12px">Site Visit Notes/div>
+      <div class="modal-section-label" style="margin-bottom:12px">📋 Site Visit Notes</div>
       <div style="margin-bottom:10px">
         <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Site Conditions & Client Preferences</div>
         <textarea id="jmSiteNotes" placeholder="Describe the property, access, soil conditions, existing features, what the client wants..." rows="3" class="form-input" style="font-size:13px">${j.siteVisitNotes || ''}</textarea>
@@ -1484,32 +1430,32 @@ async function showJobDetail(idx) {
         </div>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">Save Notes/button>
-        ${!propLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndProposal('+_currentJobRow+')">Generate Proposal</button>'
-        : j.selectedTier && !estLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate('+_currentJobRow+')">Generate Estimate</button>'
-        : '<div style="flex:1;text-align:center;padding:10px;font-size:12px;color:var(--text3)">'+(propLink && !j.selectedTier ? 'Waiting for client to select tier' : 'Docs generated')+'</div>'}
+        <button class="btn btn-secondary" style="flex:1;font-size:13px" onclick="saveSiteVisit(${_currentJobRow})">💾 Save Notes</button>
+        ${!propLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndProposal('+_currentJobRow+')">📄 Generate Proposal</button>'
+        : j.selectedTier && !estLink ? '<button class="btn btn-primary" style="flex:1;font-size:13px" onclick="saveSiteVisitAndEstimate('+_currentJobRow+')">🤖 Generate Estimate</button>'
+        : '<div style="flex:1;text-align:center;padding:10px;font-size:12px;color:var(--text3)">'+(propLink && !j.selectedTier ? '⏳ Waiting for client to select tier' : '✅ Docs generated')+'</div>'}
       </div>
-      ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">Last site visit: '+j.siteVisitDate+'</div>' : ''}
+      ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">📅 Last site visit: '+j.siteVisitDate+'</div>' : ''}
     </div>` : ''}
 
     ${currentUser?.role !== 'field' && (j.tierBudget || j.tierMidrange || j.tierHighend || j.tierLuxury) ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
-      <div class="modal-section-label" style="margin-bottom:10px">Client Tier Selection/div>
+      <div class="modal-section-label" style="margin-bottom:10px">🎯 Client Tier Selection</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${[
-          {key:'budget',label:'Budget',desc:j.tierBudget},
-          {key:'mid-range',label:'Mid-Range',desc:j.tierMidrange},
-          {key:'high-end',label:'High-End',desc:j.tierHighend},
-          {key:'luxury',label:'Luxury',desc:j.tierLuxury}
+          {key:'budget',label:'🟢 Budget',desc:j.tierBudget},
+          {key:'mid-range',label:'🔵 Mid-Range',desc:j.tierMidrange},
+          {key:'high-end',label:'🟡 High-End',desc:j.tierHighend},
+          {key:'luxury',label:'🔴 Luxury',desc:j.tierLuxury}
         ].filter(t=>t.desc).map(t =>
           '<button onclick="selectTier('+_currentJobRow+',\''+t.key+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid '+(j.selectedTier===t.key?'var(--gold)':'var(--border)')+';background:'+(j.selectedTier===t.key?'rgba(74,140,63,0.15)':'var(--card)')+';cursor:pointer;text-align:left;width:100%"><div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--text)">'+t.label+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+t.desc+'</div></div>'+(j.selectedTier===t.key?'<span style="color:var(--gold);font-weight:800;font-size:12px">SELECTED ✓</span>':'')+'</button>'
         ).join('')}
       </div>
-      ${j.selectedTier ? '<div style="font-size:11px;color:var(--gold);margin-top:8px;font-weight:600">Client chose: '+j.selectedTier.charAt(0).toUpperCase()+j.selectedTier.slice(1)+' — now generate the detailed estimate</div>' : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Select the tier the client chose, then generate the estimate</div>'}
+      ${j.selectedTier ? '<div style="font-size:11px;color:var(--gold);margin-top:8px;font-weight:600">✅ Client chose: '+j.selectedTier.charAt(0).toUpperCase()+j.selectedTier.slice(1)+' — now generate the detailed estimate</div>' : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Select the tier the client chose, then generate the estimate</div>'}
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Materials & Costs</span>
+        <span>📦 Materials & Costs</span>
         <button style="font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-weight:700" onclick="addMaterialRow(${_currentJobRow})">+ Add Item</button>
       </div>
       <div id="jmMaterialsList" style="margin-top:8px">
@@ -1537,10 +1483,10 @@ async function showJobDetail(idx) {
     </div>` : ''}
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
-      [{name:'Proposal',icon:icons.file,link:propLink,event:'generate_proposal',status:propStat,sendType:'proposal'},
-       {name:'Estimate',icon:icons.dollar,link:estLink,event:'estimate_ready',status:'',sendType:'estimate'},
-       {name:'Contract',icon:icons.file,link:contLink,event:'generate_contract',status:contStat,sendType:'contract'},
-       {name:'Kickoff Doc',icon:icons.send,link:kickLink,event:'plan_project',status:'',sendType:''}
+      [{name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal',status:propStat,sendType:'proposal'},
+       {name:'Estimate',icon:'💰',link:estLink,event:'estimate_ready',status:'',sendType:'estimate'},
+       {name:'Contract',icon:'📝',link:contLink,event:'generate_contract',status:contStat,sendType:'contract'},
+       {name:'Kickoff Doc',icon:'🚀',link:kickLink,event:'plan_project',status:'',sendType:''}
       ].map(d => {
         var btns = '';
         if (d.link) {
@@ -1563,7 +1509,7 @@ async function showJobDetail(idx) {
 
     <div class="modal-section">
       <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Notes</span>
+        <span>📝 Notes</span>
         <button style="font-size:11px;color:var(--gold);background:none;border:none;cursor:pointer;font-weight:700" onclick="saveJobNotes(${_currentJobRow})">Save</button>
       </div>
       <textarea id="jmJobNotes" rows="3" class="form-input" style="font-size:13px;line-height:1.5;resize:vertical" placeholder="Add notes about this job...">${(notes || '').replace(/</g,'&lt;')}</textarea>
@@ -1596,13 +1542,13 @@ async function approveAndSend(docType, jobRow) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: docType }),
     });
-    toast('\u2713 ' + docType.charAt(0).toUpperCase() + docType.slice(1) + ' approved and sent to client!');
+    toast('✅ ' + docType.charAt(0).toUpperCase() + docType.slice(1) + ' approved and sent to client!');
     // Refresh job detail
     delete loaded['jobs'];
     allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
     const idx = allJobs.findIndex(j => (j._row || j.id) === jobRow);
     if (idx >= 0) showJobDetail(idx);
-  } catch (e) { toast('\u2717 ' + e.message); }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function selectTier(jobRow, tier) {
@@ -1612,13 +1558,13 @@ async function selectTier(jobRow, tier) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'selected_tier', value: tier }),
     });
-    toast('\u2713 ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' tier selected — generate the estimate now');
+    toast('✅ ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' tier selected — generate the estimate now');
     // Refresh the job detail
     delete loaded['jobs'];
     allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
     const idx = allJobs.findIndex(j => (j._row || j.id) === jobRow);
     if (idx >= 0) showJobDetail(idx);
-  } catch (e) { toast('\u2717 ' + e.message); }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveJobNotes(jobRow) {
@@ -1629,8 +1575,8 @@ async function saveJobNotes(jobRow) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'notes', value: notes }),
     });
-    toast('\u2713 Notes saved');
-  } catch (e) { toast('\u2717 ' + e.message); }
+    toast('✅ Notes saved');
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveSiteVisit(jobRow) {
@@ -1645,9 +1591,9 @@ async function saveSiteVisit(jobRow) {
       body: JSON.stringify({ notes, measurements, squareFootage: sqft, qualityTier: quality }),
     });
     if (!res.ok) throw new Error('Save failed');
-    toast('\u2713 Site visit notes saved!');
+    toast('✅ Site visit notes saved!');
   } catch (e) {
-    toast('\u2717 ' + e.message, 3000);
+    toast('❌ ' + e.message, 3000);
   }
 }
 
@@ -1716,9 +1662,9 @@ async function addMaterialRow(jobId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ item, quantity: qty, unitCost, totalCost: total, bestSource: source, category: cat }),
     });
-    toast('\u2713 Material added');
+    toast('✅ Material added');
     loadJobMaterials(jobId);
-  } catch (e) { toast('\u2717 ' + e.message); }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function updateMaterialStatus(jobId, matId, status) {
@@ -1728,16 +1674,16 @@ async function updateMaterialStatus(jobId, matId, status) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-  } catch (e) { toast('\u2717 ' + e.message); }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function deleteMaterial(jobId, matId) {
   if (!confirm('Remove this material?')) return;
   try {
     await api('/api/jobs/' + jobId + '/materials/' + matId, { method: 'DELETE' });
-    toast('\u2713 Removed');
+    toast('✅ Removed');
     loadJobMaterials(jobId);
-  } catch (e) { toast('\u2717 ' + e.message); }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function saveSiteVisitAndProposal(jobRow) {
@@ -1750,48 +1696,48 @@ async function saveSiteVisitAndEstimate(jobRow) {
   try {
     const res = await fetch(`/api/jobs/${jobRow}/regenerate-estimate`, { method: 'POST' });
     if (!res.ok) throw new Error('Estimate generation failed');
-    toast('Estimate generating — the AI is crunching numbers. Check back in 1-2 minutes!', 5000);
+    toast('🤖 Estimate generating — the AI is crunching numbers. Check back in 1-2 minutes!', 5000);
   } catch (e) {
-    toast('\u2717 ' + e.message, 3000);
+    toast('❌ ' + e.message, 3000);
   }
 }
 
 function copyStatusLink(jobId) {
   const url = `${location.origin}/status/${jobId}`;
-  navigator.clipboard.writeText(url).then(() => toast('\u2713 Status link copied!')).catch(() => {
+  navigator.clipboard.writeText(url).then(() => toast('✅ Status link copied!')).catch(() => {
     const el = document.createElement('textarea');
     el.value = url; document.body.appendChild(el); el.select();
     document.execCommand('copy'); document.body.removeChild(el);
-    toast('\u2713 Status link copied!');
+    toast('✅ Status link copied!');
   });
 }
 
 /* ─── CHANGE ORDER MODAL ─────────────────────────────────────────── */
 // ─── KICKOFF SCHEDULER ────────────────────────────────────────────────────────
 async function syncJobToCalendar() {
-  if (!_currentJobRow) { toast('! No job selected'); return; }
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
   try {
     const res  = await fetch(`/api/jobs/${_currentJobRow}/sync-calendar`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`${data.created} event${data.created !== 1 ? 's' : ''} synced to Google Calendar!`);
+    toast(`📅 ${data.created} event${data.created !== 1 ? 's' : ''} synced to Google Calendar!`);
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
   }
 }
 
 async function sendKickoffSchedule() {
-  if (!_currentJobRow) { toast('! No job selected'); return; }
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
   const confirmed = confirm('Send kickoff date options to the client? They\'ll get 3 date choices by email.');
   if (!confirmed) return;
   try {
     const res  = await fetch(`/api/jobs/${_currentJobRow}/kickoff-schedule`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`Kickoff scheduling email sent! Dates offered: ${(data.datesOffered||[]).join(', ')}`);
+    toast(`🗓️ Kickoff scheduling email sent! Dates offered: ${(data.datesOffered||[]).join(', ')}`);
     closeModal('jobModal');
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
   }
 }
 
@@ -1801,11 +1747,11 @@ async function sendDailyBriefing() {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
     await fetch('/api/briefing/send', { method: 'POST' });
-    toast('Briefing sent to owner email!');
+    toast('☀️ Briefing sent to owner email!');
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send Briefing'; }
+    if (btn) { btn.disabled = false; btn.textContent = '☀️ Send Briefing'; }
   }
 }
 
@@ -1819,8 +1765,8 @@ function openChangeOrderModal() {
 
 async function submitChangeOrder() {
   const desc = document.getElementById('coDescription')?.value?.trim();
-  if (!desc) { toast('! Describe what is changing first'); return; }
-  if (!_currentJobRow) { toast('! No job selected'); return; }
+  if (!desc) { toast('⚠️ Describe what is changing first'); return; }
+  if (!_currentJobRow) { toast('⚠️ No job selected'); return; }
 
   const btn = document.getElementById('coSubmitBtn');
   btn.disabled = true;
@@ -1835,9 +1781,9 @@ async function submitChangeOrder() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     closeModal('changeOrderModal');
-    toast('\u2713 Change order generating — client will receive email shortly');
+    toast('✅ Change order generating — client will receive email shortly');
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
     btn.disabled = false;
     btn.textContent = 'Generate & Send';
   }
@@ -1862,7 +1808,7 @@ async function changeJobStatus(dbStatus, btn, displayLabel) {
     toast(`✓ Job moved to ${label}`);
     renderJobs();
   } catch {
-    toast('! Could not update status');
+    toast('⚠️ Could not update status');
   }
 }
 
@@ -1871,7 +1817,7 @@ async function triggerDocGen(eventType, rowNumber) {
   if (usingDemo) { toastInfo('Documents will be generated by AI'); return; }
   const btn = event?.target;
   const savedRow = rowNumber || _currentJobRow;
-  btnLoading(btn, ' Starting…');
+  btnLoading(btn, '⏳ Starting…');
   try {
     const res = await fetch('/webhook/trigger', {
       method: 'POST',
@@ -1880,7 +1826,7 @@ async function triggerDocGen(eventType, rowNumber) {
     });
     if (res.ok) {
       toastSuccess('Agent started — doc will appear in about a minute');
-      if (btn) btn.textContent = ' Working…';
+      if (btn) btn.textContent = '⏳ Working…';
       // Refresh jobs + reopen modal after 90s so the new doc link appears
       setTimeout(async () => {
         delete loaded['jobs'];
@@ -1916,7 +1862,7 @@ async function togglePhase(row, checkEl) {
   } catch {
     checkEl.classList.toggle('done', isDone);
     checkEl.textContent = isDone ? '✓' : '';
-    toast('! Could not update phase');
+    toast('⚠️ Could not update phase');
   }
 }
 
@@ -1938,7 +1884,7 @@ function renderClients() {
 
   const el = document.getElementById('clientsList');
   if (clients.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">' + icons.users + '</div><div class="empty-title">No clients yet</div><div class="empty-sub">Clients appear here after jobs are completed</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🤝</div><div class="empty-title">No clients yet</div><div class="empty-sub">Clients appear here after jobs are completed</div></div>`;
     return;
   }
 
@@ -1954,14 +1900,14 @@ function renderClients() {
 
     return `
       <div class="list-item" onclick="showClientDetail(${idx})">
-        <div class="item-avatar" style="color:var(--text2)">' + icons.users + '</div>
+        <div class="item-avatar" style="font-size:20px">🤝</div>
         <div class="item-body">
           <div class="item-name">${name}</div>
           <div class="item-sub">${last||'—'}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
         </div>
         <div class="item-right">
           <div class="item-value">${ltv?formatCurrency(ltv):'—'}</div>
-          ${sat?`<div class="item-label">${sat}</div>`:''}
+          ${sat?`<div class="item-label">⭐ ${sat}</div>`:''}
         </div>
         <span class="chevron">›</span>
       </div>
@@ -2093,11 +2039,11 @@ async function loadClientJobs(clientId) {
           <div style="display:flex;flex-direction:column;gap:4px">
             ${phases.map(p => '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">' +
               '<span style="color:' + (p.status==='completed'?'var(--green)':p.status==='in_progress'?'var(--gold)':'var(--text3)') + '">' +
-              (p.status==='completed'?'\u2713 ':p.status==='in_progress'?'\u25CF ':'○ ') + (p.name||'Phase') + '</span>' +
+              (p.status==='completed'?'✅ ':p.status==='in_progress'?'🔄 ':'○ ') + (p.name||'Phase') + '</span>' +
               '<span style="color:var(--text3)">' + (p.assignedTo||'') + '</span></div>').join('')}
           </div>
         ` : ''}
-        ${j.siteVisitNotes ? '<div style="margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12px;color:var(--text2)"><span style="font-weight:700;color:var(--text3)">Site Notes:</span> ' + j.siteVisitNotes + '</div>' : ''}
+        ${j.siteVisitNotes ? '<div style="margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12px;color:var(--text2)"><span style="font-weight:700;color:var(--text3)">📋 Site Notes:</span> ' + j.siteVisitNotes + '</div>' : ''}
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
           ${['Proposal','Estimate','Contract','Kickoff'].map(doc => {
             const evt = doc==='Proposal'?'generate_proposal':doc==='Estimate'?'estimate_ready':doc==='Contract'?'generate_contract':'plan_project';
@@ -2120,7 +2066,7 @@ async function loadClientPhotos(clientId) {
   try {
     const photos = await api('/api/clients/' + clientId + '/photos');
     if (!photos || !photos.length) {
-      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No photos yet<br><span style="font-size:12px;color:var(--text3)">Photos uploaded from job pages will appear here</span></div>';
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">📷 No photos yet<br><span style="font-size:12px;color:var(--text3)">Photos uploaded from job pages will appear here</span></div>';
       return;
     }
     el.innerHTML = `
@@ -2216,7 +2162,7 @@ async function loadNotifPanel() {
   if (alerts.length === 0) {
     el.innerHTML = `
       <div style="padding:36px 16px;text-align:center">
-        <div style="margin-bottom:10px;color:var(--green)">' + icons.check + '</div>
+        <div style="font-size:36px;margin-bottom:10px">✅</div>
         <div style="font-size:15px;font-weight:700;color:#F0F0F0;margin-bottom:4px">All clear!</div>
         <div style="font-size:13px;color:#666">No alerts right now. Great work.</div>
       </div>`;
@@ -2225,7 +2171,7 @@ async function loadNotifPanel() {
 
   el.innerHTML = alerts.map(a => `
     <div class="alert-item ${a.type||'info'}" style="margin:6px 12px;border-radius:12px">
-      <div class="alert-icon">${a.icon||icons.alert}</div>
+      <div class="alert-icon">${a.icon||'ℹ️'}</div>
       <div class="alert-body">
         <div class="alert-title">${a.title||'Alert'}</div>
         <div class="alert-desc">${a.desc||''}</div>
@@ -2256,13 +2202,13 @@ async function loadAlerts() {
   const _navDot = document.getElementById('alertsNavDot'); if (_navDot) _navDot.style.display = urgentCount > 0 ? 'block' : 'none';
 
   if (alerts.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">' + icons.check + '</div><div class="empty-title">All clear!</div><div class="empty-sub">No alerts right now. Great work keeping everything on track.</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All clear!</div><div class="empty-sub">No alerts right now. Great work keeping everything on track.</div></div>`;
     return;
   }
 
   el.innerHTML = alerts.map(a => `
     <div class="alert-item ${a.type||'info'}">
-      <div class="alert-icon">${a.icon||icons.alert}</div>
+      <div class="alert-icon">${a.icon||'ℹ️'}</div>
       <div class="alert-body">
         <div class="alert-title">${a.title||'Alert'}</div>
         <div class="alert-desc">${a.desc||''}</div>
@@ -2305,7 +2251,7 @@ function renderTeam() {
 
   const el = document.getElementById('teamList');
   if (team.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">' + icons.users + '</div><div class="empty-title">No team members</div><div class="empty-sub">Tap + Add to create your first team member</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No team members</div><div class="empty-sub">Tap + Add to create your first team member</div></div>`;
     return;
   }
 
@@ -2357,7 +2303,7 @@ function showAddTeamMember() {
 
 async function saveNewTeamMember() {
   const name = document.getElementById('newMemberName')?.value?.trim();
-  if (!name) { toast('\u2717 Name is required'); return; }
+  if (!name) { toast('❌ Name is required'); return; }
 
   const data = {
     name,
@@ -2388,7 +2334,7 @@ async function saveNewTeamMember() {
     toast(`${name} added to team!`);
     await loadTeam();
   } catch (e) {
-    toast('\u2717 ' + (e.message || 'Error adding team member'));
+    toast('❌ ' + (e.message || 'Error adding team member'));
   }
 }
 
@@ -2407,14 +2353,14 @@ async function saveSetLogin() {
   const username = document.getElementById('setLoginUsername')?.value?.trim();
   const password = document.getElementById('setLoginPassword')?.value?.trim();
   const role     = document.getElementById('setLoginRole')?.value || 'field';
-  if (!username || !password) { toast('\u2717 Username and password required'); return; }
+  if (!username || !password) { toast('❌ Username and password required'); return; }
   try {
     await api(`/api/team/${id}/set-login`, { method: 'POST', body: { username, password, role } });
     closeModal('setLoginModal');
     toast('Login credentials saved!');
     loadSettings(); // Refresh team list
   } catch(e) {
-    toast('\u2717 ' + (e.message || 'Error saving login'));
+    toast('❌ ' + (e.message || 'Error saving login'));
   }
 }
 
@@ -2449,7 +2395,7 @@ function showTeamDetail(idx) {
       <div class="detail-row"><div class="detail-key">Type</div><div class="detail-val"><select id="tmEditType" class="form-input" style="font-size:14px;padding:6px 10px"><option value="w2" ${type.includes('w2')||type.includes('Crew')?'selected':''}>W-2 Employee</option><option value="sub" ${type.toLowerCase().includes('sub')?'selected':''}>Subcontractor</option></select></div></div>
       <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val"><input id="tmEditPhone" class="form-input" style="font-size:14px;padding:6px 10px" value="${phone||''}" placeholder="(303) 555-0000"></div></div>
       <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val"><input id="tmEditEmail" class="form-input" style="font-size:14px;padding:6px 10px" value="${email||''}" placeholder="name@company.com"></div></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveTeamEdit(${memberId})">Save Changes</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveTeamEdit(${memberId})">💾 Save Changes</button>
     </div>
     <div class="modal-section">
       <div class="modal-section-label">Current Assignment</div>
@@ -2487,21 +2433,21 @@ async function saveTeamEdit(memberId) {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Save failed');
-    toast('\u2713 Team member updated!');
+    toast('✅ Team member updated!');
     closeModal('teamModal');
     await loadTeam();
   } catch (e) {
-    toast('\u2717 ' + e.message, 3000);
+    toast('❌ ' + e.message, 3000);
   }
 }
 
 function copySubLink(encodedName) {
   const url = `${location.origin}/sub/${encodedName}`;
-  navigator.clipboard.writeText(url).then(() => toast('\u2713 Sub portal link copied!')).catch(() => {
+  navigator.clipboard.writeText(url).then(() => toast('✅ Sub portal link copied!')).catch(() => {
     const el = document.createElement('textarea');
     el.value = url; document.body.appendChild(el); el.select();
     document.execCommand('copy'); document.body.removeChild(el);
-    toast('\u2713 Sub portal link copied!');
+    toast('✅ Sub portal link copied!');
   });
 }
 
@@ -2523,7 +2469,7 @@ async function toggleTeamMember(row, el) {
     toast(newVal === 'Yes' ? '✓ Marked active' : '✓ Marked off today');
   } catch(e) {
     el.classList.toggle('on', isOn); // revert
-    toast('! Could not update');
+    toast('⚠️ Could not update');
   }
 }
 
@@ -2561,17 +2507,17 @@ async function loadTimeclock() {
     list.innerHTML = data.members.map(m => `
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px">
         <div style="width:44px;height:44px;border-radius:50%;background:${m.clockedIn ? 'rgba(34,197,94,.15)' : 'var(--card2)'};border:2px solid ${m.clockedIn ? 'var(--green)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
-          ${m.clockedIn ? '<span style="color:var(--green)">\u25CF</span>' : '<span style="color:var(--text3)">\u25CF</span>'}
+          ${m.clockedIn ? '🟢' : '⚪'}
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:700;color:var(--text)">${m.name}</div>
           <div style="font-size:12px;color:var(--text2);margin-top:1px">${m.role || 'Team Member'}</div>
           <div style="font-size:12px;margin-top:4px;color:${m.clockedIn ? 'var(--green)' : 'var(--text3)'}">
             ${m.clockedIn
-              ? `Clocked in · ${m.todayHours}h today`
+              ? `🟢 Clocked in · ${m.todayHours}h today`
               : m.todayHours > 0
-                ? `Clocked out · ${m.todayHours}h today`
-                : 'Not clocked in'}
+                ? `⚫ Clocked out · ${m.todayHours}h today`
+                : '⚫ Not clocked in'}
           </div>
         </div>
         <button
@@ -2595,7 +2541,7 @@ async function punchClock(name, action) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(action === 'IN' ? `${name} clocked in` : `${name} clocked out`);
+    toast(action === 'IN' ? `✅ ${name} clocked in` : `👋 ${name} clocked out`);
     loadTimeclock();
   } catch(e) {
     toast('Punch failed: ' + e.message);
@@ -2626,11 +2572,11 @@ function renderMarketing() {
 
   const el = document.getElementById('marketingList');
   if (items.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">' + icons.megaphone + '</div><div class="empty-title">No campaigns</div><div class="empty-sub">No campaigns set up yet. Create one to get started.</div></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📢</div><div class="empty-title">No campaigns</div><div class="empty-sub">No campaigns set up yet. Create one to get started.</div></div>`;
     return;
   }
 
-  const mktgIcons = { 'seasonal':icons.star, 'referral':icons.users, 're-engagement':icons.repeat, 'default':icons.megaphone };
+  const icons = { 'seasonal':'🌸', 'referral':'🤝', 're-engagement':'🔄', 'default':'📢' };
 
   el.innerHTML = items.map((m) => {
     const name     = g(m,'Campaign Name','campaignName','Name') || 'Campaign';
@@ -2641,7 +2587,7 @@ function renderMarketing() {
     const launched = status.includes('launch') || status.includes('sent');
     const row      = m.__row || m._row;
     const typeIcon = Object.keys(icons).find(k => type.includes(k));
-    const icon     = icons[typeIcon] || icons.alert || '';
+    const icon     = icons[typeIcon] || icons.default;
 
     return `
       <div class="mktg-card">
@@ -2671,10 +2617,10 @@ async function launchCampaign(row, btn) {
     btn.classList.add('sent');
     btn.textContent = '✓ Sent';
     btn.disabled = true;
-    toast('Campaign launched!');
+    toast('🚀 Campaign launched!');
   } catch(e) {
     btn.textContent = 'Launch';
-    toast('! Launch failed');
+    toast('⚠️ Launch failed');
   }
 }
 
@@ -2693,18 +2639,18 @@ function renderApprovals() {
   if (allApprovals.length === 0) {
     el.innerHTML = `
       <div class="empty">
-        <div class="empty-icon">' + icons.check + '</div>
+        <div class="empty-icon">✅</div>
         <div class="empty-title">All clear!</div>
         <div class="empty-sub">No documents waiting for approval</div>
       </div>`;
     return;
   }
 
-  const typeIcons = { proposal: icons.file, contract: icons.file, template: icons.clipboard };
+  const typeIcons = { proposal: '📄', contract: '📝', template: '📋' };
   const typeColors = { proposal: 'badge-gold', contract: 'badge-blue', template: 'badge-gray' };
 
   el.innerHTML = allApprovals.map((item, idx) => {
-    const icon  = typeIcons[item.type]  || icons.file;
+    const icon  = typeIcons[item.type]  || '📄';
     const badge = typeColors[item.type] || 'badge-gray';
     const val   = item.jobValue ? `<span style="color:var(--gold);font-weight:800">${item.jobValue}</span>` : '';
     return `
@@ -2717,11 +2663,11 @@ function renderApprovals() {
         <div class="approval-sub">${item.serviceType || '—'} ${val ? '· ' + val : ''}</div>
         <div class="approval-actions">
           ${item.docLink
-            ? `<a class="btn btn-secondary" href="${item.docLink}" target="_blank" style="flex:1;text-align:center">View Doc/a>`
+            ? `<a class="btn btn-secondary" href="${item.docLink}" target="_blank" style="flex:1;text-align:center">👁 View Doc</a>`
             : `<button class="btn btn-secondary" disabled style="flex:1;opacity:.4">No Link</button>`
           }
-          <button class="btn btn-green" style="flex:1" onclick="approveItem(${idx}, event)">Approve</button>
-          <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)">Flag/button>
+          <button class="btn btn-green" style="flex:1" onclick="approveItem(${idx}, event)">✅ Approve</button>
+          <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)">🚩 Flag</button>
         </div>
       </div>`;
   }).join('');
@@ -2742,8 +2688,8 @@ async function approveItem(idx, e) {
       });
       if (!res.ok) throw new Error('Failed');
     } catch {
-      toast('! Could not approve — try again');
-      if (btn) { btn.textContent = 'Approve'; btn.disabled = false; }
+      toast('⚠️ Could not approve — try again');
+      if (btn) { btn.textContent = '✅ Approve'; btn.disabled = false; }
       return;
     }
   }
@@ -2778,15 +2724,15 @@ async function flagItem(idx, e) {
       });
       if (!res.ok) throw new Error('Failed');
     } catch {
-      toast('! Could not flag — try again');
-      if (btn) { btn.textContent = 'Flag'; btn.disabled = false; }
+      toast('⚠️ Could not flag — try again');
+      if (btn) { btn.textContent = '🚩 Flag'; btn.disabled = false; }
       return;
     }
   }
 
   allApprovals.splice(idx, 1);
   renderApprovals();
-  toast(`${item.label} flagged — marked "Needs Revision"`);
+  toast(`🚩 ${item.label} flagged — marked "Needs Revision"`);
   const badge = document.getElementById('dashApprovalBadge');
   const desc  = document.getElementById('dashApprovalDesc');
   if (allApprovals.length === 0) {
@@ -2825,7 +2771,7 @@ function renderConversations() {
   if (!filteredConversations.length) {
     el.innerHTML = `
       <div class="empty">
-        <div class="empty-icon">' + icons.mail + '</div>
+        <div class="empty-icon">💬</div>
         <div class="empty-title">No conversations yet</div>
         <div class="empty-sub">Email threads will appear here once the AI sends outreach</div>
       </div>`;
@@ -2946,7 +2892,7 @@ async function loadSmsConversations() {
     if (!Array.isArray(msgs) || !msgs.length) {
       el.innerHTML = `
         <div style="padding:32px;text-align:center;color:var(--text2)">
-          <div style="margin-bottom:10px;color:var(--text2)">' + icons.phone + '</div>
+          <div style="font-size:32px;margin-bottom:10px">📱</div>
           <div style="font-weight:700;margin-bottom:6px">No SMS yet</div>
           <div style="font-size:13px">Texts will appear here when clients or leads text your Twilio number.</div>
         </div>`;
@@ -2967,7 +2913,7 @@ async function loadSmsConversations() {
       return `
         <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;cursor:pointer" onclick="openSmsThread('${conv.phone}', '${safeName}')">
           <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:40px;height:40px;border-radius:50%;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icons.phone + '</div>
+            <div style="width:40px;height:40px;border-radius:50%;background:rgba(191,148,56,.12);border:1px solid rgba(191,148,56,.25);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📱</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:15px;font-weight:700;color:var(--text1)">${conv.name || conv.phone}</div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last.direction === 'INBOUND' ? '← ' : '→ '}${last.message}</div>
@@ -3014,14 +2960,14 @@ function relTime(str) {
 /* ─── SETTINGS PAGE ─────────────────────────────────────────────── */
 // Notification event label → Settings tab key
 const NOTIFY_EVENTS = [
-  { key: 'Notify: New Lead',          label: 'New Lead',          icon: icons.user },
-  { key: 'Notify: Proposal Approved', label: 'Proposal Approved', icon: icons.check },
-  { key: 'Notify: Proposal Declined', label: 'Proposal Declined', icon: icons.x },
-  { key: 'Notify: Payment Received',  label: 'Payment Received',  icon: icons.dollar },
-  { key: 'Notify: Kickoff Confirmed', label: 'Kickoff Confirmed', icon: icons.calendar },
-  { key: 'Notify: Change Order',      label: 'Change Order',      icon: icons.file },
-  { key: 'Notify: Field Issue',       label: 'Field Issue',       icon: icons.alert },
-  { key: 'Notify: Job Complete',      label: 'Job Complete',      icon: icons.check },
+  { key: 'Notify: New Lead',          label: 'New Lead',          icon: '👋' },
+  { key: 'Notify: Proposal Approved', label: 'Proposal Approved', icon: '🎉' },
+  { key: 'Notify: Proposal Declined', label: 'Proposal Declined', icon: '❌' },
+  { key: 'Notify: Payment Received',  label: 'Payment Received',  icon: '💰' },
+  { key: 'Notify: Kickoff Confirmed', label: 'Kickoff Confirmed', icon: '🗓️' },
+  { key: 'Notify: Change Order',      label: 'Change Order',      icon: '📝' },
+  { key: 'Notify: Field Issue',       label: 'Field Issue',       icon: '⚠️' },
+  { key: 'Notify: Job Complete',      label: 'Job Complete',      icon: '✅' },
 ];
 
 async function loadSettings() {
@@ -3121,7 +3067,7 @@ async function loadSettings() {
           qbSection.innerHTML = `
             <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);padding:16px;margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-                <div style="font-size:16px;color:var(--green)">' + icons.check + '</div>
+                <div style="font-size:22px">✅</div>
                 <div>
                   <div style="font-size:14px;font-weight:800;color:var(--green)">QuickBooks Connected</div>
                   <div style="font-size:12px;color:var(--text3)">${status.companyName || 'Company'} · ${status.environment || 'production'}</div>
@@ -3133,7 +3079,7 @@ async function loadSettings() {
           qbSection.innerHTML = `
             <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-                <div style="font-size:16px;color:var(--gold)">' + icons.target + '</div>
+                <div style="font-size:22px">🔗</div>
                 <div>
                   <div style="font-size:14px;font-weight:800">QuickBooks</div>
                   <div style="font-size:12px;color:var(--text3)">Two-way invoice &amp; payment sync</div>
@@ -3184,7 +3130,7 @@ async function saveSettings() {
     document.getElementById('companyName').textContent = body.companyName || '—';
     toast('✓ Settings saved');
   } catch(e) {
-    toast('! Could not save settings');
+    toast('⚠️ Could not save settings');
   }
 }
 
@@ -3345,7 +3291,7 @@ async function triggerAgent(type) {
   // Visual feedback
   const btns = document.querySelectorAll('.trigger-btn');
   btns.forEach(b => { if (b.getAttribute('onclick')?.includes(type)) b.classList.add('running'); });
-  toast(`Firing ${type} on row ${rowNumber}…`, 2000);
+  toast(`🤖 Firing ${type} on row ${rowNumber}…`, 2000);
 
   try {
     const res = await fetch('/webhook/trigger', {
@@ -3354,9 +3300,9 @@ async function triggerAgent(type) {
       body: JSON.stringify({ type, rowNumber }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    toast(`\u2713 Agent triggered — watch the live feed`);
+    toast(`✅ Agent triggered — watch the live feed`);
   } catch (e) {
-    toast(`Trigger failed: ${e.message}`, 3000);
+    toast(`❌ Trigger failed: ${e.message}`, 3000);
   }
 
   setTimeout(() => {
@@ -3369,7 +3315,6 @@ window.addEventListener('DOMContentLoaded', () => {
   // Render immediately — never block on async calls
   currentUser = { name: '', role: 'owner' }; // safe default
   applyRoleNav(currentUser.role);
-  _initIcons();
   navigate('dashboard');
   initPullToRefresh();
   connectActivityStream();
@@ -3417,7 +3362,7 @@ async function loadField() {
 
     if (_fieldJobs.length === 0) {
       el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text3)">
-        <div style="margin-bottom:8px;color:var(--text3)">' + icons.briefcase + '</div>
+        <div style="font-size:40px;margin-bottom:8px">🏗️</div>
         <div style="font-size:15px;font-weight:600">No active jobs</div>
         <div style="font-size:13px;margin-top:4px">Jobs in progress will appear here</div>
       </div>`;
@@ -3454,10 +3399,10 @@ async function loadField() {
 
             <!-- Photo Upload -->
             <div style="margin:14px 0 0">
-              <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Add Photo/div>
+              <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📸 Add Photo</div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <label style="display:flex;align-items:center;gap:6px;background:var(--bg2,#F4F5F7);border:1px dashed var(--border);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text2)">
-                  Choose Photo
+                  📷 Choose Photo
                   <input type="file" accept="image/*" capture="environment" id="photo-input-${row}" style="display:none"
                     onchange="previewPhoto(${row}, this)">
                 </label>
@@ -3470,18 +3415,18 @@ async function loadField() {
             </div>
 
             <div class="field-actions">
-              <button class="btn btn-gold" style="flex:1;font-size:15px;padding:14px" onclick="submitFieldUpdate(${row}, event)">Log Update/button>
+              <button class="btn btn-gold" style="flex:1;font-size:15px;padding:14px" onclick="submitFieldUpdate(${row}, event)">✅ Log Update</button>
             </div>
 
             <div class="field-issue-section">
-              <div class="field-issue-title">Flag an Issue/div>
+              <div class="field-issue-title">⚠️ Flag an Issue</div>
               <div class="severity-chips" id="sev-chips-${row}">
-                <button class="severity-chip low" onclick="setSeverity(${row},'Low',this)"><span style="color:var(--green)">\u25CF</span> Low/button>
-                <button class="severity-chip medium" onclick="setSeverity(${row},'Medium',this)"><span style="color:var(--gold)">\u25CF</span> Medium/button>
-                <button class="severity-chip high" onclick="setSeverity(${row},'High',this)"><span style="color:var(--red)">\u25CF</span> High/button>
+                <button class="severity-chip low" onclick="setSeverity(${row},'Low',this)">🟢 Low</button>
+                <button class="severity-chip medium" onclick="setSeverity(${row},'Medium',this)">🟡 Medium</button>
+                <button class="severity-chip high" onclick="setSeverity(${row},'High',this)">🔴 High</button>
               </div>
               <textarea class="field-textarea" id="field-issue-${row}" placeholder="Describe the issue — owner will be notified immediately via text and email" style="min-height:70px"></textarea>
-              <button class="btn btn-danger" style="width:100%;margin-top:10px;padding:13px;font-size:15px" onclick="submitFieldIssue(${row}, event)">Alert Owner Now/button>
+              <button class="btn btn-danger" style="width:100%;margin-top:10px;padding:13px;font-size:15px" onclick="submitFieldIssue(${row}, event)">🚨 Alert Owner Now</button>
             </div>
           </div>
         </div>
@@ -3563,7 +3508,7 @@ async function toggleFieldPhase(jobRow, phaseRow, el) {
       });
     }
     toast(!isDone ? '✓ Phase marked complete' : 'Phase reopened');
-  } catch { toast('! Could not update phase'); }
+  } catch { toast('⚠️ Could not update phase'); }
 }
 
 let _severityMap = {};
@@ -3580,7 +3525,7 @@ async function submitFieldUpdate(row, e) {
   const noteEl  = document.getElementById(`field-note-${row}`);
   const notifyEl = document.getElementById(`field-notify-${row}`);
   const note = noteEl?.value?.trim();
-  if (!note) { toast('! Add a note before logging'); return; }
+  if (!note) { toast('⚠️ Add a note before logging'); return; }
 
   const btn = e.target;
   btn.disabled = true;
@@ -3594,15 +3539,15 @@ async function submitFieldUpdate(row, e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`\u2713 Update logged at ${data.timestamp}`);
+    toast(`✅ Update logged at ${data.timestamp}`);
     noteEl.value = '';
     if (notifyEl) notifyEl.checked = false;
     document.getElementById(`field-form-${row}`)?.classList.remove('open');
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Log Update';
+    btn.textContent = '✅ Log Update';
   }
 }
 
@@ -3611,7 +3556,7 @@ async function submitFieldIssue(row, e) {
   const issueEl = document.getElementById(`field-issue-${row}`);
   const issue = issueEl?.value?.trim();
   const severity = _severityMap[row] || 'Unknown';
-  if (!issue) { toast('! Describe the issue first'); return; }
+  if (!issue) { toast('⚠️ Describe the issue first'); return; }
 
   const btn = e.target;
   btn.disabled = true;
@@ -3625,15 +3570,15 @@ async function submitFieldIssue(row, e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(` Owner alerted via text + email`);
+    toast(`🚨 Owner alerted via text + email`);
     issueEl.value = '';
     _severityMap[row] = null;
     document.querySelectorAll(`#sev-chips-${row} .severity-chip`).forEach(c => c.classList.remove('active-sev'));
   } catch (err) {
-    toast(`${err.message}`, 3000);
+    toast(`❌ ${err.message}`, 3000);
   } finally {
     btn.disabled = false;
-    btn.textContent = ' Alert Owner Now';
+    btn.textContent = '🚨 Alert Owner Now';
   }
 }
 
@@ -3646,9 +3591,9 @@ async function saveActualCost(phaseRow, value) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ actualCost: parseFloat(value) || 0 }),
     });
-    toast('Actual cost saved');
+    toast('💰 Actual cost saved');
   } catch (err) {
-    toast(`Could not save cost: ${err.message}`, 3000);
+    toast(`❌ Could not save cost: ${err.message}`, 3000);
   }
 }
 
@@ -3673,7 +3618,7 @@ async function uploadPhoto(row, e) {
   const caption = document.getElementById(`photo-caption-${row}`)?.value?.trim() || '';
   const btn     = document.getElementById(`upload-btn-${row}`);
   const file    = input?.files?.[0];
-  if (!file) { toast('! Choose a photo first'); return; }
+  if (!file) { toast('⚠️ Choose a photo first'); return; }
 
   btn.disabled    = true;
   btn.textContent = 'Uploading…';
@@ -3694,13 +3639,13 @@ async function uploadPhoto(row, e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    toast(` Photo uploaded!`);
+    toast(`📸 Photo uploaded!`);
     // Hide preview
     document.getElementById(`photo-preview-${row}`).style.display = 'none';
     input.value = '';
     if (document.getElementById(`photo-caption-${row}`)) document.getElementById(`photo-caption-${row}`).value = '';
   } catch (err) {
-    toast(`Upload failed: ${err.message}`, 4000);
+    toast(`❌ Upload failed: ${err.message}`, 4000);
   } finally {
     btn.disabled    = false;
     btn.textContent = 'Upload';
@@ -3752,13 +3697,13 @@ async function loadDispatch() {
               <div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.projectType || ''} ${j.address ? '· ' + j.address : ''}</div>
               <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
                 <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:var(--gold)">${j.status || 'Active'}</span>
-                ${j.sub ? `<span style="font-size:11px;color:var(--text2)">${j.sub}</span>` : ''}
+                ${j.sub ? `<span style="font-size:11px;color:var(--text2)">👷 ${j.sub}</span>` : ''}
                 ${j.jobId ? `<span style="font-size:11px;color:var(--text3)">${j.jobId}</span>` : ''}
               </div>
               <!-- Weather badge injected here -->
               <div id="${cardId}-weather" style="margin-top:6px"></div>
             </div>
-            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;font-size:12px;font-weight:700;color:#3B82F6;text-decoration:none;flex-shrink:0">Map</a>` : ''}
+            ${j.address ? `<a href="https://maps.google.com/?q=${encodeURIComponent(j.address)}" target="_blank" style="padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:10px;font-size:12px;font-weight:700;color:#3B82F6;text-decoration:none;flex-shrink:0">🗺️</a>` : ''}
           </div>
         </div>
       `;
@@ -3802,7 +3747,7 @@ async function loadSchedule() {
     const events = await api('/api/calendar/events?days=60') || [];
     if (!events.length) {
       el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text3)">
-        <div style="margin-bottom:8px;color:var(--text3)">' + icons.calendar + '</div>
+        <div style="font-size:40px;margin-bottom:8px">🗓️</div>
         <div style="font-size:15px;font-weight:600">No upcoming events</div>
         <div style="font-size:13px;margin-top:4px">Hit "Sync All" to push jobs &amp; phases to Google Calendar</div>
       </div>`;
@@ -3839,7 +3784,7 @@ async function loadSchedule() {
     `).join('');
   } catch (err) {
     el.innerHTML = `<div style="color:var(--text2);padding:20px;text-align:center;font-size:14px">
-      Google Calendar not connected yet — or no events in the next 60 days.<br>
+      📅 Google Calendar not connected yet — or no events in the next 60 days.<br>
       <span style="font-size:12px;color:var(--text3)">Hit "Sync All" after setting up your calendar credentials.</span>
     </div>`;
   }
@@ -3850,12 +3795,12 @@ async function syncAllToCalendar() {
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   try {
     await fetch('/api/calendar/sync', { method: 'POST' });
-    toast('Calendar sync started — events will appear in Google Calendar shortly!');
+    toast('🗓️ Calendar sync started — events will appear in Google Calendar shortly!');
     setTimeout(loadSchedule, 3000);
   } catch (err) {
-    toast(`Sync failed: ${err.message}`, 3000);
+    toast(`❌ Sync failed: ${err.message}`, 3000);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Sync All'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync All'; }
   }
 }
 
@@ -4044,7 +3989,7 @@ function renderInventoryContent() {
             <div>
               <div class="inv-item-name">${it.item}</div>
               <div class="inv-item-meta">${it.quantity} · ${it.unitCost}</div>
-              <div class="inv-item-source">${it.bestSource || '—'}</div>
+              <div class="inv-item-source">🛒 ${it.bestSource || '—'}</div>
             </div>
             <div class="inv-item-cost">${it.totalCost || '—'}</div>
           </div>`;
@@ -4075,8 +4020,8 @@ let _allEquipment = [];
 let _eqLoaded = false;
 
 const EQ_ICONS = {
-  Vehicle: icons.truck, Trailer: icons.truck, Ladder: icons.wrench, Scaffold: icons.briefcase,
-  'Power Tool': icons.settings, 'Hand Tool': icons.wrench, Safety: icons.shield, Other: icons.package,
+  Vehicle: '🚛', Trailer: '🚜', Ladder: '🪜', Scaffold: '🏗️',
+  'Power Tool': '⚙️', 'Hand Tool': '🔧', Safety: '🦺', Other: '📦',
 };
 
 async function loadEquipment() {
@@ -4120,7 +4065,7 @@ function renderEquipment() {
     <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;padding:8px 0 6px">${cat}</div>
     ${eqs.map(eq => {
       const statusKey = (eq.status || 'available').toLowerCase().replace(' ', '');
-      const icon = EQ_ICONS[eq.category] || icons.package;
+      const icon = EQ_ICONS[eq.category] || '📦';
       const assignedInfo = eq.assignedJob ? ` · ${eq.assignedJob}${eq.assignedTo ? ' / ' + eq.assignedTo : ''}` : '';
       const eqRow = eq._row;
       const availBtn = eq.status === 'Available'
@@ -4184,7 +4129,7 @@ function openEditEquipment(row) {
 
 async function saveEquipment() {
   const name = document.getElementById('eqName').value.trim();
-  if (!name) { toast('! Name is required'); return; }
+  if (!name) { toast('⚠️ Name is required'); return; }
   const editRow = document.getElementById('eqEditRow').value;
   const body = {
     name,
@@ -4206,7 +4151,7 @@ async function saveEquipment() {
     closeModal('equipmentModal');
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not save — check connection'); }
+  } catch { toast('⚠️ Could not save — check connection'); }
 }
 
 async function deleteEquipment() {
@@ -4218,7 +4163,7 @@ async function deleteEquipment() {
     closeModal('equipmentModal');
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not delete'); }
+  } catch { toast('⚠️ Could not delete'); }
 }
 
 async function promptAssignEquipment(btn) {
@@ -4237,7 +4182,7 @@ async function promptAssignEquipment(btn) {
     toast(`✓ Assigned to ${jobId}`);
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not assign'); }
+  } catch { toast('⚠️ Could not assign'); }
 }
 
 async function releaseEquipment(btn) {
@@ -4249,7 +4194,7 @@ async function releaseEquipment(btn) {
     toast('✓ Released — now Available');
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not release'); }
+  } catch { toast('⚠️ Could not release'); }
 }
 
 async function loadInventory() {
@@ -4268,7 +4213,7 @@ async function loadInventory() {
     } else {
       el.innerHTML = `
         <div style="text-align:center;padding:40px 20px;color:var(--text3)">
-          <div style="margin-bottom:12px;color:var(--text2)">' + icons.package + '</div>
+          <div style="font-size:40px;margin-bottom:12px">📦</div>
           <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:8px">No Materials Yet</div>
           <div style="font-size:13px;line-height:1.6">Materials will appear here after the <strong style="color:var(--text)">Pricing Agent</strong> runs on a job.<br><br>Go to a Job → tap the Estimate <strong style="color:var(--gold)">Generate</strong> button to populate this page.</div>
         </div>`;
@@ -4316,7 +4261,7 @@ function renderGoals(actuals) {
   if (!hasGoals) {
     el.innerHTML = `
       <div style="background:var(--card);border:1px dashed var(--border);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:4px">
-        <div style="margin-bottom:8px;color:var(--gold)">' + icons.target + '</div>
+        <div style="font-size:24px;margin-bottom:8px">🎯</div>
         <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px">Set your monthly goals</div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Track revenue, leads, conversion rate and jobs against your targets.</div>
         <button class="btn btn-gold" style="padding:10px 20px" onclick="openGoalsModal()">Set Goals →</button>
@@ -4328,28 +4273,28 @@ function renderGoals(actuals) {
   const metrics = [
     {
       label:  'Revenue',
-      icon: icons.dollar,
+      icon:   '💰',
       actual: actuals?.revenue  || 0,
       goal:   goals.revenueGoal || 0,
       format: v => '$' + Math.round(v).toLocaleString(),
     },
     {
       label:  'New Leads',
-      icon: icons.user,
+      icon:   '👤',
       actual: actuals?.leads    || 0,
       goal:   goals.leadsGoal   || 0,
       format: v => Math.round(v).toString(),
     },
     {
       label:  'Jobs Done',
-      icon: icons.briefcase,
+      icon:   '🔨',
       actual: actuals?.jobs     || 0,
       goal:   goals.jobsGoal    || 0,
       format: v => Math.round(v).toString(),
     },
     {
       label:  'Conversion',
-      icon: icons.chart,
+      icon:   '📈',
       actual: actuals?.conversion || 0,
       goal:   goals.conversionGoal || 0,
       format: v => Math.round(v) + '%',
@@ -4359,7 +4304,7 @@ function renderGoals(actuals) {
   if (!metrics.length) return;
 
   el.innerHTML = `
-    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px">This Month vs Goals</div>
+    <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px">🎯 This Month vs Goals</div>
     ${metrics.map(m => {
       const pct     = m.goal > 0 ? Math.min(100, Math.round((m.actual / m.goal) * 100)) : 0;
       const onTrack = pct >= 70;
@@ -4382,7 +4327,7 @@ function renderGoals(actuals) {
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:5px">
             <span style="font-size:11px;color:${color};font-weight:700">${pct}% of goal</span>
-            <span style="font-size:11px;color:var(--text3)">${pct >= 100 ? 'Goal hit!' : onTrack ? 'On track' : 'Behind'}</span>
+            <span style="font-size:11px;color:var(--text3)">${pct >= 100 ? '🎉 Goal hit!' : onTrack ? '✅ On track' : '⚠️ Behind'}</span>
           </div>
         </div>
       `;
@@ -4418,11 +4363,11 @@ async function saveGoals() {
     });
     if (!res.ok) throw new Error((await res.json()).error);
     await loadGoals();
-    toast('Goals saved!');
+    toast('🎯 Goals saved!');
     closeModal('goalsModal');
     loadAnalytics();
   } catch (e) {
-    toast('! Save failed: ' + e.message);
+    toast('⚠️ Save failed: ' + e.message);
   } finally {
     if (btn) { btn.textContent = 'Save Goals'; btn.disabled = false; }
   }
@@ -4594,12 +4539,12 @@ function connectQB() {
   const popup = window.open('/api/quickbooks/connect', 'qb-connect', 'width=600,height=700,scrollbars=yes');
   const handler = (e) => {
     if (e.data?.qbConnected) {
-      toast('\u2713 QuickBooks connected — ' + (e.data.company || ''));
+      toast('✅ QuickBooks connected — ' + (e.data.company || ''));
       window.removeEventListener('message', handler);
       loaded['settings'] = false;
       navigate('settings');
     } else if (e.data?.qbError) {
-      toast('! QB connection failed: ' + e.data.qbError);
+      toast('⚠️ QB connection failed: ' + e.data.qbError);
       window.removeEventListener('message', handler);
     }
   };
@@ -4613,7 +4558,7 @@ async function disconnectQB() {
     toast('QuickBooks disconnected');
     loaded['settings'] = false;
     navigate('settings');
-  } catch { toast('! Could not disconnect'); }
+  } catch { toast('⚠️ Could not disconnect'); }
 }
 
 /* ─── JOB SITE ESTIMATE FORM ────────────────────────────────────── */
@@ -4751,11 +4696,11 @@ async function submitEstimateForm(e) {
   if (!payload.clientName) {
     const f = document.getElementById('estClientName');
     if (f) { f.focus(); f.style.borderColor = 'var(--red)'; setTimeout(() => f.style.borderColor = '', 1800); }
-    toast('! Enter a client name first');
+    toast('⚠️ Enter a client name first');
     return;
   }
   if (!payload.rooms.length) {
-    toast('! Select at least one scope item');
+    toast('⚠️ Select at least one scope item');
     return;
   }
 
@@ -4894,13 +4839,13 @@ async function uploadPhotoModal() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
-    toast(' Photo uploaded — visible on client portal');
+    toast('📸 Photo uploaded — visible on client portal');
     document.getElementById('photoPreviewWrap').style.display = 'none';
     document.getElementById('photoFileInput').value = '';
     photoFileData = null;
     loadPhotoModalGrid();
   } catch(e) {
-    toast('\u2717 Upload failed: ' + e.message);
+    toast('❌ Upload failed: ' + e.message);
   } finally {
     btn.textContent = 'Upload Photo';
     btn.disabled = false;
@@ -4942,7 +4887,7 @@ async function loadRecurring() {
     if (banner) {
       if (dueSoon.length) {
         banner.style.display = 'block';
-        banner.textContent = `${dueSoon.length} service${dueSoon.length>1?'s':''} due in the next 7 days`;
+        banner.textContent = `⚡ ${dueSoon.length} service${dueSoon.length>1?'s':''} due in the next 7 days`;
       } else {
         banner.style.display = 'none';
       }
@@ -4970,7 +4915,7 @@ function renderRecurringList() {
     : recurringData.filter(r => r.frequency === recurringFilter);
 
   if (!items.length) {
-    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="margin-bottom:10px;color:var(--text2)">' + icons.repeat + '</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">No recurring jobs yet</div><div style="font-size:13px">Add recurring services to auto-schedule jobs for regular clients.</div></div>`;
+    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="font-size:32px;margin-bottom:10px">🔁</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">No recurring jobs yet</div><div style="font-size:13px">Add recurring services to auto-schedule jobs for regular clients.</div></div>`;
     return;
   }
 
@@ -4987,16 +4932,16 @@ function renderRecurringList() {
     return `
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:12px">
-          <div style="width:40px;height:40px;border-radius:10px;background:rgba(191,148,56,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icons.repeat + '</div>
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(191,148,56,.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔁</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;font-weight:700;color:var(--text1)">${r.clientName}</div>
             <div style="font-size:13px;color:var(--text2);margin-top:1px">${r.serviceType}${r.address ? ' · ' + r.address : ''}</div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
               <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(191,148,56,.1);color:${freqColor}">${r.frequency}</span>
               ${r.price ? `<span style="font-size:11px;font-weight:700;color:var(--green)">${r.price}</span>` : ''}
-              ${r.assignedTo ? `<span style="font-size:11px;color:var(--text2)">${r.assignedTo}</span>` : ''}
+              ${r.assignedTo ? `<span style="font-size:11px;color:var(--text2)">👷 ${r.assignedTo}</span>` : ''}
             </div>
-            ${r.nextDate ? `<div style="font-size:12px;margin-top:6px;font-weight:600;color:${urgentColor}">${dueLabel} · Next: ${r.nextDate}</div>` : ''}
+            ${r.nextDate ? `<div style="font-size:12px;margin-top:6px;font-weight:600;color:${urgentColor}">📅 ${dueLabel} · Next: ${r.nextDate}</div>` : ''}
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:12px">
@@ -5020,7 +4965,7 @@ async function saveRecurringJob() {
   const clientName  = document.getElementById('rClientName')?.value?.trim();
   const serviceType = document.getElementById('rServiceType')?.value;
   const frequency   = document.getElementById('rFrequency')?.value;
-  if (!clientName) { toast('\u2717 Client name required'); return; }
+  if (!clientName) { toast('❌ Client name required'); return; }
 
   const btn = document.querySelector('#addRecurringModal .btn-gold');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
@@ -5041,11 +4986,11 @@ async function saveRecurringJob() {
       })
     });
     if (!res.ok) throw new Error((await res.json()).error);
-    toast('\u2713 Recurring job saved');
+    toast('✅ Recurring job saved');
     closeModal('addRecurringModal');
     loadRecurring();
   } catch(e) {
-    toast('\u2717 Save failed: ' + e.message);
+    toast('❌ Save failed: ' + e.message);
   } finally {
     if (btn) { btn.textContent = 'Save Job'; btn.disabled = false; }
   }
@@ -5057,10 +5002,10 @@ async function runRecurringJob(row, clientName) {
     const res  = await fetch(`/api/recurring/${row}/run`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`\u2713 Job ${data.jobId} created for ${clientName}`);
+    toast(`✅ Job ${data.jobId} created for ${clientName}`);
     loadRecurring();
   } catch(e) {
-    toast('\u2717 Failed: ' + e.message);
+    toast('❌ Failed: ' + e.message);
   }
 }
 
@@ -5107,7 +5052,7 @@ function renderTasksList() {
   if (taskFilter === 'complete') items = tasksData.filter(t => t.status === 'Complete');
 
   if (!items.length) {
-    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="margin-bottom:10px;color:var(--green)">' + icons.check + '</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">${taskFilter === 'complete' ? 'No completed tasks' : 'All clear!'}</div><div style="font-size:13px">No ${taskFilter === 'all' ? '' : taskFilter + ' '}tasks right now.</div></div>`;
+    list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2)"><div style="font-size:32px;margin-bottom:10px">✅</div><div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:6px">${taskFilter === 'complete' ? 'No completed tasks' : 'All clear!'}</div><div style="font-size:13px">No ${taskFilter === 'all' ? '' : taskFilter + ' '}tasks right now.</div></div>`;
     return;
   }
 
@@ -5118,9 +5063,9 @@ function renderTasksList() {
     const dueDate    = t.dueDate ? new Date(t.dueDate) : null;
     const isOverdue  = dueDate && dueDate < today && !isComplete;
     const isDueToday = dueDate && dueDate.toDateString() === today.toDateString();
-    const dueTxt     = !dueDate ? '' : isOverdue ? `Overdue \u00B7 ${t.dueDate}` : isDueToday ? 'Due today' : `${t.dueDate}`;
+    const dueTxt     = !dueDate ? '' : isOverdue ? `⚠️ Overdue · ${t.dueDate}` : isDueToday ? '📅 Due today' : `📅 ${t.dueDate}`;
     const prioColor  = t.priority === 'High' ? 'var(--red)' : t.priority === 'Low' ? 'var(--text3)' : 'var(--text2)';
-    const prioDot    = t.priority === 'High' ? '<span style="color:var(--red)">\u25CF</span>' : t.priority === 'Low' ? '<span style="color:var(--text3)">\u25CF</span>' : '<span style="color:var(--yellow)">\u25CF</span>';
+    const prioDot    = t.priority === 'High' ? '🔴' : t.priority === 'Low' ? '⚪' : '🟡';
 
     return `
       <div style="background:var(--card);border:1px solid ${isOverdue ? 'rgba(239,68,68,.3)' : 'var(--border)'};border-radius:var(--r);padding:14px 16px;margin-bottom:8px;${isComplete ? 'opacity:.6' : ''}">
@@ -5131,8 +5076,8 @@ function renderTasksList() {
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;font-weight:700;color:var(--text1);${isComplete ? 'text-decoration:line-through' : ''}">${t.title}</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center">
-              ${t.assignedTo ? `<span style="font-size:11px;color:var(--text2)">${t.assignedTo}</span>` : ''}
-              ${t.clientName ? `<span style="font-size:11px;color:var(--text2)">${t.clientName}</span>` : ''}
+              ${t.assignedTo ? `<span style="font-size:11px;color:var(--text2)">👤 ${t.assignedTo}</span>` : ''}
+              ${t.clientName ? `<span style="font-size:11px;color:var(--text2)">🤝 ${t.clientName}</span>` : ''}
               ${t.jobId ? `<span style="font-size:11px;color:var(--text3)">${t.jobId}</span>` : ''}
               <span style="font-size:11px;color:${prioColor}">${prioDot} ${t.priority}</span>
             </div>
@@ -5151,12 +5096,12 @@ function updateDashTasksStrip() {
   if (!strip) return;
   const open = tasksData.filter(t => t.status === 'Open').slice(0, 3);
   if (!open.length) {
-    strip.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--text2)">No open tasks</div>';
+    strip.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--text2)">✅ No open tasks</div>';
     return;
   }
   strip.innerHTML = open.map(t => `
     <div style="background:var(--card);border:1px solid ${t.priority==='High'?'rgba(239,68,68,.3)':'var(--border)'};border-radius:var(--r);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px" onclick="navigate('tasks')">
-      <div style="font-size:18px">${t.priority==='High'?'<span style="color:var(--red)">\u25CF</span>':'<span style="color:var(--yellow)">\u25CF</span>'}</div>
+      <div style="font-size:18px">${t.priority==='High'?'🔴':'🟡'}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div>
         <div style="font-size:12px;color:var(--text2)">${t.assignedTo||'Unassigned'}${t.dueDate?' · Due '+t.dueDate:''}</div>
@@ -5175,7 +5120,7 @@ function openAddTaskModal() {
 
 async function saveTask() {
   const title = document.getElementById('taskTitle')?.value?.trim();
-  if (!title) { toast('\u2717 Task title required'); return; }
+  if (!title) { toast('❌ Task title required'); return; }
   const btn = document.querySelector('#addTaskModal .btn-gold');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
   try {
@@ -5193,13 +5138,13 @@ async function saveTask() {
       })
     });
     if (!res.ok) throw new Error((await res.json()).error);
-    toast('\u2713 Task saved');
+    toast('✅ Task saved');
     closeModal('addTaskModal');
     // Clear form
     ['taskTitle','taskAssignedTo','taskClientName','taskJobId','taskNotes'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     loadTasks();
   } catch(e) {
-    toast('\u2717 Save failed: ' + e.message);
+    toast('❌ Save failed: ' + e.message);
   } finally {
     if (btn) { btn.textContent = 'Save Task'; btn.disabled = false; }
   }
@@ -5208,10 +5153,10 @@ async function saveTask() {
 async function completeTask(row) {
   try {
     await fetch(`/api/tasks/${row}/complete`, { method: 'POST' });
-    toast('\u2713 Task complete!');
+    toast('✅ Task complete!');
     loadTasks();
   } catch(e) {
-    toast('\u2717 Failed: ' + e.message);
+    toast('❌ Failed: ' + e.message);
   }
 }
 
@@ -5222,7 +5167,7 @@ async function deleteTask(row) {
     toast('Task deleted');
     loadTasks();
   } catch(e) {
-    toast('\u2717 Failed: ' + e.message);
+    toast('❌ Failed: ' + e.message);
   }
 }
 
