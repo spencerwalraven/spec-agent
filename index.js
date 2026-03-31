@@ -3255,6 +3255,16 @@ app.post('/api/sgc/quickbooks/disconnect', (req, res) => {
   }
 });
 
+// ─── SGC FULL ROUTER (workers, CRUD, budget, docs, chat, briefing, etc.) ─────
+// Mounts AFTER index.js routes so duplicates resolve to index.js versions,
+// but all missing routes (workers, add/delete, budget, docs, chat) are handled here.
+try {
+  const createSgcRouter = require('./src/routes/sgc-ops');
+  app.use(createSgcRouter({ requireAuth, requireOwner, logger, appDir: __dirname }));
+} catch (e) {
+  logger.warn('SGC', `Could not mount sgc-ops router: ${e.message}`);
+}
+
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
