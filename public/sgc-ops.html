@@ -965,6 +965,7 @@
         <div style="display:flex;gap:8px;align-items:center">
           <input class="search-bar" id="subSearch" placeholder="Search subs..." oninput="filterSubs()" />
           <button class="export-btn" onclick="exportCSV()" title="Export to CSV">⬇ CSV</button>
+          <button class="add-row-btn" style="background:rgba(201,168,76,0.15);border-color:var(--gold);color:var(--gold)" onclick="openOnboardModal()">📧 Onboard Sub</button>
           <button class="add-row-btn" onclick="openAddModal()">+ Add Sub</button>
         </div>
       </div>
@@ -1332,6 +1333,48 @@
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeAddModal()">Cancel</button>
         <button class="btn-primary" id="saveSubBtn" onclick="saveNewSub()">Add Subcontractor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONBOARD SUB MODAL -->
+  <div class="modal-overlay" id="onboardSubModal" onclick="if(event.target===this)closeOnboardModal()">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-title">📧 Onboard New Subcontractor</div>
+      <div style="font-size:12px;color:var(--text2);margin:-4px 0 16px">Send a customized onboarding email with required documents checklist</div>
+      <div class="modal-grid">
+        <div class="modal-field full">
+          <label class="modal-label">Full Name *</label>
+          <input class="modal-input" id="obSubName" placeholder="e.g. John Smith" />
+        </div>
+        <div class="modal-field full">
+          <label class="modal-label">Company Name</label>
+          <input class="modal-input" id="obSubCompany" placeholder="e.g. Smith Roofing LLC (leave blank if same as name)" />
+        </div>
+        <div class="modal-field full">
+          <label class="modal-label">Email Address *</label>
+          <input class="modal-input" type="email" id="obSubEmail" placeholder="contractor@email.com" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Trade / Specialty</label>
+          <input class="modal-input" id="obSubTrade" placeholder="e.g. Roofing, Electrical, Tile" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Onboarding Type</label>
+          <select class="modal-select" id="obSubType">
+            <option value="Full">Full (subcontractor)</option>
+            <option value="Light">Light (referral / designer)</option>
+          </select>
+        </div>
+        <div class="modal-field full" style="display:flex;align-items:center;gap:10px;padding-top:4px">
+          <input type="checkbox" id="obSubW9" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer" />
+          <label for="obSubW9" style="font-size:13px;color:var(--text);cursor:pointer">W-9 already on file — skip W-9 request in email</label>
+        </div>
+      </div>
+      <div id="onboardPreview" style="display:none;margin:12px 0;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeOnboardModal()">Cancel</button>
+        <button class="btn-primary" id="sendOnboardBtn" onclick="sendOnboarding()" style="background:var(--gold);color:#000;font-weight:700">📧 Send Onboarding Email</button>
       </div>
     </div>
   </div>
@@ -1772,6 +1815,55 @@
 
     // Keep backward compat for sub patches
     async function patchSubCell(row, field, value) { return patchCell('sub', row, field, value); }
+
+    // ── ONBOARD SUB MODAL ──
+    function openOnboardModal() {
+      document.getElementById('onboardSubModal').classList.add('open');
+      document.getElementById('onboardPreview').style.display = 'none';
+      setTimeout(() => document.getElementById('obSubName').focus(), 50);
+    }
+
+    function closeOnboardModal() {
+      document.getElementById('onboardSubModal').classList.remove('open');
+      ['obSubName','obSubCompany','obSubEmail','obSubTrade'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('obSubType').value = 'Full';
+      document.getElementById('obSubW9').checked = false;
+      document.getElementById('onboardPreview').style.display = 'none';
+    }
+
+    async function sendOnboarding() {
+      const name    = document.getElementById('obSubName').value.trim();
+      const email   = document.getElementById('obSubEmail').value.trim();
+      const company = document.getElementById('obSubCompany').value.trim();
+      const trade   = document.getElementById('obSubTrade').value.trim();
+      const type    = document.getElementById('obSubType').value;
+      const w9      = document.getElementById('obSubW9').checked;
+      if (!name)  { showToast('Name is required', 'error'); return; }
+      if (!email) { showToast('Email is required', 'error'); return; }
+      const btn = document.getElementById('sendOnboardBtn');
+      btn.textContent = '⏳ Sending…';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/sgc/ops/subs/onboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, company, email, trade, onboardingType: type, w9OnFile: w9 }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          closeOnboardModal();
+          showToast('✅ Onboarding email sent to ' + name, 'success');
+          await loadSubs();
+        } else {
+          showToast('Failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.textContent = '📧 Send Onboarding Email';
+        btn.disabled = false;
+      }
+    }
 
     // ── ADD SUB MODAL ──
     function openAddModal() {

@@ -799,6 +799,111 @@ module.exports = function createSgcRouter({ requireAuth, requireOwner, logger, a
     }
   });
 
+  // ── Subcontractor Onboarding Email ───────────────────────────────────────
+  router.post('/api/sgc/ops/subs/onboard', async (req, res) => {
+    try {
+      const { name, company, email, trade, onboardingType, w9OnFile } = req.body;
+      if (!name || !email) return res.status(400).json({ error: 'name and email are required' });
+
+      // ── Build doc checklist based on type and trade ──────────────────────
+      const isLight = (onboardingType || 'Full').toLowerCase() === 'light';
+      const needsLicense = !isLight && /roof|electr|plumb|concrete|hvac|mechan/i.test(trade || '');
+      const w9Already = w9OnFile === true || w9OnFile === 'true' || w9OnFile === 'Yes';
+
+      const firstName = name.split(' ')[0];
+      const displayTrade = trade ? ` ${trade}` : '';
+      const displayCompany = company && company !== name ? ` (${company})` : '';
+
+      let docList, subjectLine, bodyIntro, bodyClose;
+      if (isLight) {
+        subjectLine = `Welcome to Scottsdale General Contracting — Quick Onboarding`;
+        bodyIntro = `We're looking forward to partnering with you! For referral and design partners, we have a simplified onboarding process.`;
+        docList = [
+          w9Already ? `✓ W-9 — already on file` : `☐ W-9 Form (Federal tax form — please reply with a signed copy)`,
+          `☐ Current contact information (name, phone, email, mailing address)`,
+          `☐ Signed Service / Referral Agreement`,
+        ].join('\n');
+        bodyClose = `Once we receive these, we'll get you fully set up in our system and reach out with next steps.`;
+      } else {
+        subjectLine = `Welcome to Scottsdale General Contracting — Onboarding Required`;
+        bodyIntro = `We recently migrated all subcontractor management to Buildertrend, and we need to make sure you're fully onboarded in our new system before we get you on any upcoming projects.`;
+        docList = [
+          w9Already ? `✓ W-9 — already on file` : `☐ W-9 Form (Federal tax form — please reply with a signed copy)`,
+          `☐ Certificate of Insurance (COI) — listing SGC as additional insured`,
+          `☐ General Liability Insurance — minimum $1,000,000 per occurrence`,
+          `☐ Workers' Compensation Insurance`,
+          `☐ Hold Harmless Agreement (signed copy — see attachment)`,
+          `☐ Business License`,
+          needsLicense ? `☐ Arizona Contractor License (required for ${trade} work)` : null,
+        ].filter(Boolean).join('\n');
+        bodyClose = `Once we receive everything, I'll send a separate email with your Buildertrend setup instructions so you can access job schedules, documents, and daily reports.`;
+      }
+
+      const formNote = process.env.SGC_ONBOARDING_FORM_URL
+        ? `\nYou can also upload documents directly here: ${process.env.SGC_ONBOARDING_FORM_URL}\n`
+        : '';
+
+      const emailBody =
+`Hi ${firstName},
+
+My name is Serene, and I'm the Operations Manager at Scottsdale General Contracting (SGC). ${bodyIntro}
+
+REQUIRED DOCUMENTS${displayTrade ? ' — ' + trade.toUpperCase() : ''}:
+${docList}
+${formNote}
+Please reply to this email with the documents attached, or reach out to me directly if you have any questions.
+
+${bodyClose}
+
+We're excited to work with you${displayCompany} and will be in touch soon!
+
+Warm regards,
+Serene
+Operations Manager
+Scottsdale General Contracting
+Phone: ${process.env.SGC_PHONE || '(480) 555-0100'}`;
+
+      // ── Send the email ────────────────────────────────────────────────────
+      const { sendEmail } = require('../tools/gmail');
+      await sendEmail({ to: email, subject: subjectLine, body: emailBody });
+
+      // ── Add sub to sheet if not already there ─────────────────────────────
+      try {
+        const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+        const sheets = getSgcSheets();
+        const headerRes = await sheets.spreadsheets.values.get({ spreadsheetId: SGC_SHEET_ID, range: '2025 SubCons!1:1' });
+        const headers = headerRes.data.values?.[0] || [];
+        const fieldMap = {
+          'Name': name, 'Company Name': company || name, 'SUB': name,
+          'Trade': trade || '', 'Specialty': trade || '', 'TRADE': trade || '',
+          'Email': email, 'EMAIL': email,
+          'W9 Received': w9Already ? 'Yes' : 'No',
+          'W9 Received ': w9Already ? 'Yes' : 'No',
+          'W-9': w9Already ? 'Yes' : 'No',
+          'BT Onboarding': 'No', 'Buildertrend': 'No',
+          'NOTES': `Onboarding email sent ${new Date().toLocaleDateString('en-US')}`,
+          'Notes': `Onboarding email sent ${new Date().toLocaleDateString('en-US')}`,
+        };
+        const rowValues = headers.map(h => fieldMap[h] !== undefined ? fieldMap[h] : '');
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SGC_SHEET_ID,
+          range: '2025 SubCons!A1',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: { values: [rowValues] },
+        });
+      } catch (sheetErr) {
+        logger.warn('SGC-Onboard', `Could not add sub to sheet: ${sheetErr.message}`);
+      }
+
+      logger.success('SGC-Onboard', `Onboarding email sent to ${name} <${email}>`);
+      res.json({ ok: true, message: `Onboarding email sent to ${name} at ${email}` });
+    } catch (e) {
+      logger.error('SGC-Onboard', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── SGC Morning Briefing ──────────────────────────────────────────────────
   router.post('/api/sgc/briefing', async (req, res) => {
     try {
