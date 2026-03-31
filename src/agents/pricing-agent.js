@@ -46,7 +46,7 @@ const TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        projectType: { type: 'string', description: 'Project type to look up, e.g. "Kitchen Remodel"' },
+        projectType: { type: 'string', description: 'Project type to look up, e.g. "Patio Installation"' },
       },
       required: ['projectType'],
     },
@@ -69,7 +69,7 @@ const TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        title:   { type: 'string', description: 'Document title, e.g. "Estimate — Johnson Kitchen Remodel"' },
+        title:   { type: 'string', description: 'Document title, e.g. "Estimate — Johnson Patio Installation"' },
         content: { type: 'string', description: 'Full estimate content in plain text with clear sections' },
       },
       required: ['title', 'content'],

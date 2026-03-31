@@ -119,7 +119,7 @@ const TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        title:       { type: 'string', description: 'Event title, e.g. "Kitchen Remodel Kickoff — Sarah Chen"' },
+        title:       { type: 'string', description: 'Event title, e.g. "Patio Installation Kickoff — Sarah Chen"' },
         description: { type: 'string' },
         startDate:   { type: 'string', description: 'Date in YYYY-MM-DD or MM/DD/YYYY format, or ISO datetime' },
         endDate:     { type: 'string', description: 'Optional end date. Defaults to same day.' },

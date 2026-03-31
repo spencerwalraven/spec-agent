@@ -1,5 +1,5 @@
 /**
- * Sheets tool library — all SummitCRM tab operations
+ * Sheets tool library — all SPEC Systems tab operations
  * Column lookups are by header name, never hard-coded letters.
  */
 

@@ -278,8 +278,10 @@ const PUBLIC_PREFIXES = [
   '/pay',
   '/paid',
   '/api/pay/',
-  '/api/sgc/field-report',   // Tally webhook — keep public, secret-validated below
-  '/api/google/reconnect',
+  '/sgc',
+  '/api/sgc/',
+  '/sgc-ops',
+  '/api/sgc/field-report',
 ];
 
 app.use((req, res, next) => {
@@ -292,7 +294,7 @@ app.use((req, res, next) => {
     if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    return res.redirect('/login?next=' + encodeURIComponent(req.path));
+    return res.redirect('/login');
   }
 
   // Role-based restrictions — non-owners can't write settings or toggle team
@@ -369,12 +371,9 @@ app.post('/login', async (req, res) => {
 
   if (matchedUser) {
     setSessionCookie(res, matchedUser);
-    const next = req.query.next || req.body.next || '/';
-    const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/';
-    return res.redirect(safeNext);
+    return res.redirect('/');
   }
-  const failNext = req.query.next ? `&next=${encodeURIComponent(req.query.next)}` : '';
-  res.redirect('/login?error=1' + failNext);
+  res.redirect('/login?error=1');
 });
 
 // Logout
@@ -1188,7 +1187,7 @@ app.post('/api/team/:id/set-login', requireOwner, async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
     const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 12);
+    const hash = await bcrypt.hash(password, 10);
     const { query } = require('./src/db');
     await query(
       `UPDATE team SET login_username = $1, login_password_hash = $2, login_role = $3, updated_at = NOW() WHERE id = $4`,
@@ -1569,9 +1568,8 @@ app.post('/webhook/sms', express.urlencoded({ extended: false }), async (req, re
 
     logger.info('SMS', `Inbound from ${from}: ${body}`);
 
-    const sheets = getSheets();
+    const sheets = app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
     const ssId   = process.env.SHEET_ID;
-    if (!ssId) return;
 
     // Look up who sent this — check Leads tab first, then Clients tab
     let senderName  = null;
@@ -1693,8 +1691,8 @@ app.get('/api/weather', requireAuth, async (req, res) => {
 // GET /api/sms — get SMS conversation log
 app.get('/api/sms', requireAuth, async (req, res) => {
   try {
-    const sheets = getSheets();
-    const ssId   = process.env.SHEET_ID;
+    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
+    const ssId   = SHEET_ID;
     let rows = [];
     try {
       const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: 'SMS Log!A:G' });
@@ -1726,8 +1724,8 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     await sms.sendSms(to, message);
 
     // Log it
-    const sheets    = getSheets();
-    const ssId      = process.env.SHEET_ID;
+    const sheets    = req.app.locals.sheets;
+    const ssId      = SHEET_ID;
     const timestamp = new Date().toISOString();
     try {
       await sheets.spreadsheets.values.append({
@@ -1949,7 +1947,7 @@ app.get('/api/status/:jobId', async (req, res) => {
     res.json({
       company: { name: settings.companyName || 'Your Contractor', phone: settings.phone || '', email: settings.email || '' },
       job: {
-        id: job.jobRef, clientName: job.clientName || '', projectType: job.service || 'Remodeling Project',
+        id: job.jobRef, clientName: job.clientName || '', projectType: job.service || 'Service Project',
         status: job.status, startDate: job.startDate, endDate: job.endDate,
         lastUpdate: '', notes: job.notes || '', address: job.address || '',
       },
@@ -1969,7 +1967,7 @@ app.get('/status/:jobId', (req, res) => {
 app.get('/api/pay/:jobId', async (req, res) => {
   try {
     const jobId  = (req.params.jobId || '').toUpperCase();
-    const sheets = getSheets();
+    const sheets = app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
     const ssId   = process.env.SHEET_ID;
 
     // Find job in Jobs tab
@@ -2059,16 +2057,10 @@ app.get('/paid', (req, res) => {
 // Upload a photo (base64) for a job — stores in Google Drive, logs in Job Photos tab
 app.post('/api/jobs/:row/photos', async (req, res) => {
   try {
-    const row = parseInt(req.params.row);
-    if (isNaN(row) || row < 2) return res.status(400).json({ error: 'Invalid row' });
-    const { imageData, mimeType = 'image/jpeg', caption = '' } = req.body;
+    const jobId = parseInt(req.params.row);
+    if (isNaN(jobId)) return res.status(400).json({ error: 'Invalid job ID' });
+    const { imageData, mimeType = 'image/jpeg', caption = '', photoType = 'progress' } = req.body;
     if (!imageData) return res.status(400).json({ error: 'imageData required' });
-
-    // Read job to get jobId
-    const { readRow } = require('./src/tools/sheets-compat');
-    const job    = await readRow('Jobs', row);
-    const jobId  = job?.['Job ID'] || `ROW${row}`;
-    const clientName = `${job?.['First Name'] || ''} ${job?.['Last Name'] || ''}`.trim();
 
     // Upload to Google Drive
     const { google } = require('googleapis');
@@ -2078,7 +2070,7 @@ app.post('/api/jobs/:row/photos', async (req, res) => {
     const drive = google.drive({ version: 'v3', auth });
 
     const ext = mimeType.includes('png') ? 'png' : mimeType.includes('gif') ? 'gif' : 'jpg';
-    const filename = `${jobId}_${Date.now()}.${ext}`;
+    const filename = `JOB-${jobId}_${Date.now()}.${ext}`;
     const buffer = Buffer.from(imageData, 'base64');
 
     const file = await drive.files.create({
@@ -2088,67 +2080,38 @@ app.post('/api/jobs/:row/photos', async (req, res) => {
     });
     const fileId = file.data.id;
 
-    // Make it publicly readable
     await drive.permissions.create({
       fileId,
       requestBody: { role: 'reader', type: 'anyone' },
     });
 
     const photoUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
-    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-    // Append to Job Photos tab
-    const sheets = getSheets();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: 'Job Photos!A:F',
-      valueInputOption: 'RAW',
-      requestBody: { values: [[jobId, row, clientName, caption, photoUrl, timestamp]] },
-    }).catch(async () => {
-      // Tab may not exist — create it first via a write to row 1, then append
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: 'Job Photos!A1:F1',
-        valueInputOption: 'RAW',
-        requestBody: { values: [['Job ID', 'Job Row', 'Client Name', 'Caption', 'Photo URL', 'Timestamp']] },
-      }).catch(() => {});
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
-        range: 'Job Photos!A:F',
-        valueInputOption: 'RAW',
-        requestBody: { values: [[jobId, row, clientName, caption, photoUrl, timestamp]] },
-      }).catch(() => {});
-    });
+    // Save to Postgres
+    const { query: dbQuery } = require('./src/db');
+    await dbQuery(
+      `INSERT INTO photos (company_id, job_id, url, caption, photo_type, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [COMPANY_ID, jobId, photoUrl, caption, photoType, req.currentUser?.name || 'Unknown']
+    );
 
-    res.json({ ok: true, photoUrl, fileId, timestamp });
+    res.json({ ok: true, photoUrl, fileId });
   } catch (e) {
     console.error('Photo upload error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Get all photos for a job (by jobId — used by status page)
+// Get all photos for a job
 app.get('/api/jobs/:jobId/photos', async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const sheets = getSheets();
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: 'Job Photos!A:F',
-    }).catch(() => ({ data: { values: [] } }));
-    const rows   = result.data.values || [];
-    if (rows.length < 2) return res.json([]);
-    const headers = rows[0];
-    const photos  = rows.slice(1)
-      .filter(r => (r[0] || '').toUpperCase() === jobId.toUpperCase())
-      .map(r => ({
-        jobId:     r[0] || '',
-        caption:   r[3] || '',
-        photoUrl:  r[4] || '',
-        timestamp: r[5] || '',
-      }))
-      .reverse(); // newest first
-    res.json(photos);
+    const jobId = parseInt(req.params.jobId);
+    if (isNaN(jobId)) return res.json([]);
+    const { query: dbQuery } = require('./src/db');
+    const result = await dbQuery(
+      `SELECT id, url AS "photoUrl", caption, photo_type AS type, uploaded_by, created_at AS timestamp FROM photos WHERE job_id = $1 AND company_id = $2 ORDER BY created_at DESC`,
+      [jobId, COMPANY_ID]
+    );
+    res.json(result.rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2938,7 +2901,7 @@ async function syncJobToQB(job, row) {
     const state       = g(job, 'State') || '';
     const zip         = g(job, 'Zip Code', 'Zip') || '';
     const jobId       = g(job, 'Job ID') || `ROW${row}`;
-    const projectType = g(job, 'Service Type', 'Project Type') || 'Remodeling';
+    const projectType = g(job, 'Service Type', 'Project Type') || 'Project';
     const clientName  = `${firstName} ${lastName}`.trim();
 
     // Find or create QB customer
@@ -3052,63 +3015,231 @@ async function handleQBPayment(realmId, paymentId) {
   }
 }
 
+// ─── SGC STANDALONE PAGE ─────────────────────────────────────────────────────
+app.get('/sgc', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc.html')));
 
-// ─── SGC OPERATIONS DASHBOARD ──────────────────────────────────────────────
-const createSgcRouter = require('./src/routes/sgc-ops');
-app.use(createSgcRouter({ requireAuth, requireOwner, logger, appDir: __dirname }));
+// ─── SGC OPS DASHBOARD ────────────────────────────────────────────────────────
+app.get('/sgc-ops', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sgc-ops.html')));
 
-// ─── GOOGLE RE-AUTH ───────────────────────────────────────────────────────────
-app.get('/api/google/reconnect', (req, res) => {
-  const { google } = require('googleapis');
-  const auth = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.APP_URL}/api/google/reconnect/callback`
-  );
-  const url = auth.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
-    scope: [
-      'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/gmail.modify',
-      'https://www.googleapis.com/auth/calendar',
-    ],
-  });
-  res.redirect(url);
-});
-
-app.get('/api/google/reconnect/callback', async (req, res) => {
+app.get('/api/sgc/ops/subs', async (req, res) => {
   try {
-    const { code } = req.query;
-    if (!code) return res.status(400).send('Missing code');
-    const { google } = require('googleapis');
-    const auth = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.APP_URL}/api/google/reconnect/callback`
-    );
-    const { tokens } = await auth.getToken(code);
-    const refreshToken = tokens.refresh_token;
-    if (refreshToken) {
-      process.env.GOOGLE_REFRESH_TOKEN = refreshToken;
-    }
-    res.send(`
-      <html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
-        <h2 style="color:#C9A84C">✅ Google Reconnected!</h2>
-        <p>New refresh token obtained successfully.</p>
-        ${refreshToken ? `
-          <p>Copy this token and paste it into Railway as <strong>GOOGLE_REFRESH_TOKEN</strong>:</p>
-          <textarea style="width:100%;height:80px;background:#1c1c1c;color:#C9A84C;border:1px solid #2a2a2a;padding:10px;border-radius:8px;font-size:12px">${refreshToken}</textarea>
-          <p style="color:#888;font-size:13px">After pasting in Railway, redeploy and everything will work again.</p>
-        ` : '<p style="color:#ef4444">No refresh token returned — make sure the app is Published in Google Cloud Console, then try again.</p>'}
-        <a href="/sgc-ops" style="color:#C9A84C">← Back to Dashboard</a>
-      </body></html>
-    `);
+    const agent = require('./src/agents/sgc-admin-agent');
+    const [subs] = await Promise.all([agent.sgcReadTab('2025 SubCons')]);
+    const mapped = subs.map(s => ({
+      _row:        s._row,
+      name:        s['Name'] || s['Company Name'] || s['SUB'] || '',
+      company:     s['Company'] || s['Company Name'] || '',
+      trade:       s['Trade'] || s['Specialty'] || s['TRADE'] || '',
+      email:       s['Email'] || s['EMAIL'] || '',
+      w9:          s['W9 Received '] || s['W9 Received'] || s['W-9'] || '',
+      btOnboarded: s['BT Onboarding'] || s['Buildertrend'] || '',
+      needs1099:   s['1099 needed'] || s['1099 Needed'] || '',
+      sent1099:    s['1099 Sent'] || '',
+      totalPaid:   s['2025 Total'] || s['Total Paid'] || s['2025 Total Paid'] || '',
+      notes:       s['NOTES'] || s['Notes'] || '',
+    })).filter(s => s.name);
+    res.json({ subs: mapped });
   } catch (e) {
-    res.status(500).send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#ef4444"><h2>Error</h2><p>${e.message}</p></body></html>`);
+    res.status(500).json({ error: e.message });
   }
 });
 
+// ─── SGC SUB COMPLIANCE CELL UPDATE ──────────────────────────────────────────
+app.patch('/api/sgc/ops/subs', async (req, res) => {
+  try {
+    const { row, field, value } = req.body;
+    if (!row || !field) return res.status(400).json({ error: 'row and field required' });
+    const agent = require('./src/agents/sgc-admin-agent');
+    await agent.sgcUpdateCell('2025 SubCons', row, field, value);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/sgc/ops/insurance', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const tasks = await agent.sgcReadTab('Insurance Tasks');
+    res.json({ tasks });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/sgc/ops/jobs', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const jobs = await agent.sgcReadTab('SGC');
+    const active = jobs.filter(j => (j['Job Status '] || j['Job Status'] || '').trim().toLowerCase() === 'in progress');
+    res.json({ jobs: active.map(j => ({ job: j['#'], customer: j['Customer'], status: j['Job Status '] || j['Job Status'], thru: j['Thru'] })) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC FIELD REPORTS GET (Dashboard) ────────────────────────────────────────
+app.get('/api/sgc/ops/field-reports', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const rows = await agent.sgcReadTab('Field Reports');
+    res.json({ reports: rows });
+  } catch (e) {
+    res.json({ reports: [] });
+  }
+});
+
+// ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
+app.post('/api/sgc/field-report', async (req, res) => {
+  try {
+    const payload = req.body;
+    // Parse Tally webhook format
+    const fields  = (payload?.data?.fields || []);
+    const get     = (label) => {
+      const f = fields.find(f => f.label && f.label.toLowerCase().includes(label.toLowerCase()));
+      return f ? (Array.isArray(f.value) ? f.value.join(', ') : String(f.value || '')) : '';
+    };
+
+    const report = {
+      'Submitted At': new Date().toISOString(),
+      'Name':         get('name'),
+      'Date':         get('date'),
+      'Job Name / Address': get('job'),
+      'Work Completed Today': get('work completed'),
+      'Issues or Delays': get('issues'),
+      'Materials Purchased': get('materials'),
+      'Plan for Tomorrow': get('plan'),
+      'Admin Follow Up': get('admin') || get('follow up'),
+    };
+
+    // Write to Google Sheet "Field Reports" tab
+    const SGC_SHEET_ID = process.env.SGC_SHEET_ID;
+    if (SGC_SHEET_ID) {
+      const { google } = require('googleapis');
+      const auth = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+      );
+      auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+      const sheets = google.sheets({ version: 'v4', auth });
+
+      const headers = Object.keys(report);
+      const values  = Object.values(report);
+
+      // Ensure "Field Reports" tab exists with headers
+      try {
+        const check = await sheets.spreadsheets.values.get({
+          spreadsheetId: SGC_SHEET_ID,
+          range: 'Field Reports!A1:Z1',
+        });
+        if (!check.data.values || !check.data.values[0]?.length) {
+          // Tab exists but has no headers — write them
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SGC_SHEET_ID,
+            range: 'Field Reports!A1',
+            valueInputOption: 'RAW',
+            requestBody: { values: [headers] },
+          });
+        }
+      } catch (_) {
+        // Tab doesn't exist — create it, then add headers
+        try {
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SGC_SHEET_ID,
+            requestBody: { requests: [{ addSheet: { properties: { title: 'Field Reports' } } }] },
+          });
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SGC_SHEET_ID,
+            range: 'Field Reports!A1',
+            valueInputOption: 'RAW',
+            requestBody: { values: [headers] },
+          });
+        } catch (createErr) {
+          logger.warn('SGC-FieldReport', `Tab create failed: ${createErr.message}`);
+        }
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SGC_SHEET_ID,
+        range: 'Field Reports!A1',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: [values] },
+      });
+    }
+
+    logger.info('SGC-FieldReport', `Report received from ${report['Name']} for ${report['Job Name / Address']}`);
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('SGC-FieldReport', `Webhook error: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── SGC QUICKBOOKS OAUTH ─────────────────────────────────────────────────────
+app.get('/api/sgc/quickbooks/connect', (req, res) => {
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const url = sgcQb.getAuthUrl(redirectUri);
+    res.redirect(url);
+  } catch (e) {
+    res.status(500).send(`QB connect error: ${e.message}`);
+  }
+});
+
+app.get('/api/sgc/quickbooks/callback', async (req, res) => {
+  try {
+    const { code, realmId, error } = req.query;
+    if (error) return res.send(`QuickBooks error: ${error}`);
+    if (!code || !realmId) return res.status(400).send('Missing code or realmId');
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
+    const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
+    res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
+      <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
+      <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
+      <p style="color:#888">You can close this window and return to your SGC assistant.</p>
+      <script>setTimeout(() => window.close(), 3000)</script>
+    </body></html>`);
+  } catch (e) {
+    res.status(500).send(`QB callback error: ${e.message}`);
+  }
+});
+
+app.get('/api/sgc/quickbooks/status', (req, res) => {
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    res.json({ connected: sgcQb.isConnected(), company: sgcQb.getCompanyName() });
+  } catch (e) {
+    res.json({ connected: false, error: e.message });
+  }
+});
+
+// Temporary token export — used once to copy tokens into Railway env vars
+app.get('/api/sgc/quickbooks/export-tokens', (req, res) => {
+  if (req.query.secret !== (process.env.WEBHOOK_SECRET || '')) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const sgcQb = require('./src/tools/sgc-quickbooks');
+    res.json(sgcQb.getTokens());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/sgc/quickbooks/disconnect', (req, res) => {
+  try {
+    const fs   = require('fs');
+    const path = require('path');
+    const file = path.join(__dirname, 'src/data/sgc-qb-tokens.json');
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    res.json({ disconnected: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -3202,8 +3333,8 @@ async function validateSheetSchema() {
 // GET /api/recurring — list all recurring job templates
 app.get('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = getSheets();
-    const ssId   = process.env.SHEET_ID;
+    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
+    const ssId   = SHEET_ID;
     let rows = [];
     try {
       const r = await sheets.spreadsheets.values.get({
@@ -3235,8 +3366,8 @@ app.get('/api/recurring', requireAuth, async (req, res) => {
 // POST /api/recurring — create a new recurring job
 app.post('/api/recurring', requireAuth, async (req, res) => {
   try {
-    const sheets = getSheets();
-    const ssId   = process.env.SHEET_ID;
+    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
+    const ssId   = SHEET_ID;
     const { clientName, address, serviceType, frequency, nextDate, price, assignedTo, notes } = req.body;
     if (!clientName || !serviceType || !frequency) return res.status(400).json({ error: 'clientName, serviceType, frequency required' });
 
@@ -3270,8 +3401,8 @@ app.post('/api/recurring', requireAuth, async (req, res) => {
 // POST /api/recurring/:row/run — manually trigger a recurring job (creates a job entry)
 app.post('/api/recurring/:row/run', requireAuth, async (req, res) => {
   try {
-    const sheets = getSheets();
-    const ssId   = process.env.SHEET_ID;
+    const sheets = req.app.locals.sheets; if (!sheets) return res.status(501).json({ error: "Google Sheets not configured — this feature requires Sheets integration" });
+    const ssId   = SHEET_ID;
     const rowNum = parseInt(req.params.row);
 
     // Get this recurring job
@@ -3401,12 +3532,35 @@ app.get('/admin/seed', async (req, res) => {
   try {
     const { execSync } = require('child_process');
     execSync('node src/seed.js', { stdio: 'pipe', cwd: __dirname });
-    res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see Summit Remodeling data.</p><a href="/">Go to Dashboard</a>');
+    res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see demo data.</p><a href="/">Go to Dashboard</a>');
   } catch (e) {
     res.status(500).send(`<h2>❌ Seed failed</h2><pre>${e.message}</pre>`);
   }
 });
 
+// ─── SGC ADMIN ASSISTANT ─────────────────────────────────────────────────────
+app.post('/api/sgc/briefing', async (req, res) => {
+  try {
+    const { runSGCMorningBriefing } = require('./src/jobs/sgc-briefing');
+    const result = await runSGCMorningBriefing();
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/sgc/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const sgcAgent = require('./src/agents/sgc-admin-agent');
+    const reply = await sgcAgent.chat(message, history || []);
+    res.json({ reply });
+  } catch (e) {
+    console.error('SGC chat error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── AI CHAT ─────────────────────────────────────────────────────────────────
 app.post('/api/chat', requireAuth, async (req, res) => {

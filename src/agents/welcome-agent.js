@@ -95,7 +95,7 @@ const EXECUTORS = {
 // ─── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(rowNumber) {
-  const appUrl = process.env.APP_URL || 'https://app.summitcrm.io';
+  const appUrl = process.env.APP_URL || 'https://your-crm.railway.app';
 
   return `You are the onboarding specialist for a professional home service company.
 Your job is to make new clients feel genuinely welcomed and confident right after they sign their contract.

@@ -791,7 +791,7 @@ function showAddLead() {
 
 async function saveNewLead() {
   const name = document.getElementById('newLeadName')?.value?.trim();
-  if (!name) { toast('u274c Name is required'); return; }
+  if (!name) { toast('❌ Name is required'); return; }
   const data = {
     name,
     phone:   document.getElementById('newLeadPhone')?.value?.trim() || '',
@@ -808,7 +808,7 @@ async function saveNewLead() {
     toast(`${name} added as a lead!`);
     delete loaded['leads'];
     await loadLeads();
-  } catch (e) { toast('u274c ' + (e.message || 'Error adding lead')); }
+  } catch (e) { toast('❌ ' + (e.message || 'Error adding lead')); }
 }
 
 /* ─── CREATE JOB ───────────────────────────────────────────────── */
@@ -828,7 +828,7 @@ async function showCreateJob() {
 
 async function saveNewJob() {
   const title = document.getElementById('newJobTitle')?.value?.trim();
-  if (!title) { toast('u274c Job title is required'); return; }
+  if (!title) { toast('❌ Job title is required'); return; }
   const data = {
     clientId:       document.getElementById('newJobClient')?.value || null,
     title,
@@ -845,7 +845,7 @@ async function saveNewJob() {
     toast(`Job "${title}" created!`);
     delete loaded['jobs'];
     await loadJobs();
-  } catch (e) { toast('u274c ' + (e.message || 'Error creating job')); }
+  } catch (e) { toast('❌ ' + (e.message || 'Error creating job')); }
 }
 
 let leadView = 'list'; // 'list' | 'pipeline'
@@ -2199,7 +2199,7 @@ async function loadAlerts() {
   // Update badge
   const urgentCount = alerts.filter(a => a.type === 'urgent').length;
   document.getElementById('alertBadge').style.display = urgentCount > 0 ? 'block' : 'none';
-  document.getElementById('alertsNavDot').style.display = urgentCount > 0 ? 'block' : 'none';
+  const _navDot = document.getElementById('alertsNavDot'); if (_navDot) _navDot.style.display = urgentCount > 0 ? 'block' : 'none';
 
   if (alerts.length === 0) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All clear!</div><div class="empty-sub">No alerts right now. Great work keeping everything on track.</div></div>`;
@@ -2303,7 +2303,7 @@ function showAddTeamMember() {
 
 async function saveNewTeamMember() {
   const name = document.getElementById('newMemberName')?.value?.trim();
-  if (!name) { toast('u274c Name is required'); return; }
+  if (!name) { toast('❌ Name is required'); return; }
 
   const data = {
     name,
@@ -2334,7 +2334,7 @@ async function saveNewTeamMember() {
     toast(`${name} added to team!`);
     await loadTeam();
   } catch (e) {
-    toast('u274c ' + (e.message || 'Error adding team member'));
+    toast('❌ ' + (e.message || 'Error adding team member'));
   }
 }
 
@@ -2353,14 +2353,14 @@ async function saveSetLogin() {
   const username = document.getElementById('setLoginUsername')?.value?.trim();
   const password = document.getElementById('setLoginPassword')?.value?.trim();
   const role     = document.getElementById('setLoginRole')?.value || 'field';
-  if (!username || !password) { toast('u274c Username and password required'); return; }
+  if (!username || !password) { toast('❌ Username and password required'); return; }
   try {
     await api(`/api/team/${id}/set-login`, { method: 'POST', body: { username, password, role } });
     closeModal('setLoginModal');
     toast('Login credentials saved!');
     loadSettings(); // Refresh team list
   } catch(e) {
-    toast('u274c ' + (e.message || 'Error saving login'));
+    toast('❌ ' + (e.message || 'Error saving login'));
   }
 }
 

@@ -68,7 +68,7 @@ const TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        projectType: { type: 'string', description: 'Type of project, e.g. "Kitchen Remodel", "Bathroom Renovation"' },
+        projectType: { type: 'string', description: 'Type of project, e.g. "Patio Installation", "Bathroom Renovation"' },
       },
       required: ['projectType'],
     },
@@ -292,7 +292,7 @@ TASK — in this exact order:
 
 PHASE PLANNING GUIDELINES BY PROJECT TYPE:
 
-Kitchen Remodel (8-14 weeks):
+Patio Installation (8-14 weeks):
   1. Demo & Disposal (2-3 days)
   2. Rough Plumbing rough-in (2-3 days) — if moving fixtures
   3. Rough Electrical (2-3 days)

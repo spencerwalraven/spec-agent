@@ -56,7 +56,7 @@ const TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        projectType:       { type: 'string', description: 'e.g. "Kitchen Remodel"' },
+        projectType:       { type: 'string', description: 'e.g. "Patio Installation"' },
         jobId:             { type: 'string' },
         estimatedCost:     { type: 'string', description: 'Original estimate in dollars' },
         actualCost:        { type: 'string', description: 'Actual final cost in dollars' },

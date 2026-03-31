@@ -111,7 +111,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         amountDollars: { type: 'number', description: 'Invoice amount in dollars (e.g. 1500 for $1,500.00)' },
-        description:   { type: 'string', description: 'What the client sees on the payment page (e.g. "Project Deposit — Kitchen Remodel")' },
+        description:   { type: 'string', description: 'What the client sees on the payment page (e.g. "Project Deposit — Patio Installation")' },
         jobId:         { type: 'string', description: 'Job ID for tracking' },
         clientEmail:   { type: 'string', description: 'Client email (optional)' },
       },
