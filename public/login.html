@@ -143,9 +143,9 @@
 
 <div class="wrap">
   <div class="brand">
-    <div class="brand-icon">🌿</div>
-    <div class="brand-name">Landcare Unlimited</div>
-    <div class="brand-sub">Sign in to your dashboard</div>
+    <div class="brand-icon">🏗️</div>
+    <div class="brand-name">Scottsdale General</div>
+    <div class="brand-sub">Sign in to your operations dashboard</div>
   </div>
 
   <div class="card">
@@ -184,14 +184,21 @@
 </div>
 
 <script>
+  const params = new URLSearchParams(location.search);
+
+  // Forward ?next= through the form so login redirects back to the right page
+  const next = params.get('next');
+  const form = document.getElementById('loginForm');
+  form.action = '/login' + (next ? '?next=' + encodeURIComponent(next) : '');
+
   // Show error if redirected back with ?error=1
-  if (location.search.includes('error=1')) {
+  if (params.get('error') === '1') {
     document.getElementById('errorMsg').classList.add('show');
     document.getElementById('password').focus();
   }
 
   // Disable button on submit to prevent double-click
-  document.getElementById('loginForm').addEventListener('submit', function() {
+  form.addEventListener('submit', function() {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.textContent = 'Signing in…';

@@ -278,10 +278,7 @@ const PUBLIC_PREFIXES = [
   '/pay',
   '/paid',
   '/api/pay/',
-  '/sgc',
-  '/api/sgc/',
-  '/sgc-ops',
-  '/api/sgc/field-report',
+  '/api/sgc/field-report',   // Tally webhook — keep public, secret-validated below
   '/api/google/reconnect',
 ];
 
@@ -295,7 +292,7 @@ app.use((req, res, next) => {
     if (req.path.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    return res.redirect('/login');
+    return res.redirect('/login?next=' + encodeURIComponent(req.path));
   }
 
   // Role-based restrictions — non-owners can't write settings or toggle team
@@ -372,9 +369,12 @@ app.post('/login', async (req, res) => {
 
   if (matchedUser) {
     setSessionCookie(res, matchedUser);
-    return res.redirect('/');
+    const next = req.query.next || req.body.next || '/';
+    const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/';
+    return res.redirect(safeNext);
   }
-  res.redirect('/login?error=1');
+  const failNext = req.query.next ? `&next=${encodeURIComponent(req.query.next)}` : '';
+  res.redirect('/login?error=1' + failNext);
 });
 
 // Logout
@@ -1187,7 +1187,8 @@ app.post('/api/team/:id/set-login', requireOwner, async (req, res) => {
     const { username, password, role: loginRole } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
-    const hash = crypto.createHmac('sha256', SESS_SECRET).update(password).digest('hex');
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 12);
     const { query } = require('./src/db');
     await query(
       `UPDATE team SET login_username = $1, login_password_hash = $2, login_role = $3, updated_at = NOW() WHERE id = $4`,
@@ -3877,9 +3878,8 @@ app.get('/api/sgc/quickbooks/status', (req, res) => {
   }
 });
 
-// Temporary token export — used once to copy tokens into Railway env vars
-app.get('/api/sgc/quickbooks/export-tokens', (req, res) => {
-  if (req.query.secret !== (process.env.WEBHOOK_SECRET || '')) return res.status(403).json({ error: 'Forbidden' });
+// Token export — requires login session (owner only)
+app.get('/api/sgc/quickbooks/export-tokens', requireAuth, requireOwner, (req, res) => {
   try {
     const sgcQb = require('./src/tools/sgc-quickbooks');
     res.json(sgcQb.getTokens());
