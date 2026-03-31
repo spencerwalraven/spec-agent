@@ -278,9 +278,6 @@ const PUBLIC_PREFIXES = [
   '/pay',
   '/paid',
   '/api/pay/',
-  '/sgc',
-  '/api/sgc/',
-  '/sgc-ops',
   '/api/sgc/field-report',
 ];
 
@@ -3013,6 +3010,92 @@ app.get('/api/sgc/ops/field-reports', async (req, res) => {
   }
 });
 
+// ─── SGC MONDAY MEETING PREP ─────────────────────────────────────────────────
+app.get('/api/sgc/ops/meeting', async (req, res) => {
+  try {
+    const agent = require('./src/agents/sgc-admin-agent');
+    const sgcQB = require('./src/tools/sgc-quickbooks');
+    const [subs, insuranceTasks] = await Promise.all([
+      agent.sgcReadTab('2025 SubCons'),
+      agent.sgcReadTab('Insurance Tasks'),
+    ]);
+
+    const total     = subs.length;
+    const missingW9 = subs.filter(s => !['yes','Yes','YES'].includes((s['W9 Received '] || s['W9 Received'] || '').trim())).length;
+    const missingBT = subs.filter(s => !['yes','Yes','YES'].includes((s['BT Onboarding'] || s['Buildertrend'] || '').trim())).length;
+    const needs1099 = subs.filter(s => ['yes','Yes','YES'].includes((s['1099 needed'] || s['1099 Needed'] || '').trim())).length;
+    const sent1099  = subs.filter(s => ['yes','Yes','YES'].includes((s['1099 Sent'] || '').trim())).length;
+    const compliant = subs.filter(s => {
+      const w9 = (s['W9 Received '] || s['W9 Received'] || '').trim().toLowerCase();
+      const bt = (s['BT Onboarding'] || s['Buildertrend'] || '').trim().toLowerCase();
+      return w9 === 'yes' && bt === 'yes';
+    }).length;
+    const compliance = { total, missingW9, missingBT, needs1099, sent1099, compliant };
+
+    const now = new Date(); now.setHours(0,0,0,0);
+    const expirations = { past: [], d30: [], d60: [], d90: [], beyond: [] };
+    for (const task of insuranceTasks) {
+      const dueRaw = task['Due Date'] || task['Expiration'] || task['Date'] || '';
+      if (!dueRaw) continue;
+      const due = new Date(dueRaw); if (isNaN(due)) continue;
+      due.setHours(0,0,0,0);
+      const days = Math.ceil((due - now) / 86400000);
+      const item = { task: task['Task'] || task['Item'] || 'Unnamed', due: dueRaw, days, status: task['Status'] || '' };
+      if (days < 0)        expirations.past.push(item);
+      else if (days <= 30) expirations.d30.push(item);
+      else if (days <= 60) expirations.d60.push(item);
+      else if (days <= 90) expirations.d90.push(item);
+      else                 expirations.beyond.push(item);
+    }
+
+    let invoices = null, expenses = null, materials = null, qbError = null;
+    if (sgcQB.isConnected()) {
+      try {
+        const rawInvoices = await sgcQB.listOpenInvoices();
+        const today = new Date(); today.setHours(0,0,0,0);
+        invoices = rawInvoices.map(inv => {
+          const due = inv.dueDate ? new Date(inv.dueDate) : null;
+          const daysOverdue = due ? Math.ceil((today - due) / 86400000) : 0;
+          let bucket = 'Current';
+          if (daysOverdue > 90)      bucket = '90+';
+          else if (daysOverdue > 60) bucket = '61–90';
+          else if (daysOverdue > 30) bucket = '31–60';
+          else if (daysOverdue > 0)  bucket = '1–30';
+          return { ...inv, daysOverdue, bucket };
+        });
+
+        const expStart = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const expEnd   = new Date().toISOString().split('T')[0];
+        const expRes   = await sgcQB.qbRequest('GET', `/query?query=select * from Purchase where TxnDate >= '${expStart}' and TxnDate <= '${expEnd}' MAXRESULTS 50`);
+        const purchases = expRes.QueryResponse?.Purchase || [];
+        expenses = purchases.map(p => ({
+          id: p.Id, date: p.TxnDate,
+          vendor: p.EntityRef?.name || 'Unknown Vendor',
+          amount: p.TotalAmt,
+          account: p.AccountRef?.name || '',
+          memo: p.PrivateNote || p.Memo || '',
+          needsInfo: !p.PrivateNote && !p.Memo,
+        }));
+        materials = purchases.filter(p => {
+          const acct = (p.AccountRef?.name || '').toLowerCase();
+          return acct.includes('material') || acct.includes('supply') || acct.includes('supplies') || acct.includes('lumber') || acct.includes('hardware');
+        }).map(p => ({
+          date: p.TxnDate, vendor: p.EntityRef?.name || 'Unknown',
+          amount: p.TotalAmt, memo: p.PrivateNote || p.Memo || '',
+        }));
+      } catch (qbErr) {
+        qbError = qbErr.message;
+      }
+    } else {
+      qbError = 'not_connected';
+    }
+
+    res.json({ compliance, expirations, invoices, expenses, materials, qbError });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SGC FIELD REPORT WEBHOOK (Tally → Google Sheet) ─────────────────────────
 app.post('/api/sgc/field-report', async (req, res) => {
   try {
@@ -3104,10 +3187,11 @@ app.post('/api/sgc/field-report', async (req, res) => {
 app.get('/api/sgc/quickbooks/connect', (req, res) => {
   try {
     const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`);
     const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
-    const url = sgcQb.getAuthUrl(redirectUri);
-    res.redirect(url);
+    res.redirect(sgcQb.getAuthUrl(redirectUri));
   } catch (e) {
     res.status(500).send(`QB connect error: ${e.message}`);
   }
@@ -3119,14 +3203,19 @@ app.get('/api/sgc/quickbooks/callback', async (req, res) => {
     if (error) return res.send(`QuickBooks error: ${error}`);
     if (!code || !realmId) return res.status(400).send('Missing code or realmId');
     const sgcQb = require('./src/tools/sgc-quickbooks');
-    const baseUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`);
     const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
     const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
     res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
       <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
       <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
-      <p style="color:#888">You can close this window and return to your SGC assistant.</p>
-      <script>setTimeout(() => window.close(), 3000)</script>
+      <p style="color:#888">This window will close automatically…</p>
+      <script>
+        if (window.opener) window.opener.postMessage('qb-connected', '*');
+        setTimeout(() => window.close(), 2000);
+      </script>
     </body></html>`);
   } catch (e) {
     res.status(500).send(`QB callback error: ${e.message}`);
