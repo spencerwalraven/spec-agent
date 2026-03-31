@@ -2462,11 +2462,12 @@
     const $fmt = n => '$' + Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 
     function qbNotConnected(id) {
+      checkQbStatus(); // sync the top-bar button with reality
       document.getElementById(`mc-${id}-body`).innerHTML = `
         <div class="qb-connect-prompt">
           <div style="font-size:24px;margin-bottom:8px">🔌</div>
           <div>QuickBooks is not connected</div>
-          <a class="qb-connect-btn" href="/api/sgc/quickbooks/connect" target="_blank">Connect QuickBooks</a>
+          <button class="qb-connect-btn" onclick="qbConnectClick()">Connect QuickBooks</button>
         </div>`;
     }
 

@@ -3085,6 +3085,14 @@ app.get('/api/sgc/ops/meeting', async (req, res) => {
         }));
       } catch (qbErr) {
         qbError = qbErr.message;
+        // If refresh token is invalid, clear stored tokens so status button updates
+        if (qbErr.message.includes('invalid_grant') || qbErr.message.includes('invalid_token')) {
+          try {
+            const tokenFile = path.join(__dirname, 'src/data/sgc-qb-tokens.json');
+            if (fs.existsSync(tokenFile)) fs.unlinkSync(tokenFile);
+          } catch (_) {}
+          qbError = 'not_connected';
+        }
       }
     } else {
       qbError = 'not_connected';
