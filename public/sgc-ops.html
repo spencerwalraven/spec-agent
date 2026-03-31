@@ -2266,8 +2266,13 @@
     async function toggleReminderSettings() {
       _reminderSettingsOpen = !_reminderSettingsOpen;
       const panel = document.getElementById('reminderSettingsPanel');
-      panel.style.display = _reminderSettingsOpen ? 'block' : 'none';
-      if (_reminderSettingsOpen) await loadReminderSettings();
+      if (_reminderSettingsOpen) {
+        await loadReminderSettings(); // load first, then show
+        panel.style.display = 'block';
+        document.getElementById('reminderOwnerEmail').focus();
+      } else {
+        panel.style.display = 'none';
+      }
     }
 
     async function loadReminderSettings() {
