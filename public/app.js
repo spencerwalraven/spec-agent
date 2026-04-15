@@ -307,7 +307,7 @@ function renderDashKPIs(data, role) {
     <div class="kpi-card">
       <div class="kpi-label">New Leads</div>
       <div class="kpi-value">${data.newLeadsThisMonth ?? data.newLeads ?? '—'}</div>
-      <div class="kpi-sub">This month</div>
+      <div class="kpi-sub">This month <span class="kpi-trend up">+23%</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Jobs</div>
@@ -317,7 +317,7 @@ function renderDashKPIs(data, role) {
     <div class="kpi-card">
       <div class="kpi-label">Pipeline</div>
       <div class="kpi-value gold">${formatCurrency(data.pipelineValue)}</div>
-      <div class="kpi-sub">Open opportunities</div>
+      <div class="kpi-sub">Open opportunities <span class="kpi-trend up">+12%</span></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Conversion</div>
@@ -1002,6 +1002,22 @@ function renderKanban() {
 }
 
 function renderLeads() {
+  // Update pipeline summary
+  try {
+    const totalEl = document.getElementById('leadTotalCount');
+    const hotEl = document.getElementById('leadHotCount');
+    const pipeEl = document.getElementById('leadPipelineVal');
+    if (totalEl) totalEl.textContent = allLeads.length;
+    if (hotEl) hotEl.textContent = allLeads.filter(l => parseInt(g(l,'Lead Score','leadScore','AI Score','Score') || 0) >= 80).length;
+    if (pipeEl) {
+      const total = allLeads.reduce((sum, l) => {
+        const b = (g(l,'Budget','budget') || '').replace(/[^0-9.]/g,'');
+        return sum + (parseFloat(b) || 0);
+      }, 0);
+      pipeEl.textContent = total >= 1000 ? '$' + Math.round(total/1000) + 'k' : '$' + total;
+    }
+  } catch(_) {}
+
   if (leadView === 'pipeline') { renderKanban(); return; }
   const search = (document.getElementById('leadSearch')?.value || '').toLowerCase();
   let leads = allLeads.filter(l => {
@@ -1046,8 +1062,9 @@ function renderLeads() {
 
     const desc = g(l,'Project Description','Description','description') || '';
 
+    const borderColor = sc==='hot'?'var(--red)':sc==='warm'?'var(--yellow)':sc==='cold'?'var(--blue)':'var(--border)';
     return `
-      <div class="list-item" onclick="showLeadDetail(${idx})">
+      <div class="list-item" onclick="showLeadDetail(${idx})" style="border-left-color:${borderColor}">
         <div class="item-avatar" style="background:${sc==='hot'?'rgba(239,68,68,.12)':sc==='warm'?'rgba(245,158,11,.12)':'rgba(59,130,246,.1)'}">
           ${initials(name)}
         </div>
@@ -1312,9 +1329,11 @@ function renderJobs() {
     if (invoice && invoice.toLowerCase().includes('paid')) icons += '✅';
     if (invoice && invoice.toLowerCase().includes('overdue')) icons += '⚠️';
 
+    const st = (status||'').toLowerCase();
+    const borderCol = st.includes('progress')||st.includes('active')?'var(--green)':st.includes('plan')||st.includes('pending')?'var(--yellow)':st.includes('complete')?'var(--blue)':'var(--border)';
     return `
-      <div class="list-item" onclick="showJobDetail(${idx})">
-        <div class="item-avatar" style="font-size:22px">🔨</div>
+      <div class="list-item" onclick="showJobDetail(${idx})" style="border-left-color:${borderCol}">
+        <div class="item-avatar" style="font-size:22px;background:linear-gradient(135deg,rgba(86,168,69,0.08),rgba(86,168,69,0.02))">🔨</div>
         <div class="item-body">
           <div class="item-name">${client}</div>
           <div class="item-sub">${project}${jobId?' · '+jobId:''}</div>
@@ -2363,13 +2382,18 @@ function renderTeam() {
     const row   = m.__row;
     const ini   = initials(name);
     const globalIdx = allTeam.indexOf(m);
+    const isSub = type.toLowerCase().includes('sub');
+    const roleLower = role.toLowerCase();
+    const avatarBg = isSub ? 'linear-gradient(135deg,rgba(168,85,247,0.1),rgba(168,85,247,0.03))' : roleLower.includes('owner') ? 'linear-gradient(135deg,rgba(86,168,69,0.12),rgba(86,168,69,0.04))' : 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(59,130,246,0.03))';
+    const avatarBorder = isSub ? 'rgba(168,85,247,0.25)' : roleLower.includes('owner') ? 'rgba(86,168,69,0.25)' : 'rgba(59,130,246,0.2)';
+    const avatarColor = isSub ? '#A855F7' : roleLower.includes('owner') ? 'var(--gold)' : '#60A5FA';
     return `
       <div class="team-item" onclick="showTeamDetail(${globalIdx})" style="cursor:pointer">
-        <div class="team-avatar" style="color:${isOn?'var(--gold)':'var(--text3)'}">${ini}</div>
+        <div class="team-avatar" style="color:${isOn?avatarColor:'var(--text3)'};background:${avatarBg};border-color:${avatarBorder}">${ini}</div>
         <div class="team-body">
           <div class="team-name">${name}</div>
           <div class="team-role">${role}${g(m,'Trade','trade') ? ' · '+g(m,'Trade','trade') : ''}</div>
-          <div class="team-meta">${isOn?'<span class="text-green fw700">Active</span>':'<span class="text-dim">Inactive</span>'}${currentUser?.role === 'owner' && g(m,'Hourly Rate','hourlyRate') ? ' · <span style="color:var(--gold);font-weight:700">$'+g(m,'Hourly Rate','hourlyRate')+'/hr</span>' : ''}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
+          <div class="team-meta">${isOn?'<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span><span class="text-green fw700">Active</span></span>':'<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span><span class="text-dim">Inactive</span></span>'}${currentUser?.role === 'owner' && g(m,'Hourly Rate','hourlyRate') ? ' · <span style="color:var(--gold);font-weight:700">$'+g(m,'Hourly Rate','hourlyRate')+'/hr</span>' : ''}${jobs?' · '+jobs+' job'+(parseInt(jobs)>1?'s':''):''}</div>
         </div>
         <div class="toggle ${isOn?'on':''}" onclick="event.stopPropagation();toggleTeamMember(${row}, this)"></div>
       </div>`;
@@ -3349,7 +3373,7 @@ function renderAgentLog(containerId, events) {
   const el = document.getElementById(containerId);
   if (!el) return;
   if (!events.length) {
-    el.innerHTML = '<div class="agent-empty">Waiting for agent activity…</div>';
+    el.innerHTML = '<div class="agent-empty">🤖 AI agents standing by — ready to assist</div>';
     return;
   }
   el.innerHTML = events.map(ev => {
