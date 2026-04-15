@@ -4,11 +4,11 @@ const DEMO = {
     newLeads: 6, activeJobs: 4, pipelineValue: 187500, conversionRate: '31%',
     companyName: 'Landcare Unlimited',
     activity: [
-      { text: '<strong>Marcus Johnson</strong> submitted a new lead — Landscape Renovation', time: '2 hours ago' },
-      { text: '<strong>Sarah Chen</strong> signed the contract for backyard patio', time: '5 hours ago' },
-      { text: '<strong>Rivera Family</strong> — proposal viewed 3 times', time: 'Yesterday' },
-      { text: 'Deposit invoice paid by <strong>The Hendersons</strong>', time: '2 days ago' },
-      { text: '<strong>Tom Bradley</strong> — 30-day check-in sent automatically', time: '3 days ago' },
+      { text: '<strong>Marcus Johnson</strong> submitted a new lead — Landscape Renovation', time: 'Today, 9:12 AM' },
+      { text: '<strong>Sarah Chen</strong> signed the contract for backyard patio', time: 'Today, 7:45 AM' },
+      { text: '<strong>Rivera Family</strong> — proposal viewed 3 times', time: 'Yesterday, 4:30 PM' },
+      { text: 'Deposit invoice paid by <strong>The Hendersons</strong>', time: 'Apr 12' },
+      { text: '<strong>Tom Bradley</strong> — 30-day check-in sent automatically', time: 'Apr 11' },
     ]
   },
   leads: [
@@ -42,7 +42,7 @@ const DEMO = {
     { __row: 5, 'First Name': 'Raj', 'Last Name': 'Patel', Email: 'raj@email.com', Phone: '555-1004', 'Lifetime Value': '$48,000', 'Number of Jobs': '1', 'Last Job': 'Irrigation System', 'Satisfaction Score': '', 'Referrals Given': '0', Notes: 'New client — job starts April.' },
   ],
   team: [
-    { __row: 2, Name: 'Coach Harris', Role: 'Owner / Project Manager', Email: 'spencer@landcareunlimited.com', Phone: '555-2001', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
+    { __row: 2, Name: 'Tim Blake', Role: 'Owner / Project Manager', Email: 'tim@landcareunlimited.com', Phone: '555-2001', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
     { __row: 3, Name: 'Marcus Reed', Role: 'Sales Rep', Email: 'chase@landcareunlimited.com', Phone: '555-2002', Type: 'Crew', Active: 'Yes', 'Active Jobs': 1 },
     { __row: 4, Name: 'Mike Torres', Role: 'Crew Lead', Email: 'mike@email.com', Phone: '555-2003', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
     { __row: 5, Name: 'Carlos Rivera', Role: 'Hardscape Specialist', Email: 'carlos@email.com', Phone: '555-2004', Type: 'Crew', Active: 'Yes', 'Active Jobs': 2 },
@@ -64,12 +64,12 @@ const DEMO = {
   settings: {
     companyName: 'Landcare Unlimited',
     phone: '(555) 555-0100',
-    email: 'info@landcareunlimited.com',
-    address: '4820 E Thunderbird Rd, Phoenix, AZ 85032',
-    ownerName: 'Coach Harris',
+    email: 'tim@landcareunlimited.com',
+    address: '1300 S Litchfield Rd, Goodyear, AZ 85338',
+    ownerName: 'Tim Blake',
     calendlyLink: 'https://calendly.com/landcareunlimited/consultation',
     googleReviewLink: 'https://g.page/r/review',
-    emailSignature: 'Coach Harris | Landcare Unlimited | (555) 555-0100',
+    emailSignature: 'Tim Blake | Landcare Unlimited | (555) 555-0100',
   },
   approvals: [
     { _row: 3, jobId: 'JOB-002', clientName: 'The Hendersons', serviceType: 'Landscape Renovation', jobValue: '$62,000', type: 'proposal', label: 'Proposal', docLink: 'https://docs.google.com' },
@@ -98,6 +98,11 @@ const DEMO = {
     { _row:5, equipmentId:'EQ-004', name:'Wacker Neuson Plate Compactor',             category:'Compaction', makeModel:'Wacker Neuson VP1340A',    status:'Maintenance',assignedTo:'',         assignedJob:'',        value:'$650',    notes:'Needs new pad' },
     { _row:6, equipmentId:'EQ-005', name:'Dingo Mini Loader',   category:'Equipment',   makeModel:'Toro Dingo TX525',       status:'Available',  assignedTo:'',         assignedJob:'',        value:'$1,200',  notes:'Narrow access loader' },
     { _row:7, equipmentId:'EQ-006', name:'2021 Ford Transit Van',       category:'Vehicle',    makeModel:'Ford Transit 250',  status:'Available',  assignedTo:'',         assignedJob:'',        value:'$38,000', notes:'Cargo van — crew transport' },
+  ],
+  todaySchedule: [
+    { title: 'Henderson Residence — Irrigation Install', start: new Date().toISOString().slice(0,10) + 'T09:00:00', source: 'job', color: '2' },
+    { title: 'Priya Mehta — Consultation', start: new Date().toISOString().slice(0,10) + 'T11:30:00', source: 'lead', color: '10' },
+    { title: 'Garcia Sod — Final Zone Walkthrough', start: new Date().toISOString().slice(0,10) + 'T14:00:00', source: 'job', color: '2' },
   ],
 };
 
@@ -248,6 +253,9 @@ async function loadTodayStrip() {
       .then(r => r.ok ? r.json() : [])
       .catch(() => []);
 
+    if (!events.length && DEMO.todaySchedule) {
+      events.push(...DEMO.todaySchedule);
+    }
     if (!events.length) {
       el.innerHTML = '<div class="cal-evt-empty">📭 Nothing scheduled today</div>';
       return;
