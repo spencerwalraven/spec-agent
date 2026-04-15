@@ -737,7 +737,7 @@ app.get('/api/summary', async (req, res) => {
       if (v > 0 && !/complete/i.test(j.status)) pipelineValue += v;
     });
 
-    const converted = leads.filter(l => /convert/i.test(l.status)).length;
+    const converted = leads.filter(l => /convert/i.test(l.status || l.leadStatus)).length;
     const conversionRate = leads.length > 0 ? Math.round((converted / leads.length) * 100) + '%' : '—';
 
     const activity = [];
