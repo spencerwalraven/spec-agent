@@ -959,7 +959,7 @@
     padding:20px 20px 16px;display:flex;align-items:center;gap:10px;
     border-bottom:1px solid var(--border);flex-shrink:0;
   }
-  .sidebar-logo .logo{font-size:18px;font-weight:800}
+  .sidebar-logo .logo{font-size:18px;font-weight:800;flex-shrink:0}
   .sidebar-section{padding:8px 12px 4px}
   .sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:12px 8px 6px}
   .sidebar-item{
@@ -972,7 +972,8 @@
   }
   .sidebar-item:hover{background:var(--surface);color:var(--text)}
   .sidebar-item.active{background:rgba(45,122,30,0.08);color:var(--gold);font-weight:700}
-  .sidebar-item .sb-icon{width:20px;text-align:center;font-size:16px;flex-shrink:0}
+  .sidebar-item .sb-icon{width:20px;text-align:center;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .sidebar-item .sb-icon svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
   .sidebar-item .sb-badge{
     margin-left:auto;font-size:10px;font-weight:800;
     background:var(--red);color:#fff;
@@ -986,8 +987,12 @@
     .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     .dash-grid .dash-full{grid-column:1/-1}
     .kpi-grid{grid-template-columns:repeat(4,1fr)}
-    .page{padding:24px 32px calc(var(--nav-h) + var(--safe-b) + 24px)}
+    .page{padding:28px 40px calc(24px);max-width:1100px}
     .more-grid{grid-template-columns:repeat(3,1fr)}
+    .list-item{padding:16px 20px}
+  }
+  @media(min-width:1200px){
+    .page{padding:32px 48px calc(24px)}
   }
 
   /* ── PHASE CARD STATUS BORDERS ──────────────────────────────── */
@@ -1046,6 +1051,25 @@
   /* ── PAGE PADDING ───────────────────────────────────────────── */
   .page{padding:20px 20px calc(var(--nav-h) + var(--safe-b) + 24px)}
 
+  /* ── PAGE HEADER (for desktop inner pages) ───────────────────── */
+  @media(min-width:769px){
+    .dash-greeting{margin-bottom:28px}
+    .greet-main{font-size:28px}
+    .section-header{margin-top:28px;margin-bottom:14px}
+    .kpi-grid{gap:16px;margin-bottom:28px}
+    .today-strip{border-radius:16px}
+    .card{border-radius:16px}
+    .search-bar{border-radius:12px}
+    .modal-sheet{max-width:600px;margin:0 auto;border-radius:22px 22px 0 0}
+    .modal-overlay{align-items:center}
+    .modal-sheet{border-radius:22px;max-height:85dvh;margin-bottom:0}
+  }
+
+  /* ── DETAIL ROW POLISH ──────────────────────────────────────── */
+  .detail-row{padding:12px 0}
+  .detail-key{font-weight:500}
+  .modal-title{font-size:22px;letter-spacing:-0.02em}
+
   /* ── CHAT FAB ───────────────────────────────────────────────── */
   .chat-fab,.chat-float,#chatFab,[onclick*="openChat"]{
     box-shadow:0 4px 20px rgba(45,122,30,0.2) !important;
@@ -1064,31 +1088,32 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="logo">🌿 LCU</div>
+      <span style="font-size:12px;color:var(--text3);font-weight:500" id="sidebarCompanyName">Landcare Unlimited</span>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Main</div>
-      <button class="sidebar-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="sb-icon">🏠</span> Dashboard</button>
-      <button class="sidebar-item" data-page="leads" onclick="navigate('leads')"><span class="sb-icon">👤</span> Leads <span class="sb-badge" id="sidebarLeadsBadge" style="display:none"></span></button>
-      <button class="sidebar-item" data-page="jobs" onclick="navigate('jobs')"><span class="sb-icon">🔨</span> Jobs</button>
-      <button class="sidebar-item" data-page="clients" onclick="navigate('clients')"><span class="sb-icon">🤝</span> Clients</button>
-      <button class="sidebar-item" data-page="schedule" onclick="navigate('schedule')"><span class="sb-icon">📅</span> Schedule</button>
+      <button class="sidebar-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="sb-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span> Dashboard</button>
+      <button class="sidebar-item" data-page="leads" onclick="navigate('leads')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Leads <span class="sb-badge" id="sidebarLeadsBadge" style="display:none"></span></button>
+      <button class="sidebar-item" data-page="jobs" onclick="navigate('jobs')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Jobs</button>
+      <button class="sidebar-item" data-page="clients" onclick="navigate('clients')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Clients</button>
+      <button class="sidebar-item" data-page="schedule" onclick="navigate('schedule')"><span class="sb-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Schedule</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Operations</div>
-      <button class="sidebar-item" data-page="team" onclick="navigate('team')"><span class="sb-icon">👥</span> Team</button>
-      <button class="sidebar-item" data-page="conversations" onclick="navigate('conversations')"><span class="sb-icon">💬</span> Messages</button>
-      <button class="sidebar-item" data-page="approvals" onclick="navigate('approvals')"><span class="sb-icon">✅</span> Approvals</button>
-      <button class="sidebar-item" data-page="inventory" onclick="navigate('inventory')"><span class="sb-icon">📦</span> Inventory</button>
-      <button class="sidebar-item" data-page="marketing" onclick="navigate('marketing')"><span class="sb-icon">📢</span> Marketing</button>
+      <button class="sidebar-item" data-page="team" onclick="navigate('team')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span> Team</button>
+      <button class="sidebar-item" data-page="conversations" onclick="navigate('conversations')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Messages</button>
+      <button class="sidebar-item" data-page="approvals" onclick="navigate('approvals')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span> Approvals</button>
+      <button class="sidebar-item" data-page="inventory" onclick="navigate('inventory')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><line x1="3.27" y1="6.96" x2="12" y2="12.01"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Inventory</button>
+      <button class="sidebar-item" data-page="marketing" onclick="navigate('marketing')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Marketing</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Insights</div>
-      <button class="sidebar-item" data-page="analytics" onclick="navigate('analytics')"><span class="sb-icon">📊</span> Analytics</button>
-      <button class="sidebar-item" data-page="agents" onclick="navigate('agents')"><span class="sb-icon">🤖</span> AI Agents</button>
+      <button class="sidebar-item" data-page="analytics" onclick="navigate('analytics')"><span class="sb-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Analytics</button>
+      <button class="sidebar-item" data-page="agents" onclick="navigate('agents')"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="6" y="14" width="12" height="8" rx="2"/><path d="M12 10v4"/><path d="M10 18h4"/></svg></span> AI Agents</button>
     </div>
     <div class="sidebar-bottom">
-      <button class="sidebar-item" data-page="settings" onclick="navigate('settings')"><span class="sb-icon">⚙️</span> Settings</button>
-      <button class="sidebar-item" data-page="alerts" onclick="toggleNotifPanel()"><span class="sb-icon">🔔</span> Notifications <span class="sb-badge" id="sidebarAlertBadge" style="display:none"></span></button>
+      <button class="sidebar-item" data-page="settings" onclick="navigate('settings')"><span class="sb-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings</button>
+      <button class="sidebar-item" data-page="alerts" onclick="toggleNotifPanel()"><span class="sb-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> Notifications <span class="sb-badge" id="sidebarAlertBadge" style="display:none"></span></button>
     </div>
   </aside>
 

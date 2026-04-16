@@ -573,8 +573,10 @@ function dismissWizard() {
 function renderSetupWizard(summaryData, settingsData) {
   // Only show to owner role
   if (currentUser.role !== 'owner') return;
-  // Don't show if dismissed
+  // Don't show if dismissed OR if all steps are done (demo-ready)
   try { if (localStorage.getItem('wizardDismissed') === '1') return; } catch (_) {}
+  // Auto-hide for demo: if connected to real DB, skip wizard
+  if (!usingDemo) { try { localStorage.setItem('wizardDismissed', '1'); } catch(_) {} }
 
   const el = document.getElementById('setupWizard');
   if (!el) return;
@@ -681,6 +683,9 @@ async function loadDashboard() {
   const cn = data.companyName || '—';
   document.getElementById('companyName').textContent = cn;
   if (cn !== '—') document.title = cn + ' CRM';
+  // Update sidebar company name
+  const sbn = document.getElementById('sidebarCompanyName');
+  if (sbn && cn !== '—') sbn.textContent = cn;
 
   // Role-specific KPIs
   renderDashKPIs(data, currentUser.role);
