@@ -1250,6 +1250,31 @@
         </div>
       </div>
 
+      <!-- Recurring Services + Outstanding Invoices -->
+      <div class="dash-grid" style="margin-top:4px">
+        <div>
+          <div class="section-header" style="margin-top:4px">
+            <span class="section-title">Recurring Services</span>
+            <button onclick="navigate('recurring')" class="section-action">Manage →</button>
+          </div>
+          <div class="card">
+            <div class="card-body" id="dashRecurring" style="padding:12px 16px">
+              <div style="font-size:13px;color:var(--text3)">Loading...</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-header" style="margin-top:4px">
+            <span class="section-title">Outstanding Invoices</span>
+          </div>
+          <div class="card">
+            <div class="card-body" id="dashQBInvoices" style="padding:12px 16px">
+              <div style="font-size:13px;color:var(--text3)">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Actions — hidden on desktop (sidebar replaces it) -->
       <div id="dashQuickActions" class="sidebar-hide-desktop"></div>
 

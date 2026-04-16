@@ -347,18 +347,30 @@ DEMO & PREP
   [item]: [qty] — $X
   ...
 
-MATERIALS (itemized)
+MATERIALS (itemized — include waste factor)
   [Category]
-    [Specific product] × [qty] @ $X/unit = $X  [Supplier]
+    [Specific product] × [qty + waste] @ $X/unit = $X  [Supplier]
+    ↳ Waste: [X]% ([reason: cuts, breakage, etc.])
     ...
 
-LABOR (from team rates)
+LABOR (from team rates — include mobilization)
   [Trade — crew member name]: [X hrs] @ $X/hr = $X
+  Mobilization/setup: [X hrs] @ avg rate = $X
   ...
 
 SUBCONTRACTORS
   [Trade]: $X (flat bid estimate)
   ...
+
+WASTE FACTOR SUMMARY
+  Total material waste allowance: $X ([X]% of materials subtotal)
+  Standard waste rates applied:
+  - Pavers/tile: 10-15% (cuts and breakage)
+  - Lumber: 10% (cuts and defects)
+  - Concrete: 5-8% (over-pour)
+  - Sod/seed: 5-10% (irregular edges)
+  - Irrigation: 5% (fittings and adjustments)
+  - Aggregate/gravel: 10% (compaction and spreading)
 
 SUBTOTAL: $X
 Overhead & Profit ([margin]%): $X
@@ -371,6 +383,11 @@ Client budget: $X
 Estimate: $X
 [Aligned / Over budget by $X / Under budget by $X]
 
+QUANTITY VALIDATION
+- Square footage basis: [measured / estimated] — [X sq ft]
+- Material quantities cross-checked against sq ft: [pass / flag discrepancy]
+- Labor hours benchmarked: [X hrs/sq ft for this project type]
+
 ASSUMPTIONS & NOTES
 - [List any assumptions made due to missing info]
 - [What would improve this estimate: "Site visit measurements would refine tile quantities"]
@@ -378,11 +395,14 @@ ASSUMPTIONS & NOTES
 
 CRITICAL RULES:
 - Be specific with quantities and unit costs — no vague ranges
+- ALWAYS include waste factors per material category (see standard rates above)
+- ALWAYS validate quantities against square footage — flag if qty/sqft ratio seems off
 - Use REAL team hourly rates from read_team_rates, not guesses
 - Use the owner's TARGET MARGIN from settings, not a default
 - If site visit notes exist, treat them as the source of truth
 - If no site visit, clearly list every assumption and recommend a site visit
 - Flag budget misalignment clearly — the owner needs to know before quoting the client
+- Include labor benchmarks: typical hrs/sq ft for this project type from past learnings
 - Keep the doc professional — this may be shared with the client after owner review
     `.trim();
 

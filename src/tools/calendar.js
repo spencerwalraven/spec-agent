@@ -172,43 +172,99 @@ async function createPhaseEvent(phase, job) {
 
 /**
  * Sync all active jobs + their phases to the calendar.
- * Reads Jobs + Job Phases tabs, creates events for anything with a date.
- * Returns a summary of what was created.
+ * Uses DB-stored event IDs to UPDATE existing events and DELETE cancelled ones.
+ * Prevents duplicates by checking for existing eventId before creating.
+ * Returns a summary of what was created/updated/deleted.
  */
 async function syncAllJobs() {
   const { readTab, g } = require('./sheets-compat');
   const [jobs, phases] = await Promise.all([readTab('Jobs'), readTab('Job Phases')]);
 
-  let created = 0;
+  let created = 0, updated = 0, deleted = 0;
   const errors = [];
+
+  // Try to get DB access for storing event IDs
+  let db;
+  try { db = require('../db'); } catch (_) {}
 
   for (const job of jobs) {
     const status = (g(job,'Job Status','Status') || '').toLowerCase();
-    if (['lost','dead','cancelled'].some(s => status.includes(s))) continue;
-
     const jobId   = g(job,'Job ID') || '';
+    const jobDbId = job.id || job.__row;
     const name    = clientName(job);
 
-    // Kickoff event
+    // If job is cancelled/lost, delete its calendar events
+    if (['lost','dead','cancelled'].some(s => status.includes(s))) {
+      if (job.calendar_event_id && db) {
+        try {
+          await deleteEvent(job.calendar_event_id);
+          await db.updateOne('UPDATE jobs SET calendar_event_id = NULL WHERE id = $1', [jobDbId]);
+          deleted++;
+        } catch (e) { /* event already gone */ }
+      }
+      continue;
+    }
+
+    // Kickoff event — update if exists, create if new
     const kickoffDate = g(job,'Site Visit Date','Kickoff Date','Start Date');
     if (kickoffDate) {
       try {
-        await createKickoffEvent(job, kickoffDate);
-        created++;
+        if (job.calendar_event_id) {
+          // Update existing event with new dates
+          const start = makeTimeObj(kickoffDate, 8);
+          if (start) {
+            await updateEvent(job.calendar_event_id, {
+              summary: `KICKOFF — ${name} · ${g(job,'Service Type','Project Type') || 'Project'}`,
+              start, end: { dateTime: new Date(new Date(start.dateTime).getTime() + 2*3600*1000).toISOString(), timeZone: TZ },
+              location: jobAddress(job),
+            });
+            updated++;
+          }
+        } else {
+          const result = await createKickoffEvent(job, kickoffDate);
+          created++;
+          // Store event ID in DB for future updates
+          if (result.eventId && db && jobDbId) {
+            try { await db.updateOne('UPDATE jobs SET calendar_event_id = $1 WHERE id = $2', [result.eventId, jobDbId]); } catch (_) {}
+          }
+        }
       } catch (e) { errors.push(`Kickoff ${name}: ${e.message}`); }
     }
 
     // Phase events
     const jobPhases = phases.filter(p => g(p,'Job ID') === jobId);
     for (const phase of jobPhases) {
+      const phaseDbId = phase.id || phase.__row;
       try {
-        const result = await createPhaseEvent(phase, job);
-        if (result) created++;
+        if (phase.calendar_event_id) {
+          // Update existing phase event
+          const startDate = phase['Start Date'] || phase['Phase Start'] || '';
+          const endDate = phase['End Date'] || phase['Due Date'] || phase['Phase End'] || '';
+          if (startDate) {
+            const start = makeTimeObj(startDate, 8);
+            const end = endDate ? makeTimeObj(endDate, 17) : null;
+            if (start) {
+              await updateEvent(phase.calendar_event_id, {
+                summary: `${phase['Phase Name'] || phase['Phase'] || 'Phase'} — ${name}`,
+                start, end: end || { dateTime: new Date(new Date(start.dateTime).getTime() + 8*3600*1000).toISOString(), timeZone: TZ },
+              });
+              updated++;
+            }
+          }
+        } else {
+          const result = await createPhaseEvent(phase, job);
+          if (result) {
+            created++;
+            if (result.eventId && db && phaseDbId) {
+              try { await db.updateOne('UPDATE job_phases SET calendar_event_id = $1 WHERE id = $2', [result.eventId, phaseDbId]); } catch (_) {}
+            }
+          }
+        }
       } catch (e) { errors.push(`Phase ${g(phase,'Phase Name','Phase')} for ${name}: ${e.message}`); }
     }
   }
 
-  return { created, errors };
+  return { created, updated, deleted, errors };
 }
 
 // ─── AGENT TOOL WRAPPER ───────────────────────────────────────────────────────

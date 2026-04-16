@@ -164,11 +164,17 @@ app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, re
     for (const notification of notifications) {
       const entities = notification.dataChangeEvent?.entities || [];
       for (const entity of entities) {
-        if (entity.name === 'Payment' && entity.operation === 'Create') {
-          // A payment was created in QB — find which invoice it covers
+        if (entity.name === 'Payment' && (entity.operation === 'Create' || entity.operation === 'Update')) {
           handleQBPayment(notification.realmId, entity.id).catch(e =>
             logger.error('QB', `Payment handler failed: ${e.message}`)
           );
+        }
+        // Also process invoice updates (status changes, amount changes in QB)
+        if (entity.name === 'Invoice' && entity.operation === 'Update') {
+          try {
+            const qb = require('./src/tools/quickbooks');
+            await qb.processWebhookEvent({ eventNotifications: [notification] });
+          } catch (e) { logger.warn('QB', `Invoice sync failed: ${e.message}`); }
         }
       }
     }
@@ -1490,7 +1496,44 @@ app.get('/api/approvals', async (req, res) => {
           jobValue:j.estimatedValue, type:'contract', label:'Contract', docLink:'' });
       }
     });
+
+    // Include pending email approvals from the queue
+    try {
+      const { getAll } = require('./src/db');
+      const pendingEmails = await getAll(
+        `SELECT * FROM pending_approvals WHERE company_id = 1 AND status = 'pending' ORDER BY created_at DESC`
+      );
+      pendingEmails.forEach(e => {
+        items.push({
+          _row: e.id, type: 'email', label: 'AI Email',
+          clientName: e.recipient, subject: e.subject, body: e.body,
+          agentName: e.agent_name, jobId: e.job_id,
+          createdAt: e.created_at, approvalId: e.id,
+        });
+      });
+    } catch (_) { /* pending_approvals table may not exist yet */ }
+
     res.json(items);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Approve and send a queued email
+app.post('/api/approvals/:id/send', async (req, res) => {
+  try {
+    const { updateOne } = require('./src/db');
+    await updateOne('UPDATE pending_approvals SET status = $1 WHERE id = $2', ['approved', parseInt(req.params.id)]);
+    const { sendApprovedEmail } = require('./src/tools/gmail');
+    const result = await sendApprovedEmail(parseInt(req.params.id));
+    res.json({ ok: true, threadId: result.threadId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Reject a queued email
+app.post('/api/approvals/:id/reject', async (req, res) => {
+  try {
+    const { updateOne } = require('./src/db');
+    await updateOne('UPDATE pending_approvals SET status = $1 WHERE id = $2', ['rejected', parseInt(req.params.id)]);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2944,6 +2987,33 @@ app.get('/api/quickbooks/status', async (req, res) => {
     const status = await qb.getConnectionStatus();
     res.json(status);
   } catch (e) { res.json({ connected: false, error: e.message }); }
+});
+
+// Pull outstanding invoices from QuickBooks for dashboard
+app.get('/api/quickbooks/invoices', async (req, res) => {
+  try {
+    if (!qb) return res.json([]);
+    const invoices = await qb.getOutstandingInvoices();
+    res.json(invoices);
+  } catch (e) { res.json([]); }
+});
+
+// Pull revenue summary from QuickBooks
+app.get('/api/quickbooks/revenue', async (req, res) => {
+  try {
+    if (!qb) return res.json({ totalRevenue: 0, paymentCount: 0 });
+    const summary = await qb.getRevenueSummary(req.query.start, req.query.end);
+    res.json(summary);
+  } catch (e) { res.json({ totalRevenue: 0, paymentCount: 0 }); }
+});
+
+// Push time clock entry to QuickBooks payroll
+app.post('/api/quickbooks/time-entry', async (req, res) => {
+  try {
+    if (!qb) return res.status(400).json({ error: 'QuickBooks not connected' });
+    const result = await qb.createTimeActivity(req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Start OAuth flow — redirect to QuickBooks authorization page

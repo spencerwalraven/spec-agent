@@ -582,7 +582,12 @@ async function migrate() {
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimate_link TEXT`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_rating INTEGER`);
-  console.log('✅ jobs: tier columns + review tracking');
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS calendar_event_id VARCHAR(255)`);
+  console.log('✅ jobs: tier columns + review tracking + calendar event ID');
+
+  // ── Job Phases: calendar event ID ──
+  await safeAlter(`ALTER TABLE job_phases ADD COLUMN IF NOT EXISTS calendar_event_id VARCHAR(255)`);
+  console.log('✅ job_phases: calendar_event_id');
 
   // ── Equipment: missing columns ──
   await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS category VARCHAR(100)`);
@@ -612,6 +617,25 @@ async function migrate() {
     )
   `);
   console.log('✅ job_checklists table');
+
+  // ── Pending approvals queue (for AI-generated emails) ──
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pending_approvals (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL DEFAULT 1,
+      type VARCHAR(50) DEFAULT 'email',
+      recipient VARCHAR(255),
+      subject TEXT,
+      body TEXT,
+      thread_id VARCHAR(255),
+      job_id INTEGER,
+      agent_name VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'pending',
+      sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  console.log('✅ pending_approvals table');
 
   console.log('\n🎉 Migration complete — all tables created successfully.');
   await pool.end();

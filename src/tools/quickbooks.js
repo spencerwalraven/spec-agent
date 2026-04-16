@@ -409,16 +409,158 @@ function buildAuthUrl(redirectUri, state) {
   return `${AUTH_URL}?${params.toString()}`;
 }
 
+// ─── ITEMIZED INVOICE ────────────────────────────────────────────────────────
+
+/**
+ * Create an itemized invoice with materials + labor breakdown.
+ * Falls back to single-line if no line items provided.
+ */
+async function createItemizedInvoice({ customerId, jobId, invoiceType, dueDate, lineItems }) {
+  const dueDateStr = dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+  const lines = (lineItems || []).map((item, i) => ({
+    LineNum:     i + 1,
+    Amount:      parseFloat(String(item.total || item.amount || 0).replace(/[$,]/g, '')) || 0,
+    DetailType:  'SalesItemLineDetail',
+    Description: item.description || item.name || 'Services',
+    SalesItemLineDetail: {
+      ItemRef:   { value: '1', name: 'Services' },
+      Qty:       parseFloat(item.quantity) || 1,
+      UnitPrice: parseFloat(String(item.unitPrice || item.total || 0).replace(/[$,]/g, '')) || 0,
+    },
+  }));
+
+  const total = lines.reduce((s, l) => s + l.Amount, 0);
+  const invoice = {
+    CustomerRef: { value: String(customerId) },
+    DueDate: dueDateStr,
+    PrivateNote: `SPEC CRM | Job: ${jobId} | Type: ${invoiceType}`,
+    Line: lines.length ? lines : [{
+      Amount: total, DetailType: 'SalesItemLineDetail', Description: `${invoiceType} Invoice — ${jobId}`,
+      SalesItemLineDetail: { ItemRef: { value: '1', name: 'Services' }, Qty: 1, UnitPrice: total },
+    }],
+  };
+
+  const res = await qbRequest('POST', '/invoice', { Invoice: invoice });
+  const qbInvoice = res.Invoice;
+  logger.success('QuickBooks', `Created itemized invoice #${qbInvoice?.DocNumber} with ${lines.length} line items`);
+  return {
+    qbInvoiceId: qbInvoice?.Id,
+    invoiceNumber: qbInvoice?.DocNumber,
+    total: qbInvoice?.TotalAmt,
+    invoiceUrl: `https://app.qbo.intuit.com/app/invoice?txnId=${qbInvoice?.Id}`,
+  };
+}
+
+// ─── 2-WAY WEBHOOK PROCESSING ────────────────────────────────────────────────
+
+/**
+ * Process QuickBooks webhook events.
+ * Updates local DB when payments are received, invoices updated, etc.
+ */
+async function processWebhookEvent(event) {
+  const entities = event?.eventNotifications?.[0]?.dataChangeEvent?.entities || [];
+  let processed = 0;
+
+  for (const entity of entities) {
+    const { name, id, operation } = entity;
+    try {
+      if (name === 'Payment' && (operation === 'Create' || operation === 'Update')) {
+        // Payment received in QB → update our invoice status
+        const payment = await qbRequest('GET', `/payment/${id}`);
+        const payData = payment.Payment;
+        if (payData?.Line) {
+          const { updateOne } = require('../db');
+          for (const line of payData.Line) {
+            const invoiceId = line.LinkedTxn?.find(t => t.TxnType === 'Invoice')?.TxnId;
+            if (invoiceId) {
+              // Find our invoice by QB invoice ID and mark as paid
+              await updateOne(
+                `UPDATE invoices SET status = 'paid', paid_at = NOW(), paid_amount = $1 WHERE qb_invoice_id = $2 AND company_id = $3`,
+                [payData.TotalAmt, invoiceId, 1]
+              ).catch(() => {});
+              logger.success('QuickBooks', `Webhook: Payment received for QB invoice ${invoiceId} — $${payData.TotalAmt}`);
+              processed++;
+            }
+          }
+        }
+      }
+
+      if (name === 'Invoice' && operation === 'Update') {
+        // Invoice updated in QB → sync status back
+        const invoice = await qbRequest('GET', `/invoice/${id}`);
+        const invData = invoice.Invoice;
+        if (invData) {
+          const { updateOne } = require('../db');
+          const balance = parseFloat(invData.Balance) || 0;
+          const status = balance === 0 ? 'paid' : 'outstanding';
+          await updateOne(
+            `UPDATE invoices SET status = $1, amount = $2 WHERE qb_invoice_id = $3 AND company_id = $4`,
+            [status, invData.TotalAmt, id, 1]
+          ).catch(() => {});
+          processed++;
+        }
+      }
+    } catch (e) {
+      logger.warn('QuickBooks', `Webhook processing error for ${name} ${id}: ${e.message}`);
+    }
+  }
+  return { processed };
+}
+
+// ─── DASHBOARD DATA PULL ─────────────────────────────────────────────────────
+
+/**
+ * Pull outstanding invoices and revenue summary from QuickBooks.
+ * Used to populate the dashboard with real financial data.
+ */
+async function getOutstandingInvoices() {
+  try {
+    const query = "select * from Invoice where Balance > '0' ORDERBY DueDate";
+    const result = await qbRequest('GET', `/query?query=${encodeURIComponent(query)}`);
+    const invoices = result.QueryResponse?.Invoice || [];
+    return invoices.map(inv => ({
+      qbId: inv.Id,
+      number: inv.DocNumber,
+      customerName: inv.CustomerRef?.name || '',
+      amount: inv.TotalAmt,
+      balance: inv.Balance,
+      dueDate: inv.DueDate,
+      overdue: new Date(inv.DueDate) < new Date(),
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+async function getRevenueSummary(startDate, endDate) {
+  try {
+    const start = startDate || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+    const end = endDate || new Date().toISOString().split('T')[0];
+    const query = `select * from Payment where TxnDate >= '${start}' and TxnDate <= '${end}'`;
+    const result = await qbRequest('GET', `/query?query=${encodeURIComponent(query)}`);
+    const payments = result.QueryResponse?.Payment || [];
+    const totalRevenue = payments.reduce((s, p) => s + (parseFloat(p.TotalAmt) || 0), 0);
+    return { totalRevenue, paymentCount: payments.length, startDate: start, endDate: end };
+  } catch (e) {
+    return { totalRevenue: 0, paymentCount: 0 };
+  }
+}
+
 module.exports = {
   buildAuthUrl,
   exchangeCodeForTokens,
   findOrCreateCustomer,
   findOrCreateEmployee,
   createInvoice,
+  createItemizedInvoice,
   getInvoice,
   markInvoicePaid,
   createTimeActivity,
   verifyWebhookSignature,
+  processWebhookEvent,
+  getOutstandingInvoices,
+  getRevenueSummary,
   getConnectionStatus,
   qbRequest,
   getTokens,

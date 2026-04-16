@@ -797,6 +797,10 @@ async function loadDashboard() {
 
   // Load tasks for the dashboard tasks strip
   loadTasks();
+
+  // Load recurring services + QB invoices for dashboard
+  loadDashRecurring();
+  loadDashQBInvoices();
 }
 
 async function loadDashInvoices() {
@@ -825,6 +829,67 @@ async function loadDashInvoices() {
       </div>`;
     }).join('');
   } catch (e) { el.innerHTML = ''; }
+}
+
+/* ─── DASHBOARD: RECURRING SERVICES ────────────────────────────── */
+async function loadDashRecurring() {
+  const el = document.getElementById('dashRecurring');
+  if (!el) return;
+  try {
+    const data = await api('/api/recurring').catch(() => []);
+    if (!data || !data.length) {
+      el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text3);font-size:13px">No recurring services set up</div>';
+      return;
+    }
+    const active = data.filter(r => r.status === 'active' || r.active);
+    el.innerHTML = active.slice(0, 4).map(r => {
+      const nextRun = r.nextRunDate || r.next_run;
+      const freq = r.frequency || r.interval || '';
+      const isOverdue = nextRun && new Date(nextRun) < new Date();
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${r.name || r.clientName || 'Service'}</div>
+          <div style="font-size:11px;color:var(--text3)">${r.service || r.type || ''} · ${freq}</div>
+        </div>
+        <div style="text-align:right">
+          ${nextRun ? `<div style="font-size:11px;font-weight:600;color:${isOverdue ? 'var(--red)' : 'var(--text3)'}">${isOverdue ? 'Overdue' : 'Next: ' + new Date(nextRun).toLocaleDateString('en-US', {month:'short',day:'numeric'})}</div>` : ''}
+          ${r.amount || r.value ? `<div style="font-size:12px;font-weight:700;color:var(--gold)">${formatCurrency(r.amount || r.value)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('') + (active.length > 4 ? `<div style="text-align:center;padding:8px;font-size:12px;color:var(--gold);cursor:pointer" onclick="navigate('recurring')">+${active.length - 4} more →</div>` : '');
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">No recurring services</div>';
+  }
+}
+
+/* ─── DASHBOARD: QB OUTSTANDING INVOICES ───────────────────────── */
+async function loadDashQBInvoices() {
+  const el = document.getElementById('dashQBInvoices');
+  if (!el) return;
+  try {
+    const invoices = await api('/api/quickbooks/invoices').catch(() => []);
+    if (!invoices || !invoices.length) {
+      // Fall back to local invoices
+      const local = await api('/api/invoices/outstanding').catch(() => []);
+      if (!local?.length) {
+        el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text3);font-size:13px">No outstanding invoices</div>';
+        return;
+      }
+      el.innerHTML = local.slice(0, 4).map(inv => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:8px;height:8px;border-radius:50%;background:${inv.daysOverdue > 7 ? 'var(--red)' : inv.daysOverdue > 3 ? 'var(--gold)' : 'var(--green)'};flex-shrink:0"></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--text)">${inv.clientName || ''}</div><div style="font-size:11px;color:var(--text3)">${inv.jobRef || ''} · ${inv.invoiceType || ''}</div></div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold)">${formatCurrency(inv.amount)}</div>
+      </div>`).join('');
+      return;
+    }
+    el.innerHTML = invoices.slice(0, 4).map(inv => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${inv.overdue ? 'var(--red)' : 'var(--green)'};flex-shrink:0"></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--text)">${inv.customerName}</div><div style="font-size:11px;color:var(--text3)">#${inv.number} · Due ${new Date(inv.dueDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>
+      <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">${formatCurrency(inv.balance)}</div>${inv.overdue ? '<div style="font-size:10px;color:var(--red);font-weight:600">OVERDUE</div>' : ''}</div>
+    </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">No outstanding invoices</div>';
+  }
 }
 
 /* ─── FORMAT HELPERS ────────────────────────────────────────────── */
