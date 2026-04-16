@@ -1388,6 +1388,64 @@ app.post('/api/marketing/:row/launch', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: REVIEW REQUESTS ────────────────────────────────────────────────────
+app.post('/api/jobs/:id/request-review', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { updateOne } = require('./src/db');
+    await updateOne(
+      `UPDATE jobs SET review_requested = true, review_requested_at = NOW() WHERE id = $1 AND company_id = $2`,
+      [id, 1]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: CHECKLISTS ─────────────────────────────────────────────────────────
+app.get('/api/jobs/:id/checklists', async (req, res) => {
+  try {
+    const { getAll } = require('./src/db');
+    const rows = await getAll(
+      `SELECT * FROM job_checklists WHERE job_id = $1 AND company_id = $2 ORDER BY checklist_type`,
+      [parseInt(req.params.id), 1]
+    );
+    res.json(rows);
+  } catch (e) { res.json([]); }
+});
+
+app.post('/api/jobs/:id/checklists', async (req, res) => {
+  try {
+    const { insertOne } = require('./src/db');
+    await insertOne(
+      `INSERT INTO job_checklists (company_id, job_id, checklist_type, items) VALUES ($1,$2,$3,$4)`,
+      [1, parseInt(req.params.id), req.body.type, JSON.stringify(req.body.items)]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/checklists/:id', async (req, res) => {
+  try {
+    const { updateOne } = require('./src/db');
+    const extra = req.body.completed ? ', completed_at = NOW(), completed_by = $3' : '';
+    const params = [JSON.stringify(req.body.items), parseInt(req.params.id)];
+    if (req.body.completed) params.push(req.body.completed_by || 'owner');
+    await updateOne(`UPDATE job_checklists SET items = $1${extra} WHERE id = $2`, params);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: EQUIPMENT AUTO-ASSIGN ──────────────────────────────────────────────
+app.post('/api/jobs/:id/auto-assign-equipment', async (req, res) => {
+  try {
+    const equipment = await require('./src/services/equipment').getEquipment('available');
+    // Suggest available vehicles + equipment for the job
+    const suggestions = equipment.slice(0, 3); // Top 3 available items
+    res.json(suggestions);
+  } catch (e) { res.json([]); }
+});
+
 // ─── API: APPROVALS ──────────────────────────────────────────────────────────
 app.get('/api/approvals', async (req, res) => {
   try {

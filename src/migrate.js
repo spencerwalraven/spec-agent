@@ -573,6 +573,46 @@ async function migrate() {
   await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_labor_rate DECIMAL(8,2) DEFAULT 45`);
   console.log('✅ settings extra columns (target_margin, contingency_pct, default_labor_rate)');
 
+  // ── Jobs: estimate tiers + review tracking ──
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_budget TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_midrange TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_highend TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_luxury TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS selected_tier VARCHAR(50)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimate_link TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_rating INTEGER`);
+  console.log('✅ jobs: tier columns + review tracking');
+
+  // ── Equipment: missing columns ──
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS category VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'good'`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS location VARCHAR(255)`);
+  console.log('✅ equipment: category, condition, location');
+
+  // ── Leads: referral tracking ──
+  await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS referral_client_id INTEGER`);
+  console.log('✅ leads: referral_client_id');
+
+  // ── Clients: referral count ──
+  await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0`);
+  console.log('✅ clients: referral_count');
+
+  // ── Field checklists ──
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS job_checklists (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL DEFAULT 1,
+      job_id INTEGER,
+      checklist_type VARCHAR(50),
+      items JSONB DEFAULT '[]',
+      completed_by VARCHAR(255),
+      completed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  console.log('✅ job_checklists table');
+
   console.log('\n🎉 Migration complete — all tables created successfully.');
   await pool.end();
 }

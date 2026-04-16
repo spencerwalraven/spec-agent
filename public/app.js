@@ -1769,9 +1769,39 @@ async function showJobDetail(idx) {
         <a href="/status/${jobId}" target="_blank" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;flex-shrink:0;text-decoration:none">Open ↗</a>
       </div>
     </div>` : ''}
+
+    <!-- Equipment Assignment -->
+    <div class="modal-section">
+      <div class="modal-section-label">Equipment</div>
+      <div id="jmEquipment" style="font-size:13px;color:var(--text3)">Loading...</div>
+    </div>
+
+    <!-- Field Checklist -->
+    <div class="modal-section">
+      <div class="modal-section-label">Field Checklist</div>
+      <div id="jmChecklist" style="font-size:13px;color:var(--text3)">Loading...</div>
+    </div>
+
+    <!-- Review Request (only for completed jobs) -->
+    ${/completed|done|finished/i.test(status) ? `
+    <div class="modal-section">
+      <div class="modal-section-label">Client Review</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${j.reviewRequested || j.review_requested ? `
+          <div style="font-size:13px;color:var(--green);font-weight:600">Review requested ${j.reviewRequestedAt || j.review_requested_at ? 'on ' + new Date(j.reviewRequestedAt || j.review_requested_at).toLocaleDateString() : ''}</div>
+          ${j.reviewRating || j.review_rating ? `<div style="font-size:14px;font-weight:800;color:var(--gold)">★ ${j.reviewRating || j.review_rating}/5</div>` : ''}
+        ` : `
+          <button class="btn btn-primary" style="font-size:13px;padding:8px 16px" onclick="requestReview(${numericId})">Request Google Review</button>
+        `}
+      </div>
+    </div>` : ''}
   `;
 
   openModal('jobModal');
+
+  // Load equipment and checklists for this job
+  loadJobEquipment(numericId);
+  loadJobChecklist(numericId);
 
   // Load materials asynchronously after modal opens
   if (currentUser?.role !== 'field') {
@@ -1848,6 +1878,154 @@ async function saveSiteVisit(jobRow) {
   } catch (e) {
     toast('❌ ' + e.message, 3000);
   }
+}
+
+/* ─── JOB EQUIPMENT SECTION ─────────────────────────────────────── */
+async function loadJobEquipment(jobId) {
+  const el = document.getElementById('jmEquipment');
+  if (!el) return;
+  try {
+    const allEquip = await api('/api/equipment') || [];
+    const assigned = allEquip.filter(e => e.assignedJob == jobId || e.assigned_job_id == jobId);
+    if (assigned.length) {
+      el.innerHTML = assigned.map(e => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${e.name || e.equipmentName}</span>
+          <span style="font-size:11px;color:var(--text3)">${e.category || e.type || ''}</span>
+          <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--green)">Assigned</span>
+        </div>
+      `).join('') + `<button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;margin-top:8px" onclick="autoAssignEquipment(${jobId})">+ Add More</button>`;
+    } else {
+      el.innerHTML = `
+        <div style="font-size:13px;color:var(--text3);margin-bottom:8px">No equipment assigned</div>
+        <button class="btn btn-primary" style="font-size:12px;padding:8px 16px" onclick="autoAssignEquipment(${jobId})">Auto-Assign Equipment</button>`;
+    }
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">No equipment assigned</div>';
+  }
+}
+
+async function autoAssignEquipment(jobId) {
+  try {
+    const suggestions = await api(`/api/jobs/${jobId}/auto-assign-equipment`, { method: 'POST' }) || [];
+    if (!suggestions.length) { toast('No available equipment'); return; }
+    const names = suggestions.map(s => s.name || s.equipmentName).join(', ');
+    if (confirm(`Assign to this job?\n\n${names}`)) {
+      for (const s of suggestions) {
+        await api(`/api/equipment/${s._row || s.id}/assign`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ jobId, assignedTo: 'Auto' })
+        });
+      }
+      toast('Equipment assigned');
+      loadJobEquipment(jobId);
+    }
+  } catch(e) { toastError('Failed to assign equipment'); }
+}
+
+/* ─── JOB CHECKLIST SECTION ────────────────────────────────────── */
+const DEFAULT_CHECKLISTS = {
+  pre_job: [
+    { text: 'Safety equipment verified', checked: false },
+    { text: 'Materials on-site confirmed', checked: false },
+    { text: 'Work area cleared', checked: false },
+    { text: 'Client notified of arrival', checked: false },
+    { text: 'Before photos taken', checked: false },
+  ],
+  post_job: [
+    { text: 'Work area cleaned', checked: false },
+    { text: 'After photos taken', checked: false },
+    { text: 'Client walkthrough completed', checked: false },
+    { text: 'Equipment returned', checked: false },
+    { text: 'Final inspection passed', checked: false },
+  ]
+};
+
+async function loadJobChecklist(jobId) {
+  const el = document.getElementById('jmChecklist');
+  if (!el) return;
+  try {
+    let checklists = await api(`/api/jobs/${jobId}/checklists`) || [];
+    // If no checklists exist, show create option
+    if (!checklists.length) {
+      el.innerHTML = `
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:7px 14px" onclick="createChecklist(${jobId},'pre_job')">+ Pre-Job Checklist</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:7px 14px" onclick="createChecklist(${jobId},'post_job')">+ Post-Job Checklist</button>
+        </div>`;
+      return;
+    }
+    el.innerHTML = checklists.map(cl => {
+      const items = typeof cl.items === 'string' ? JSON.parse(cl.items) : (cl.items || []);
+      const done = items.filter(i => i.checked).length;
+      const total = items.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const typeLabel = cl.checklist_type === 'pre_job' ? 'Pre-Job' : 'Post-Job';
+      return `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700;color:var(--text)">${typeLabel} Checklist</span>
+            <span style="font-size:11px;font-weight:600;color:${pct === 100 ? 'var(--green)' : 'var(--text3)'}">${done}/${total} complete</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:99px;margin-bottom:8px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${pct === 100 ? 'var(--green)' : 'var(--gold)'};border-radius:99px;transition:width .3s"></div>
+          </div>
+          ${items.map((item, i) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;color:var(--text)">
+              <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleChecklistItem(${cl.id},${i},this.checked,${jobId})" style="width:16px;height:16px;accent-color:var(--gold)">
+              <span style="${item.checked ? 'text-decoration:line-through;opacity:.5' : ''}">${item.text}</span>
+            </label>
+          `).join('')}
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">Checklists unavailable</div>';
+  }
+}
+
+async function createChecklist(jobId, type) {
+  try {
+    await api(`/api/jobs/${jobId}/checklists`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ type, items: DEFAULT_CHECKLISTS[type] })
+    });
+    toast('Checklist created');
+    loadJobChecklist(jobId);
+  } catch(e) { toastError('Failed to create checklist'); }
+}
+
+async function toggleChecklistItem(checklistId, itemIdx, checked, jobId) {
+  try {
+    // Get current items, update the one that changed
+    const checklists = await api(`/api/jobs/${jobId}/checklists`) || [];
+    const cl = checklists.find(c => c.id === checklistId);
+    if (!cl) return;
+    const items = typeof cl.items === 'string' ? JSON.parse(cl.items) : (cl.items || []);
+    items[itemIdx].checked = checked;
+    const allDone = items.every(i => i.checked);
+    await api(`/api/checklists/${checklistId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ items, completed: allDone, completed_by: currentUser?.name || 'owner' })
+    });
+    if (allDone) toast('Checklist complete!');
+    loadJobChecklist(jobId);
+  } catch(e) {}
+}
+
+/* ─── REVIEW REQUEST ───────────────────────────────────────────── */
+async function requestReview(jobId) {
+  if (!confirm('Send a review request email to the client?')) return;
+  try {
+    await api(`/api/jobs/${jobId}/request-review`, { method: 'POST' });
+    toast('Review request sent');
+    // Refresh job detail
+    const idx = allJobs.findIndex(j => (j.id || j._row) === jobId);
+    if (idx >= 0) {
+      allJobs[idx].reviewRequested = true;
+      allJobs[idx].review_requested = true;
+      showJobDetail(idx);
+    }
+  } catch(e) { toastError('Failed to send review request'); }
 }
 
 async function loadJobMaterials(jobId) {
