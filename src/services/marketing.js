@@ -64,4 +64,8 @@ async function updateCampaignStatus(id, status) {
   );
 }
 
-module.exports = { getCampaigns, getCampaign, createCampaign, updateCampaignStatus, formatCampaign };
+async function launchCampaign(id) {
+  return updateCampaignStatus(id, 'sent');
+}
+
+module.exports = { getCampaigns, getCampaign, createCampaign, updateCampaignStatus, launchCampaign, formatCampaign };

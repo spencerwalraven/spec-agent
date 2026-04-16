@@ -1372,6 +1372,13 @@ app.get('/api/marketing', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/marketing', async (req, res) => {
+  try {
+    await dbMarketing.createCampaign(req.body);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/marketing/:row/launch', async (req, res) => {
   try {
     const id = parseInt(req.params.row);

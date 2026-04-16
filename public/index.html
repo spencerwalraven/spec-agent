@@ -1510,14 +1510,60 @@
 
     <!-- ── MARKETING ───────────────────────────────────────────────── -->
     <section class="page" id="page-marketing">
-      <div class="filter-chips">
-        <button class="chip active" data-filter="all" onclick="setMktgFilter(this)">All</button>
-        <button class="chip" data-filter="re-engagement" onclick="setMktgFilter(this)">Re-engagement</button>
-        <button class="chip" data-filter="referral" onclick="setMktgFilter(this)">Referral</button>
-        <button class="chip" data-filter="seasonal" onclick="setMktgFilter(this)">Seasonal</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div class="filter-chips" style="margin-bottom:0">
+          <button class="chip active" data-filter="all" onclick="setMktgFilter(this)">All</button>
+          <button class="chip" data-filter="re-engagement" onclick="setMktgFilter(this)">Re-engagement</button>
+          <button class="chip" data-filter="referral" onclick="setMktgFilter(this)">Referral</button>
+          <button class="chip" data-filter="seasonal" onclick="setMktgFilter(this)">Seasonal</button>
+        </div>
+        <button class="btn btn-primary" style="font-size:13px;padding:8px 16px" onclick="openCampaignModal()">+ Create Campaign</button>
       </div>
       <div id="marketingList">
         <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
+      </div>
+
+      <!-- Campaign Creator Modal -->
+      <div class="modal-overlay" id="campaignModal" style="display:none;align-items:center;justify-content:center;overflow-y:auto;padding:20px" onclick="if(event.target===this)closeCampaignModal()">
+        <div style="max-width:520px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px 24px;box-shadow:0 12px 40px rgba(0,0,0,0.15)">
+          <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:20px">Create Campaign</div>
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Campaign Name</label>
+            <input type="text" id="campName" placeholder="e.g. Spring Re-engagement" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);outline:none;box-sizing:border-box">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Type</label>
+              <select id="campType" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);outline:none">
+                <option value="re-engagement">Re-engagement</option>
+                <option value="referral">Referral Request</option>
+                <option value="seasonal">Seasonal Promo</option>
+                <option value="newsletter">Newsletter</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Target Audience</label>
+              <select id="campAudience" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);outline:none">
+                <option value="all_leads">All Leads</option>
+                <option value="cold_leads">Cold Leads (no contact 30+ days)</option>
+                <option value="hot_leads">Hot Leads (score 80+)</option>
+                <option value="past_clients">Past Clients</option>
+                <option value="completed_jobs">Completed Job Clients</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Message</label>
+              <button onclick="generateCampaignTemplate()" style="font-size:11px;font-weight:600;color:var(--gold);background:none;border:none;cursor:pointer;padding:0">Generate with AI</button>
+            </div>
+            <textarea id="campBody" rows="5" placeholder="Write your campaign message or click 'Generate with AI'..." style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text);outline:none;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button onclick="closeCampaignModal()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+            <button onclick="saveCampaign()" class="btn btn-primary" style="padding:10px 24px;font-size:14px">Save Campaign</button>
+          </div>
+        </div>
       </div>
     </section>
 

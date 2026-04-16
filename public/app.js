@@ -2878,7 +2878,59 @@ async function launchCampaign(row, btn) {
     toast('🚀 Campaign launched!');
   } catch(e) {
     btn.textContent = 'Launch';
-    toast('⚠️ Launch failed');
+    toastError('Launch failed');
+  }
+}
+
+/* ─── CAMPAIGN CREATOR ─────────────────────────────────────────── */
+function openCampaignModal() {
+  document.getElementById('campName').value = '';
+  document.getElementById('campType').value = 're-engagement';
+  document.getElementById('campAudience').value = 'all_leads';
+  document.getElementById('campBody').value = '';
+  document.getElementById('campaignModal').style.display = 'flex';
+}
+
+function closeCampaignModal() {
+  document.getElementById('campaignModal').style.display = 'none';
+}
+
+function generateCampaignTemplate() {
+  const type = document.getElementById('campType').value;
+  const audience = document.getElementById('campAudience').value;
+  const companyName = document.title.replace(' CRM','') || 'our company';
+
+  const templates = {
+    're-engagement': `Hi {name},\n\nIt's been a while since we last connected! Spring is the perfect time to tackle those outdoor projects you've been thinking about.\n\nWe'd love to offer you a free consultation to discuss your vision. As a valued past contact, you'll receive priority scheduling.\n\nReply to this email or book a time at {calendly_link}.\n\nBest,\n${companyName}`,
+    'referral': `Hi {name},\n\nThank you for trusting us with your project! We're so glad you're happy with the results.\n\nIf you know anyone who could use our services, we'd truly appreciate the referral. As a thank you, we offer a $100 credit toward any future service for each successful referral.\n\nSimply have them mention your name when they reach out!\n\nWarm regards,\n${companyName}`,
+    'seasonal': `Hi {name},\n\nSpring is here and it's the perfect time to refresh your outdoor space!\n\nWe're currently booking spring projects and offering early-bird pricing for estimates scheduled this month.\n\nSchedule your free consultation: {calendly_link}\n\nBest,\n${companyName}`,
+    'newsletter': `Hi {name},\n\nHere's your monthly update from ${companyName}:\n\n- Recently completed projects\n- Seasonal tips for your landscape\n- Special offers for our community\n\nVisit our website to learn more or reply to schedule a consultation.\n\nBest,\n${companyName}`,
+  };
+
+  document.getElementById('campBody').value = templates[type] || templates['re-engagement'];
+  toast('Template generated');
+}
+
+async function saveCampaign() {
+  const name = document.getElementById('campName').value.trim();
+  const type = document.getElementById('campType').value;
+  const audience = document.getElementById('campAudience').value;
+  const body = document.getElementById('campBody').value.trim();
+
+  if (!name) { toastError('Enter a campaign name'); return; }
+  if (!body) { toastError('Enter a message body'); return; }
+
+  try {
+    await api('/api/marketing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, campaign_type: type, targetSegment: audience, body })
+    });
+    closeCampaignModal();
+    toast('Campaign created');
+    loadMarketing();
+  } catch(e) {
+    toastError('Failed to create campaign');
   }
 }
 
