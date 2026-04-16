@@ -179,6 +179,9 @@ async function getJobMaterials(jobId) {
     quantity: r.quantity || '', unitCost: r.unit_cost || '',
     totalCost: r.total_cost || '', bestSource: r.best_source || '',
     status: r.status || 'needed', createdAt: r.created_at,
+    actualQuantity: r.actual_quantity || '', actualUnitCost: r.actual_unit_cost || '',
+    actualTotalCost: r.actual_total_cost || '', loggedBy: r.logged_by || '',
+    loggedAt: r.logged_at || null, variancePct: r.variance_pct != null ? parseFloat(r.variance_pct) : null,
   }));
 }
 

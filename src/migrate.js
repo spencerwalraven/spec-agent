@@ -637,6 +637,15 @@ async function migrate() {
   `);
   console.log('✅ pending_approvals table');
 
+  // ── Job Materials: actual tracking columns ──
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS actual_quantity VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS actual_unit_cost VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS actual_total_cost VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS logged_by VARCHAR(255)`);
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS logged_at TIMESTAMPTZ`);
+  await safeAlter(`ALTER TABLE job_materials ADD COLUMN IF NOT EXISTS variance_pct DECIMAL(5,2)`);
+  console.log('✅ job_materials: actual tracking columns');
+
   console.log('\n🎉 Migration complete — all tables created successfully.');
   await pool.end();
 }

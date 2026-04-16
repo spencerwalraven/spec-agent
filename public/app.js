@@ -2201,16 +2201,37 @@ async function loadJobMaterials(jobId) {
       grandTotal += cost;
     });
 
+    // Check if any actuals have been logged
+    let actualTotal = 0;
+    let hasActuals = false;
+    materials.forEach(m => {
+      if (m.actualTotalCost || m.actual_total_cost) {
+        hasActuals = true;
+        actualTotal += parseFloat(((m.actualTotalCost || m.actual_total_cost || '0') + '').replace(/[^0-9.-]/g, '')) || 0;
+      }
+    });
+
     el.innerHTML = Object.entries(cats).map(([cat, items]) =>
       '<div style="margin-bottom:12px">' +
         '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">' + cat + '</div>' +
-        items.map(m =>
-          '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px" data-mat-id="' + m.id + '">' +
+        items.map(m => {
+          const hasActual = m.actualQuantity || m.actual_quantity;
+          const estCost = parseFloat(((m.totalCost || '0') + '').replace(/[^0-9.-]/g, '')) || 0;
+          const actCost = parseFloat(((m.actualTotalCost || m.actual_total_cost || '0') + '').replace(/[^0-9.-]/g, '')) || 0;
+          const variance = m.variancePct || m.variance_pct;
+          const varColor = variance > 5 ? 'var(--red)' : variance < -5 ? 'var(--green)' : 'var(--text3)';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px" data-mat-id="' + m.id + '">' +
             '<div style="flex:1;min-width:0">' +
               '<div style="font-weight:600;color:var(--text)">' + (m.item || '—') + '</div>' +
-              '<div style="color:var(--text3);font-size:11px">' + (m.quantity || '') + ' · ' + (m.unitCost || '') + (m.bestSource ? ' · <span style="color:var(--gold)">' + m.bestSource + '</span>' : '') + '</div>' +
+              '<div style="color:var(--text3);font-size:11px">Est: ' + (m.quantity || '') + ' · ' + (m.unitCost || '') + (m.bestSource ? ' · <span style="color:var(--gold)">' + m.bestSource + '</span>' : '') + '</div>' +
+              (hasActual ? '<div style="font-size:11px;margin-top:2px"><span style="font-weight:600;color:var(--text)">Actual: ' + (m.actualQuantity || m.actual_quantity) + '</span>' +
+                (variance !== null && variance !== undefined ? ' <span style="font-weight:700;color:' + varColor + '">' + (variance > 0 ? '+' : '') + variance + '%</span>' : '') +
+              '</div>' : '') +
             '</div>' +
-            '<div style="font-weight:700;color:var(--text);white-space:nowrap">' + (m.totalCost || '—') + '</div>' +
+            '<div style="text-align:right">' +
+              '<div style="font-weight:700;color:var(--text);white-space:nowrap">' + (m.totalCost || '—') + '</div>' +
+              (hasActual && actCost ? '<div style="font-size:11px;font-weight:600;color:' + (actCost > estCost ? 'var(--red)' : 'var(--green)') + '">' + formatCurrency(actCost) + ' actual</div>' : '') +
+            '</div>' +
             '<div style="display:flex;gap:2px">' +
               '<select style="background:var(--card2);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-size:10px;padding:2px 4px" onchange="updateMaterialStatus(' + _currentJobRow + ',' + m.id + ',this.value)">' +
                 '<option value="needed"' + (m.status==='needed'?' selected':'') + '>Needed</option>' +
@@ -2219,12 +2240,23 @@ async function loadJobMaterials(jobId) {
               '</select>' +
               '<button style="background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 2px" onclick="deleteMaterial(' + _currentJobRow + ',' + m.id + ')">✕</button>' +
             '</div>' +
-          '</div>'
-        ).join('') +
+          '</div>';
+        }).join('') +
       '</div>'
     ).join('');
 
-    if (totEl) totEl.innerHTML = '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);font-weight:800"><span>Materials Total</span><span style="color:var(--gold)">' + formatCurrency(grandTotal) + '</span></div>';
+    // Totals row with actual comparison
+    if (totEl) {
+      let totHtml = '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);font-weight:800"><span>Estimated Total</span><span style="color:var(--text)">' + formatCurrency(grandTotal) + '</span></div>';
+      if (hasActuals) {
+        const diff = actualTotal - grandTotal;
+        const diffColor = diff > 0 ? 'var(--red)' : 'var(--green)';
+        totHtml += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:800"><span>Actual Total</span><span style="color:var(--gold)">' + formatCurrency(actualTotal) + '</span></div>';
+        totHtml += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span style="color:var(--text3)">Variance</span><span style="font-weight:700;color:' + diffColor + '">' + (diff > 0 ? '+' : '') + formatCurrency(diff) + ' (' + (grandTotal > 0 ? Math.round((diff / grandTotal) * 100) : 0) + '%)</span></div>';
+      }
+      totHtml += '<button class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:12px;padding:8px" onclick="openLogActualsModal(' + _currentJobRow + ')">Log Actual Materials Used</button>';
+      totEl.innerHTML = totHtml;
+    }
   } catch (e) {
     el.innerHTML = '<div style="color:var(--red);font-size:13px">Error loading materials</div>';
   }
@@ -2266,6 +2298,82 @@ async function deleteMaterial(jobId, matId) {
     toast('✅ Removed');
     loadJobMaterials(jobId);
   } catch (e) { toast('❌ ' + e.message); }
+}
+
+/* ─── LOG ACTUAL MATERIALS MODAL ────────────────────────────────── */
+let _logActualsMaterials = [];
+async function openLogActualsModal(jobId) {
+  try {
+    const materials = await api('/api/jobs/' + jobId + '/materials') || [];
+    if (!materials.length) { toast('No materials to log actuals for'); return; }
+    _logActualsMaterials = materials;
+
+    const modal = document.createElement('div');
+    modal.id = 'logActualsModal';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;z-index:9999';
+    modal.onclick = function(e) { if (e.target === this) this.remove(); };
+
+    modal.innerHTML = `
+      <div style="max-width:600px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto">
+        <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px">Log Actual Materials</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:16px">Update quantities and costs to what was actually used on this job.</div>
+        <div id="logActualsItems">
+          ${materials.map((m, i) => {
+            const estQty = m.quantity || '';
+            const estCost = m.totalCost || '';
+            const actQty = m.actualQuantity || m.actual_quantity || '';
+            const actCost = m.actualTotalCost || m.actual_total_cost || '';
+            return `
+              <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+                <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">${m.item || 'Material'}</div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Estimated: ${estQty} · ${m.unitCost || ''} · Total: ${estCost}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                  <div>
+                    <label style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:3px">Actual Qty</label>
+                    <input type="text" id="actQty_${i}" value="${actQty || estQty}" placeholder="${estQty}" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box">
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:3px">Actual $/Unit</label>
+                    <input type="text" id="actUnit_${i}" value="${m.actualUnitCost || m.actual_unit_cost || m.unitCost || ''}" placeholder="${m.unitCost || ''}" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box">
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;display:block;margin-bottom:3px">Actual Total</label>
+                    <input type="text" id="actTotal_${i}" value="${actCost || estCost}" placeholder="${estCost}" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);box-sizing:border-box">
+                  </div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button onclick="document.getElementById('logActualsModal').remove()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+          <button onclick="saveLogActuals(${jobId})" class="btn btn-primary" style="padding:10px 24px;font-size:14px">Save Actuals</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+  } catch (e) { toastError('Failed to load materials'); }
+}
+
+async function saveLogActuals(jobId) {
+  const actuals = _logActualsMaterials.map((m, i) => ({
+    materialId: m.id,
+    estimatedQty: (m.quantity || '').replace(/[^0-9.]/g, ''),
+    actualQty: document.getElementById('actQty_' + i)?.value || '',
+    actualUnitCost: document.getElementById('actUnit_' + i)?.value || '',
+    actualTotal: document.getElementById('actTotal_' + i)?.value || '',
+  }));
+
+  try {
+    await api('/api/jobs/' + jobId + '/materials/log-actuals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actuals, loggedBy: currentUser?.name || 'field' }),
+    });
+    document.getElementById('logActualsModal')?.remove();
+    toast('Actuals logged — materials updated');
+    loadJobMaterials(jobId);
+  } catch (e) { toastError('Failed to save actuals'); }
 }
 
 async function saveSiteVisitAndProposal(jobRow) {

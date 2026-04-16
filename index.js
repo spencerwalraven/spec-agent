@@ -967,6 +967,39 @@ app.delete('/api/jobs/:id/materials/:matId', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API: LOG ACTUAL MATERIALS USED ──────────────────────────────────────────
+app.post('/api/jobs/:id/materials/log-actuals', async (req, res) => {
+  try {
+    const { updateOne } = require('./src/db');
+    const { actuals, loggedBy } = req.body; // actuals = [{ materialId, actualQty, actualUnitCost, actualTotal }]
+    if (!actuals?.length) return res.status(400).json({ error: 'No actuals provided' });
+
+    for (const a of actuals) {
+      const estQty = parseFloat(a.estimatedQty) || 0;
+      const actQty = parseFloat(a.actualQty) || 0;
+      const variance = estQty > 0 ? Math.round(((actQty - estQty) / estQty) * 100) : 0;
+
+      await updateOne(`
+        UPDATE job_materials SET
+          actual_quantity = $1, actual_unit_cost = $2, actual_total_cost = $3,
+          logged_by = $4, logged_at = NOW(), variance_pct = $5
+        WHERE id = $6 AND company_id = $7
+      `, [a.actualQty, a.actualUnitCost, a.actualTotal, loggedBy || 'field', variance, a.materialId, 1]);
+    }
+
+    // Update job actual_value with sum of actual material costs
+    const jobId = parseInt(req.params.id);
+    const { getAll } = require('./src/db');
+    const mats = await getAll('SELECT actual_total_cost FROM job_materials WHERE job_id = $1 AND company_id = $2 AND actual_total_cost IS NOT NULL', [jobId, 1]);
+    const totalActual = mats.reduce((s, m) => s + (parseFloat((m.actual_total_cost || '0').replace(/[^0-9.-]/g, '')) || 0), 0);
+    if (totalActual > 0) {
+      await updateOne('UPDATE jobs SET material_cost = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3', [totalActual, jobId, 1]);
+    }
+
+    res.json({ ok: true, materialsLogged: actuals.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: MANUAL TIME ENTRY (for missed clock-ins) ───────────────────────────
 app.post('/api/timeclock/manual', requireAuth, async (req, res) => {
   try {

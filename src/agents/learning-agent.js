@@ -41,6 +41,15 @@ const TOOLS = [
     },
   },
   {
+    name: 'read_job_materials',
+    description: 'Read all materials for a job with estimated vs actual quantities and costs. Shows variance % for each material.',
+    input_schema: {
+      type: 'object',
+      properties: { jobId: { type: 'number', description: 'Database ID of the job' } },
+      required: ['jobId'],
+    },
+  },
+  {
     name: 'read_all_learnings',
     description: 'Read all past learnings from the Learnings tab',
     input_schema: { type: 'object', properties: {}, required: [] },
@@ -105,6 +114,22 @@ const EXECUTORS = {
       completedDate: g(r, 'Completed Date'),
       notes:         g(r, 'Notes'),
     })));
+  },
+
+  read_job_materials: async ({ jobId }) => {
+    try {
+      const dbJobs = require('../services/jobs');
+      const materials = await dbJobs.getJobMaterials(jobId);
+      return JSON.stringify(materials.map(m => ({
+        item: m.item, category: m.category,
+        estimatedQty: m.quantity, estimatedUnitCost: m.unitCost, estimatedTotal: m.totalCost,
+        actualQty: m.actualQuantity || null, actualUnitCost: m.actualUnitCost || null, actualTotal: m.actualTotalCost || null,
+        variancePct: m.variancePct, loggedBy: m.loggedBy,
+        hasActuals: !!(m.actualQuantity),
+      })));
+    } catch (e) {
+      return JSON.stringify({ error: 'Could not read materials: ' + e.message });
+    }
   },
 
   read_all_learnings: async () => {
@@ -175,31 +200,42 @@ You are an AI business analyst for a home service company. Your job is to extrac
 TASK — in this exact order:
 1. Read the completed job data (read_job, row ${rowNumber})
 2. Read all phases for this job (read_job_phases using the Job ID)
-3. Read all past learnings (read_all_learnings) — understand patterns already identified
-4. Analyze the job thoroughly:
+3. Read job materials (read_job_materials using the job's database ID) — compare estimated vs actual quantities and costs
+4. Read all past learnings (read_all_learnings) — understand patterns already identified
+5. Analyze the job thoroughly:
    a. COST ANALYSIS:
       - What was the original estimate vs actual job value?
       - Were there any cost overruns? What caused them?
       - Which trades/phases ran over budget?
-   b. TIMELINE ANALYSIS:
+   b. MATERIAL VARIANCE ANALYSIS (critical for improving future estimates):
+      - For each material: estimated qty vs actual qty used
+      - Which materials had the biggest variance % (over or under)?
+      - Were waste factors accurate? Should they be adjusted?
+      - Were any materials needed that weren't in the original estimate?
+      - Were material prices accurate vs what was actually paid?
+      - Identify material categories that consistently run over (e.g. "hardscape materials always need 15% more than estimated")
+   c. TIMELINE ANALYSIS:
       - How many days did each phase actually take vs planned?
       - Were there delays? What caused them?
       - Did material lead times cause issues?
-   c. QUALITY ANALYSIS:
+   d. QUALITY ANALYSIS:
       - What was the client satisfaction score?
       - Were there any issues flagged during the job?
       - What did the client specifically praise or complain about?
-   d. OPERATIONAL ANALYSIS:
+   e. OPERATIONAL ANALYSIS:
       - Did subs show up on time?
       - Were materials ordered correctly and on time?
       - What would have made this job go smoother?
-5. Save a structured learning entry (save_learning) with:
+6. Save a structured learning entry (save_learning) with:
    - Honest assessment of what happened
    - The most important insight for future jobs of this type
    - A recommended cost adjustment % for future estimates
+   - A recommended waste factor adjustment (e.g. "increase paver waste from 10% to 15%")
    - Timeline adjustment recommendation
-6. Notify the owner with a concise post-job analysis (notify_owner):
+   - Material-specific learnings (e.g. "always order 20% extra gravel for this soil type")
+7. Notify the owner with a concise post-job analysis (notify_owner):
    - Job performance vs estimate
+   - Material variance summary (top 3 biggest variances)
    - Client satisfaction
    - Key takeaway
    - How this will improve future estimates
@@ -207,8 +243,10 @@ TASK — in this exact order:
 IMPORTANT:
 - Be honest and specific — vague insights are useless
 - If costs ran over by 12%, say "+12% adjustment recommended for future bathroom projects with tile work"
+- If materials had a +15% variance, say "increase paver quantity by 15% on future patio jobs"
 - Focus on actionable insights — what should change in the NEXT estimate/plan?
 - If this job type has been done before, compare it to previous jobs of the same type
+- Material actuals are the most valuable data — this is what makes estimates more accurate over time
     `.trim();
 
     const userMessage = `Analyze the completed job at row ${rowNumber}, extract learnings, and save them.`;
