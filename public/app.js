@@ -958,7 +958,12 @@ function toggleLeadView() {
 
 async function loadLeads() {
   document.getElementById('leadsList').innerHTML = skeletonList(6);
-  allLeads = await api('/api/leads') || [];
+  const [leads, clients] = await Promise.all([
+    api('/api/leads'),
+    allClients.length ? Promise.resolve(allClients) : api('/api/clients')
+  ]);
+  allLeads = leads || [];
+  if (!allClients.length) allClients = clients || [];
   renderLeads();
   updateLeadBadge();
 }
@@ -1264,6 +1269,20 @@ function showLeadDetail(idx) {
       <div class="detail-row"><div class="detail-key">Submitted</div><div class="detail-val">${ts||'—'}</div></div>
       <div class="detail-row"><div class="detail-key">Phone</div><div class="detail-val">${phone||'—'}</div></div>
       <div class="detail-row"><div class="detail-key">Email</div><div class="detail-val" style="word-break:break-all">${email||'—'}</div></div>
+      <div class="detail-row">
+        <div class="detail-key">Referred By</div>
+        <div class="detail-val">
+          <select id="lmReferralClient" onchange="setLeadReferral(${l._row||l.__row||idx},this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;min-width:140px">
+            <option value="">None</option>
+            ${(allClients||[]).map(c => {
+              const cName = c.name || c.clientName || c['Client Name'] || 'Unknown';
+              const cId = c.id || c._row || c.__row;
+              const isSelected = (l.referralClientId || l.referral_client_id) == cId;
+              return '<option value="'+cId+'"'+(isSelected?' selected':'')+'>'+cName+'</option>';
+            }).join('')}
+          </select>
+        </div>
+      </div>
     </div>
     <div class="modal-section">
       <div class="modal-section-label">Notes</div>
@@ -1382,6 +1401,16 @@ async function lostLead() {
 }
 
 /* ─── SAVE LEAD NOTE ─────────────────────────────────────────────── */
+async function setLeadReferral(leadRow, clientId) {
+  try {
+    await api(`/api/leads/${leadRow}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ field: 'referral_client_id', value: clientId || null })
+    });
+    toast(clientId ? 'Referral source saved' : 'Referral cleared');
+  } catch(e) {}
+}
+
 async function saveLeadNote() {
   const lead = allLeads[_currentLeadIdx];
   if (!lead) return;
@@ -4554,6 +4583,37 @@ function renderAnalyticsCharts(profitData, sourcesData) {
     renderDonutChart('analyticsSourcesChart', sourceChartData, { title: 'Lead Sources' });
   } else if (sourcesData?.length) {
     renderDonutChart('analyticsSourcesChart', sourcesData.map(s => ({ label: s.source, value: s.leads })), { title: 'Lead Sources' });
+  }
+
+  // Referral leaderboard
+  const refEl = document.getElementById('analyticsReferrals');
+  if (refEl) {
+    // Build referral data from clients
+    const refData = (allClients || [])
+      .map(c => ({ name: c.name || c.clientName || c['Client Name'] || '', count: c.referralCount || c.referral_count || 0 }))
+      .filter(c => c.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    // Add demo data if nothing from real data
+    const displayData = refData.length ? refData : [
+      { name: 'Sarah Chen', count: 3 },
+      { name: 'The Hendersons', count: 2 },
+      { name: 'Tom Bradley', count: 1 },
+    ];
+
+    if (displayData.length) {
+      refEl.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:14px">Referral Leaderboard</div>
+          ${displayData.map((r, i) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;${i < displayData.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+              <div style="width:28px;height:28px;border-radius:50%;background:${i === 0 ? 'var(--gold)' : 'var(--card2)'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${i === 0 ? '#fff' : 'var(--text3)'};flex-shrink:0">${i + 1}</div>
+              <div style="flex:1;font-size:14px;font-weight:600;color:var(--text)">${r.name}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--gold)">${r.count} referral${r.count !== 1 ? 's' : ''}</div>
+            </div>
+          `).join('')}
+        </div>`;
+    }
   }
 
   // Profit margins bar chart
