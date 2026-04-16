@@ -1065,7 +1065,7 @@ function renderLeads() {
     const borderColor = sc==='hot'?'var(--red)':sc==='warm'?'var(--yellow)':sc==='cold'?'var(--blue)':'var(--border)';
     return `
       <div class="list-item" onclick="showLeadDetail(${idx})" style="border-left-color:${borderColor}">
-        <div class="item-avatar" style="background:${sc==='hot'?'rgba(239,68,68,.12)':sc==='warm'?'rgba(245,158,11,.12)':'rgba(59,130,246,.1)'}">
+        <div class="item-avatar" style="background:${sc==='hot'?'rgba(220,38,38,.06)':sc==='warm'?'rgba(217,119,6,.06)':'rgba(37,99,235,.06)'}">
           ${initials(name)}
         </div>
         <div class="item-body">
@@ -1333,7 +1333,7 @@ function renderJobs() {
     const borderCol = st.includes('progress')||st.includes('active')?'var(--green)':st.includes('plan')||st.includes('pending')?'var(--yellow)':st.includes('complete')?'var(--blue)':'var(--border)';
     return `
       <div class="list-item" onclick="showJobDetail(${idx})" style="border-left-color:${borderCol}">
-        <div class="item-avatar" style="font-size:22px;background:linear-gradient(135deg,rgba(86,168,69,0.08),rgba(86,168,69,0.02))">🔨</div>
+        <div class="item-avatar" style="font-size:22px;background:linear-gradient(135deg,rgba(45,122,30,0.05),rgba(45,122,30,0.01))">🔨</div>
         <div class="item-body">
           <div class="item-name">${client}</div>
           <div class="item-sub">${project}${jobId?' · '+jobId:''}</div>
@@ -2384,8 +2384,8 @@ function renderTeam() {
     const globalIdx = allTeam.indexOf(m);
     const isSub = type.toLowerCase().includes('sub');
     const roleLower = role.toLowerCase();
-    const avatarBg = isSub ? 'linear-gradient(135deg,rgba(168,85,247,0.1),rgba(168,85,247,0.03))' : roleLower.includes('owner') ? 'linear-gradient(135deg,rgba(86,168,69,0.12),rgba(86,168,69,0.04))' : 'linear-gradient(135deg,rgba(59,130,246,0.1),rgba(59,130,246,0.03))';
-    const avatarBorder = isSub ? 'rgba(168,85,247,0.25)' : roleLower.includes('owner') ? 'rgba(86,168,69,0.25)' : 'rgba(59,130,246,0.2)';
+    const avatarBg = isSub ? 'linear-gradient(135deg,rgba(124,58,237,0.06),rgba(124,58,237,0.02))' : roleLower.includes('owner') ? 'linear-gradient(135deg,rgba(45,122,30,0.08),rgba(45,122,30,0.02))' : 'linear-gradient(135deg,rgba(37,99,235,0.06),rgba(37,99,235,0.02))';
+    const avatarBorder = isSub ? 'rgba(124,58,237,0.2)' : roleLower.includes('owner') ? 'rgba(45,122,30,0.2)' : 'rgba(37,99,235,0.15)';
     const avatarColor = isSub ? '#A855F7' : roleLower.includes('owner') ? 'var(--gold)' : '#60A5FA';
     return `
       <div class="team-item" onclick="showTeamDetail(${globalIdx})" style="cursor:pointer">
