@@ -1071,6 +1071,11 @@
   .detail-key{font-weight:500}
   .modal-title{font-size:22px;letter-spacing:-0.02em}
 
+  /* ── KANBAN DRAG & DROP ──────────────────────────────────────── */
+  .kanban-col-hover{border-color:var(--gold) !important;background:rgba(45,122,30,0.03) !important}
+  .kanban-card:active{cursor:grabbing}
+  .kanban-card[draggable]:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+
   /* ── CHAT FAB ───────────────────────────────────────────────── */
   .chat-fab,.chat-float,#chatFab,[onclick*="openChat"]{
     box-shadow:0 4px 20px rgba(45,122,30,0.2) !important;

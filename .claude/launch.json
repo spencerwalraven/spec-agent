@@ -5,7 +5,11 @@
       "name": "spec-crm",
       "runtimeExecutable": "node",
       "runtimeArgs": ["index.js"],
-      "port": 3000
+      "port": 3001,
+      "env": {
+        "LOGIN_PASSWORD": "demo",
+        "PORT": "3001"
+      }
     }
   ]
 }

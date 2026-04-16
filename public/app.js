@@ -912,7 +912,7 @@ function toggleLeadView() {
   leadView = leadView === 'list' ? 'pipeline' : 'list';
   const btn    = document.getElementById('leadViewBtn');
   const chips  = document.getElementById('leadFilterChips');
-  if (btn)   btn.textContent   = leadView === 'list' ? '🗂️ Pipeline' : '☰ List';
+  if (btn)   btn.textContent   = leadView === 'list' ? 'Pipeline' : 'List';
   if (chips) chips.style.display = leadView === 'list' ? '' : 'none';
   renderLeads();
 }
@@ -968,9 +968,6 @@ function renderKanban() {
     const name = (l.name || `${l.firstName||''} ${l.lastName||''}`).toLowerCase();
     const svc  = (l.projectType || l.serviceRequested || l.service || '').toLowerCase();
     return name.includes(search) || svc.includes(search);
-  }).filter(l => {
-    const st = (g(l,'leadStatus','Status','status') || '').toLowerCase();
-    return !/lost|converted|dead/i.test(st);
   });
 
   const stages = [
@@ -979,49 +976,77 @@ function renderKanban() {
     { key:'qualified', label:'Qualified',      color:'#8B5CF6' },
     { key:'proposal',  label:'Proposal Sent',  color:'#EC4899' },
     { key:'booked',    label:'Booked',         color:'#22C55E' },
+    { key:'won',       label:'Won',            color:'#16A34A' },
+    { key:'lost',      label:'Lost',           color:'#9CA3AF' },
   ];
 
   const buckets = {};
   stages.forEach(s => { buckets[s.key] = []; });
   leads.forEach(l => {
     const st = (g(l,'leadStatus','Status','status') || '').toLowerCase();
-    if      (st.includes('contacted'))                         buckets.contacted.push(l);
-    else if (st.includes('qualified'))                         buckets.qualified.push(l);
-    else if (st.includes('proposal'))                          buckets.proposal.push(l);
-    else if (st.includes('booked') || st.includes('consultat'))buckets.booked.push(l);
-    else                                                        buckets.new.push(l);
+    if      (st.includes('converted') || st === 'won')          buckets.won.push(l);
+    else if (st.includes('lost') || st === 'dead')              buckets.lost.push(l);
+    else if (st.includes('contacted'))                          buckets.contacted.push(l);
+    else if (st.includes('qualified'))                          buckets.qualified.push(l);
+    else if (st.includes('proposal'))                           buckets.proposal.push(l);
+    else if (st.includes('booked') || st.includes('consultat')) buckets.booked.push(l);
+    else                                                         buckets.new.push(l);
   });
+
+  // Helper: get budget value from a lead
+  const getBudget = l => {
+    const b = (g(l,'Budget','budget','estimatedValue') || '').toString().replace(/[^0-9.]/g,'');
+    return parseFloat(b) || 0;
+  };
 
   el.innerHTML = `
     <div style="overflow-x:auto;margin:0 -16px;padding:0 16px 20px">
       <div style="display:flex;gap:10px;min-width:max-content;padding-bottom:4px">
         ${stages.map(s => {
           const cards = buckets[s.key];
+          const colTotal = cards.reduce((sum, l) => sum + getBudget(l), 0);
+          const colTotalStr = colTotal >= 1000 ? '$' + Math.round(colTotal/1000) + 'k' : colTotal > 0 ? '$' + colTotal : '';
           return `
-            <div style="width:215px;flex-shrink:0;background:var(--card);border-radius:14px;border:1px solid var(--border);overflow:hidden">
+            <div class="kanban-col" data-stage="${s.key}"
+                 ondragover="event.preventDefault();this.classList.add('kanban-col-hover')"
+                 ondragleave="this.classList.remove('kanban-col-hover')"
+                 ondrop="kanbanDrop(event,'${s.key}');this.classList.remove('kanban-col-hover')"
+                 style="width:200px;flex-shrink:0;background:var(--card);border-radius:14px;border:1px solid var(--border);overflow:hidden;transition:border-color .15s">
               <div style="padding:11px 13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
                 <div style="display:flex;align-items:center;gap:7px">
                   <span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;flex-shrink:0"></span>
                   <span style="font-size:12px;font-weight:700;color:var(--text)">${s.label}</span>
                 </div>
-                <span style="font-size:11px;font-weight:700;background:var(--card2);border-radius:99px;padding:2px 8px;color:var(--text3)">${cards.length}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  ${colTotalStr ? `<span style="font-size:10px;font-weight:600;color:var(--text3)">${colTotalStr}</span>` : ''}
+                  <span style="font-size:11px;font-weight:700;background:var(--card2);border-radius:99px;padding:2px 8px;color:var(--text3)">${cards.length}</span>
+                </div>
               </div>
-              <div style="padding:8px;display:flex;flex-direction:column;gap:7px;min-height:80px">
+              <div class="kanban-drop-zone" style="padding:8px;display:flex;flex-direction:column;gap:7px;min-height:100px">
                 ${cards.length === 0
-                  ? `<div style="text-align:center;padding:18px 8px;color:var(--text3);font-size:12px">—</div>`
+                  ? `<div style="text-align:center;padding:18px 8px;color:var(--text3);font-size:11px;border:1.5px dashed var(--border);border-radius:8px;margin:4px 0">Drop here</div>`
                   : cards.map(l => {
                       const idx   = allLeads.indexOf(l);
                       const score = parseInt(g(l,'leadScore','score','Lead Score','AI Score') || 0);
                       const sc    = score >= 80 ? '#EF4444' : score >= 60 ? '#F59E0B' : '#6B7280';
-                      const name  = l.name || `${l.firstName||''} ${l.lastName||''}`.trim() || 'Unknown';
-                      const svc   = g(l,'projectType','serviceRequested','Service Requested','service') || '—';
+                      const name  = g(l,'name','Name') || `${g(l,'firstName','First Name')||''} ${g(l,'lastName','Last Name')||''}`.trim() || 'Unknown';
+                      const svc   = g(l,'projectType','serviceRequested','Service Requested','service','Project Type') || '';
+                      const budget = getBudget(l);
+                      const budgetStr = budget >= 1000 ? '$' + Math.round(budget/1000) + 'k' : budget > 0 ? '$' + budget : '';
                       return `
-                        <div onclick="showLeadDetail(${idx})" style="background:var(--card2);border-radius:10px;padding:11px 12px;cursor:pointer;border:1px solid var(--border)">
+                        <div class="kanban-card" draggable="true"
+                             ondragstart="kanbanDragStart(event,${idx})"
+                             ondragend="this.style.opacity='1'"
+                             onclick="showLeadDetail(${idx})"
+                             style="background:var(--card2);border-radius:10px;padding:11px 12px;cursor:grab;border:1px solid var(--border);transition:opacity .15s,box-shadow .15s">
                           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:3px">
                             <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.3">${name}</div>
                             ${score ? `<div style="font-size:10px;font-weight:800;color:${sc};background:${sc}22;border-radius:5px;padding:2px 6px;flex-shrink:0">${score}</div>` : ''}
                           </div>
-                          <div style="font-size:11px;color:var(--text3)">${svc}</div>
+                          <div style="display:flex;align-items:center;justify-content:space-between">
+                            <div style="font-size:11px;color:var(--text3)">${svc}</div>
+                            ${budgetStr ? `<div style="font-size:11px;font-weight:600;color:var(--gold)">${budgetStr}</div>` : ''}
+                          </div>
                         </div>`;
                     }).join('')
                 }
@@ -1030,6 +1055,50 @@ function renderKanban() {
         }).join('')}
       </div>
     </div>`;
+}
+
+/* ─── KANBAN DRAG & DROP ───────────────────────────────────────── */
+let _kanbanDragIdx = null;
+function kanbanDragStart(e, idx) {
+  _kanbanDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.style.opacity = '0.5';
+}
+
+const KANBAN_STATUS_MAP = {
+  new: 'New', contacted: 'Contacted', qualified: 'Qualified',
+  proposal: 'Proposal Sent', booked: 'Consultation Booked',
+  won: 'Converted', lost: 'Lost'
+};
+
+async function kanbanDrop(e, newStage) {
+  e.preventDefault();
+  if (_kanbanDragIdx === null) return;
+  const lead = allLeads[_kanbanDragIdx];
+  if (!lead) return;
+  const row = lead.row || lead.id || _kanbanDragIdx;
+  const newStatus = KANBAN_STATUS_MAP[newStage] || newStage;
+  _kanbanDragIdx = null;
+
+  // Optimistically update local data
+  const statusKey = Object.keys(lead).find(k => /^(leadStatus|status|Status|Lead Status)$/.test(k));
+  if (statusKey) lead[statusKey] = newStatus;
+  renderKanban();
+
+  // Persist to backend
+  try {
+    if (newStage === 'won') {
+      await api(`/api/leads/${row}/convert`, { method: 'POST' });
+    } else if (newStage === 'lost') {
+      await api(`/api/leads/${row}/lost`, { method: 'POST' });
+    } else {
+      await api(`/api/leads/${row}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ field: 'leadStatus', value: newStatus }) });
+    }
+    toast(`Lead moved to ${KANBAN_STATUS_MAP[newStage]}`);
+  } catch (err) {
+    toastError('Failed to update lead status');
+    loadLeads(); // Revert on error
+  }
 }
 
 function renderLeads() {
