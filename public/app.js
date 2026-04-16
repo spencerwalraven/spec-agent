@@ -513,8 +513,11 @@ function navigate(page) {
   const el = document.getElementById('page-' + page);
   if (el) el.classList.add('active');
 
-  // Update nav
+  // Update nav (bottom nav + sidebar)
   document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.page === page);
+  });
+  document.querySelectorAll('.sidebar-item').forEach(n => {
     n.classList.toggle('active', n.dataset.page === page);
   });
 
@@ -923,6 +926,18 @@ function setLeadFilter(btn) {
   document.querySelectorAll('#page-leads .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
   leadFilter = btn.dataset.filter;
+  // Sync dropdown
+  const sel = document.getElementById('leadFilterSelect');
+  if (sel) sel.value = leadFilter;
+  renderLeads();
+}
+
+function setLeadFilterFromSelect(sel) {
+  leadFilter = sel.value;
+  // Sync chips for backwards compat
+  document.querySelectorAll('#page-leads .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === leadFilter);
+  });
   renderLeads();
 }
 
@@ -1283,6 +1298,16 @@ function setJobFilter(btn) {
   document.querySelectorAll('#page-jobs .chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
   jobFilter = btn.dataset.filter;
+  const sel = document.getElementById('jobFilterSelect');
+  if (sel) sel.value = jobFilter;
+  renderJobs();
+}
+
+function setJobFilterFromSelect(sel) {
+  jobFilter = sel.value;
+  document.querySelectorAll('#page-jobs .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === jobFilter);
+  });
   renderJobs();
 }
 

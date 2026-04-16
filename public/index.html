@@ -939,6 +939,57 @@
   }
   .approval-badge-row.has-pending{display:flex}
 
+  /* ── SIDEBAR (Desktop) ───────────────────────────────────────── */
+  .sidebar{
+    display:none;position:fixed;left:0;top:0;bottom:0;z-index:150;
+    width:240px;background:var(--card);border-right:1px solid var(--border);
+    flex-direction:column;overflow-y:auto;overflow-x:hidden;
+    box-shadow:2px 0 12px rgba(0,0,0,0.04);
+    transition:width .2s ease;
+  }
+  @media(min-width:769px){
+    .sidebar{display:flex}
+    .bottom-nav{display:none !important}
+    .top-bar{margin-left:240px}
+    .pages{margin-left:240px}
+    #notifPanel{margin-left:240px}
+    .sidebar-hide-desktop{display:none !important}
+  }
+  .sidebar-logo{
+    padding:20px 20px 16px;display:flex;align-items:center;gap:10px;
+    border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  .sidebar-logo .logo{font-size:18px;font-weight:800}
+  .sidebar-section{padding:8px 12px 4px}
+  .sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:12px 8px 6px}
+  .sidebar-item{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:10px;margin-bottom:2px;
+    font-size:14px;font-weight:500;color:var(--text2);
+    cursor:pointer;transition:all .15s;position:relative;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:inherit;
+  }
+  .sidebar-item:hover{background:var(--surface);color:var(--text)}
+  .sidebar-item.active{background:rgba(45,122,30,0.08);color:var(--gold);font-weight:700}
+  .sidebar-item .sb-icon{width:20px;text-align:center;font-size:16px;flex-shrink:0}
+  .sidebar-item .sb-badge{
+    margin-left:auto;font-size:10px;font-weight:800;
+    background:var(--red);color:#fff;
+    min-width:18px;height:18px;border-radius:99px;
+    display:flex;align-items:center;justify-content:center;padding:0 5px;
+  }
+  .sidebar-bottom{margin-top:auto;padding:8px 12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+
+  /* ── LAYOUT GRID (Desktop Dashboard) ────────────────────────── */
+  @media(min-width:769px){
+    .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .dash-grid .dash-full{grid-column:1/-1}
+    .kpi-grid{grid-template-columns:repeat(4,1fr)}
+    .page{padding:24px 32px calc(var(--nav-h) + var(--safe-b) + 24px)}
+    .more-grid{grid-template-columns:repeat(3,1fr)}
+  }
+
   /* ── PHASE CARD STATUS BORDERS ──────────────────────────────── */
   .phase-item.done{border-left:3px solid var(--green);padding-left:10px}
   .phase-item.in-progress{border-left:3px solid var(--yellow);padding-left:10px;animation:phasePulse 2s ease-in-out infinite}
@@ -1009,9 +1060,41 @@
 <body>
 <div id="app">
 
+  <!-- SIDEBAR (Desktop only) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo">🌿 LCU</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Main</div>
+      <button class="sidebar-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="sb-icon">🏠</span> Dashboard</button>
+      <button class="sidebar-item" data-page="leads" onclick="navigate('leads')"><span class="sb-icon">👤</span> Leads <span class="sb-badge" id="sidebarLeadsBadge" style="display:none"></span></button>
+      <button class="sidebar-item" data-page="jobs" onclick="navigate('jobs')"><span class="sb-icon">🔨</span> Jobs</button>
+      <button class="sidebar-item" data-page="clients" onclick="navigate('clients')"><span class="sb-icon">🤝</span> Clients</button>
+      <button class="sidebar-item" data-page="schedule" onclick="navigate('schedule')"><span class="sb-icon">📅</span> Schedule</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Operations</div>
+      <button class="sidebar-item" data-page="team" onclick="navigate('team')"><span class="sb-icon">👥</span> Team</button>
+      <button class="sidebar-item" data-page="conversations" onclick="navigate('conversations')"><span class="sb-icon">💬</span> Messages</button>
+      <button class="sidebar-item" data-page="approvals" onclick="navigate('approvals')"><span class="sb-icon">✅</span> Approvals</button>
+      <button class="sidebar-item" data-page="inventory" onclick="navigate('inventory')"><span class="sb-icon">📦</span> Inventory</button>
+      <button class="sidebar-item" data-page="marketing" onclick="navigate('marketing')"><span class="sb-icon">📢</span> Marketing</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Insights</div>
+      <button class="sidebar-item" data-page="analytics" onclick="navigate('analytics')"><span class="sb-icon">📊</span> Analytics</button>
+      <button class="sidebar-item" data-page="agents" onclick="navigate('agents')"><span class="sb-icon">🤖</span> AI Agents</button>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="sidebar-item" data-page="settings" onclick="navigate('settings')"><span class="sb-icon">⚙️</span> Settings</button>
+      <button class="sidebar-item" data-page="alerts" onclick="toggleNotifPanel()"><span class="sb-icon">🔔</span> Notifications <span class="sb-badge" id="sidebarAlertBadge" style="display:none"></span></button>
+    </div>
+  </aside>
+
   <!-- TOP BAR -->
   <header class="top-bar">
-    <div class="logo">🌿 LCU</div>
+    <div class="logo sidebar-hide-desktop">🌿 LCU</div>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div class="conn-dot" id="connDot" title="Checking connection…"></div>
     <button class="icon-btn refresh-btn" id="refreshBtn" onclick="refreshAll()" aria-label="Refresh">↻</button>
@@ -1038,7 +1121,7 @@
     <!-- ── DASHBOARD ──────────────────────────────────────────────── -->
     <section class="page active" id="page-dashboard">
 
-      <!-- Setup Wizard (hidden once complete or dismissed) -->
+      <!-- Setup Wizard (hidden for demo) -->
       <div id="setupWizard" style="display:none">
         <div class="setup-wizard-card">
           <div class="setup-wizard-hdr">
@@ -1059,17 +1142,6 @@
         <div style="font-size:12px;color:var(--text3);margin-top:3px" id="dashTodayLabel">—</div>
       </div>
 
-      <!-- Today's Schedule Strip -->
-      <div class="today-strip">
-        <div class="today-strip-hdr">
-          <span class="today-strip-title">📅 Today's Schedule</span>
-          <button style="font-size:12px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer;padding:0" onclick="navigate('schedule')">View all →</button>
-        </div>
-        <div id="todayEvents">
-          <div class="cal-evt-empty">Loading schedule…</div>
-        </div>
-      </div>
-
       <!-- Status pills (alerts + approvals) -->
       <div class="dash-pills" id="dashPills"></div>
 
@@ -1081,54 +1153,74 @@
         <div class="kpi-card" style="min-height:88px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
       </div>
 
-      <!-- Recent Activity -->
-      <div class="section-header">
-        <span class="section-title">Recent Activity</span>
-      </div>
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-body" id="activityFeed">
-          <div class="skeleton" style="height:12px;width:80%;margin-bottom:12px"></div>
-          <div class="skeleton" style="height:12px;width:60%;margin-bottom:12px"></div>
-          <div class="skeleton" style="height:12px;width:70%"></div>
+      <!-- 2-Column Grid -->
+      <div class="dash-grid">
+        <!-- Left: Schedule -->
+        <div>
+          <div class="today-strip">
+            <div class="today-strip-hdr">
+              <span class="today-strip-title">📅 Today's Schedule</span>
+              <button style="font-size:12px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer;padding:0" onclick="navigate('schedule')">View all →</button>
+            </div>
+            <div id="todayEvents">
+              <div class="cal-evt-empty">Loading schedule…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Action Items (tasks + invoices combined) -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">⚡ Action Items</span>
+            </div>
+            <div class="card-body" style="padding:8px 16px">
+              <div id="dashTasksStrip" style="margin-bottom:0">
+                <div style="padding:8px 0;font-size:13px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--gold);animation:spin .7s linear infinite"></span> Loading…</div>
+              </div>
+              <div id="dashInvoicesWrap">
+                <div id="dashInvoices"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Left: Recent Activity -->
+        <div>
+          <div class="section-header" style="margin-top:4px">
+            <span class="section-title">Recent Activity</span>
+          </div>
+          <div class="card">
+            <div class="card-body" id="activityFeed">
+              <div class="skeleton" style="height:12px;width:80%;margin-bottom:12px"></div>
+              <div class="skeleton" style="height:12px;width:60%;margin-bottom:12px"></div>
+              <div class="skeleton" style="height:12px;width:70%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: AI Activity Feed -->
+        <div>
+          <div class="section-header" style="margin-top:4px">
+            <span class="section-title">🤖 AI Activity</span>
+            <button onclick="navigate('agents')" class="section-action">See all →</button>
+          </div>
+          <div class="agent-feed-card">
+            <div class="agent-feed-header">
+              <span class="agent-feed-title">Live Agent Feed</span>
+              <span class="live-badge offline" id="dashLiveBadge">
+                <span class="live-dot"></span>OFFLINE
+              </span>
+            </div>
+            <div class="agent-log" id="dashAgentLog">
+              <div class="agent-empty">🤖 AI agents standing by</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- AI Activity Feed -->
-      <div class="section-header">
-        <span class="section-title">🤖 AI Activity</span>
-        <button onclick="navigate('agents')" class="section-action">See all →</button>
-      </div>
-      <div class="agent-feed-card">
-        <div class="agent-feed-header">
-          <span class="agent-feed-title">Live Agent Feed</span>
-          <span class="live-badge offline" id="dashLiveBadge">
-            <span class="live-dot"></span>OFFLINE
-          </span>
-        </div>
-        <div class="agent-log" id="dashAgentLog">
-          <div class="agent-empty">Waiting for agent activity…</div>
-        </div>
-      </div>
-
-      <!-- Pending Tasks Strip -->
-      <div class="section-header" style="margin-top:20px">
-        <span class="section-title">✅ Pending Tasks</span>
-        <button onclick="navigate('tasks')" class="section-action">See all →</button>
-      </div>
-      <div id="dashTasksStrip">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--gold);animation:spin .7s linear infinite"></span> Loading tasks…</div>
-      </div>
-
-      <!-- Outstanding Invoices — owner only -->
-      <div id="dashInvoicesWrap" style="margin-bottom:16px">
-        <div class="section-header" style="margin-top:20px">
-          <span class="section-title">💰 Outstanding Invoices</span>
-        </div>
-        <div id="dashInvoices" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:4px 14px;box-shadow:var(--shadow-sm)"></div>
-      </div>
-
-      <!-- Quick Actions — role-specific, rendered by JS -->
-      <div id="dashQuickActions"></div>
+      <!-- Quick Actions — hidden on desktop (sidebar replaces it) -->
+      <div id="dashQuickActions" class="sidebar-hide-desktop"></div>
 
     </section>
 
@@ -1149,15 +1241,25 @@
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:2px">Pipeline</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <div class="search-bar" style="flex:1;margin-bottom:0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="search-bar" style="flex:1;margin-bottom:0;min-width:160px">
           <span class="search-icon">🔍</span>
           <input type="search" id="leadSearch" placeholder="Search leads…" oninput="filterLeads()">
         </div>
-        <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🗂️ Pipeline</button>
+        <select id="leadFilterSelect" onchange="setLeadFilterFromSelect(this)" style="height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239A9AA0%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px">
+          <option value="all">All Leads</option>
+          <option value="hot">🔥 Hot</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="proposal">Proposal Sent</option>
+          <option value="booked">Booked</option>
+          <option value="lost">Lost</option>
+        </select>
+        <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🗂️ Pipeline</button>
+        <button onclick="showAddLead()" class="btn-primary" style="height:42px;padding:0 16px;margin-bottom:0;flex-shrink:0">+ Add</button>
       </div>
-      <button onclick="showAddLead()" class="btn-primary" style="width:100%;margin-bottom:10px">+ Add Lead</button>
-      <div id="leadFilterChips" class="filter-chips">
+      <!-- Keep hidden chips for backwards compat -->
+      <div id="leadFilterChips" class="filter-chips" style="display:none">
         <button class="chip active" data-filter="all" onclick="setLeadFilter(this)">All</button>
         <button class="chip" data-filter="hot" onclick="setLeadFilter(this)">🔥 Hot</button>
         <button class="chip" data-filter="new" onclick="setLeadFilter(this)">New</button>
@@ -1175,12 +1277,22 @@
 
     <!-- ── JOBS ───────────────────────────────────────────────────── -->
     <section class="page" id="page-jobs">
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="search" id="jobSearch" placeholder="Search jobs…" oninput="filterJobs()">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="search-bar" style="flex:1;margin-bottom:0;min-width:160px">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="jobSearch" placeholder="Search jobs…" oninput="filterJobs()">
+        </div>
+        <select id="jobFilterSelect" onchange="setJobFilterFromSelect(this)" style="height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239A9AA0%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px">
+          <option value="all">All Jobs</option>
+          <option value="active">Active</option>
+          <option value="planning">Planning</option>
+          <option value="complete">Complete</option>
+          <option value="invoiced">Invoiced</option>
+        </select>
+        <button onclick="showCreateJob()" class="btn-primary" style="height:42px;padding:0 16px;margin-bottom:0;flex-shrink:0">+ Create</button>
       </div>
-      <button onclick="showCreateJob()" class="btn-primary" style="width:100%;margin-bottom:10px">+ Create Job</button>
-      <div class="filter-chips">
+      <!-- Hidden chips for backwards compat -->
+      <div class="filter-chips" style="display:none">
         <button class="chip active" data-filter="all" onclick="setJobFilter(this)">All</button>
         <button class="chip" data-filter="active" onclick="setJobFilter(this)">Active</button>
         <button class="chip" data-filter="planning" onclick="setJobFilter(this)">Planning</button>
