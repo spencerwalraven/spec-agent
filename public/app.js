@@ -3,6 +3,35 @@ const DEMO = {
   summary: {
     newLeads: 6, activeJobs: 4, pipelineValue: 187500, conversionRate: '31%',
     companyName: 'Landcare Unlimited',
+    revenueByMonth: [
+      { label: 'Nov', value: 18500, label2: '$19k' },
+      { label: 'Dec', value: 12000, label2: '$12k' },
+      { label: 'Jan', value: 22000, label2: '$22k' },
+      { label: 'Feb', value: 31000, label2: '$31k' },
+      { label: 'Mar', value: 45000, label2: '$45k' },
+      { label: 'Apr', value: 29000, label2: '$29k' },
+    ],
+    conversionFunnel: [
+      { label: 'Leads', value: 24 },
+      { label: 'Contacted', value: 18 },
+      { label: 'Qualified', value: 12 },
+      { label: 'Proposal Sent', value: 8 },
+      { label: 'Won', value: 5 },
+    ],
+    leadSourcesChart: [
+      { label: 'Website', value: 9 },
+      { label: 'Referral', value: 7 },
+      { label: 'Google Ads', value: 4 },
+      { label: 'Nextdoor', value: 3 },
+      { label: 'Other', value: 1 },
+    ],
+    jobMargins: [
+      { label: 'Chen', value: 34, label2: '34%', color: '#22C55E' },
+      { label: 'Henderson', value: 28, label2: '28%', color: '#22C55E' },
+      { label: 'Bradley', value: 18, label2: '18%', color: '#F59E0B' },
+      { label: 'Patel', value: 42, label2: '42%', color: '#22C55E' },
+      { label: 'Garcia', value: 12, label2: '12%', color: '#EF4444' },
+    ],
     activity: [
       { text: '<strong>Marcus Johnson</strong> submitted a new lead — Landscape Renovation', time: 'Today, 9:12 AM' },
       { text: '<strong>Sarah Chen</strong> signed the contract for backyard patio', time: 'Today, 7:45 AM' },
@@ -4092,6 +4121,172 @@ function _scoreColor(score) {
   return 'var(--red)';
 }
 
+/* ─── SVG CHART HELPERS ────────────────────────────────────────── */
+
+function renderBarChart(containerId, data, opts = {}) {
+  const el = document.getElementById(containerId);
+  if (!el || !data?.length) return;
+  const h = opts.height || 200, barW = opts.barWidth || 40, gap = opts.gap || 12;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const w = data.length * (barW + gap) + gap;
+  const colors = opts.colors || ['#3D6B35'];
+  const targetLine = opts.targetLine;
+
+  el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;overflow-x:auto">
+      ${opts.title ? `<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">${opts.title}</div>` : ''}
+      <svg width="${w}" height="${h + 30}" viewBox="0 0 ${w} ${h + 30}" style="display:block">
+        ${targetLine !== undefined ? `
+          <line x1="0" y1="${h - (targetLine / maxVal) * h}" x2="${w}" y2="${h - (targetLine / maxVal) * h}"
+                stroke="var(--red)" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>
+          <text x="${w - 4}" y="${h - (targetLine / maxVal) * h - 4}" fill="var(--red)" font-size="9" text-anchor="end" font-weight="600">${targetLine}% target</text>
+        ` : ''}
+        ${data.map((d, i) => {
+          const barH = (d.value / maxVal) * h;
+          const x = gap + i * (barW + gap);
+          const y = h - barH;
+          const color = d.color || colors[i % colors.length];
+          return `
+            <rect x="${x}" y="${h}" width="${barW}" height="0" rx="4" fill="${color}" opacity="0.85">
+              <animate attributeName="height" from="0" to="${barH}" dur="0.6s" fill="freeze" begin="${i * 0.05}s"/>
+              <animate attributeName="y" from="${h}" to="${y}" dur="0.6s" fill="freeze" begin="${i * 0.05}s"/>
+            </rect>
+            <text x="${x + barW/2}" y="${y - 6}" fill="var(--text)" font-size="11" font-weight="700" text-anchor="middle"
+                  opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze" begin="${0.4 + i * 0.05}s"/>${d.label2 || ''}</text>
+            <text x="${x + barW/2}" y="${h + 16}" fill="var(--text3)" font-size="10" text-anchor="middle" font-weight="500">${d.label}</text>
+          `;
+        }).join('')}
+        <line x1="0" y1="${h}" x2="${w}" y2="${h}" stroke="var(--border)" stroke-width="1"/>
+      </svg>
+    </div>`;
+}
+
+function renderDonutChart(containerId, data, opts = {}) {
+  const el = document.getElementById(containerId);
+  if (!el || !data?.length) return;
+  const size = opts.size || 180, stroke = opts.stroke || 28;
+  const r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const colors = ['#3D6B35', '#F59E0B', '#3B82F6', '#EC4899', '#8B5CF6', '#EF4444', '#06B6D4'];
+
+  let offset = 0;
+  const segments = data.map((d, i) => {
+    const pct = total > 0 ? d.value / total : 0;
+    const dash = pct * circ;
+    const seg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color || colors[i % colors.length]}"
+      stroke-width="${stroke}" stroke-dasharray="${dash} ${circ - dash}" stroke-dashoffset="${-offset}"
+      transform="rotate(-90 ${cx} ${cy})" style="transition:stroke-dashoffset 0.8s ease">
+      <animate attributeName="stroke-dasharray" from="0 ${circ}" to="${dash} ${circ - dash}" dur="0.8s" fill="freeze" begin="${i * 0.1}s"/>
+    </circle>`;
+    offset += dash;
+    return seg;
+  });
+
+  el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+      ${opts.title ? `<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">${opts.title}</div>` : ''}
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+          ${segments.join('')}
+          <text x="${cx}" y="${cy - 6}" fill="var(--text)" font-size="22" font-weight="800" text-anchor="middle" dominant-baseline="middle">${total}</text>
+          <text x="${cx}" y="${cy + 14}" fill="var(--text3)" font-size="10" text-anchor="middle">total</text>
+        </svg>
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:120px">
+          ${data.map((d, i) => `
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:10px;height:10px;border-radius:3px;background:${d.color || colors[i % colors.length]};flex-shrink:0"></span>
+              <span style="font-size:12px;color:var(--text);font-weight:500">${d.label}</span>
+              <span style="font-size:12px;color:var(--text3);margin-left:auto;font-weight:700">${d.value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderFunnelChart(containerId, stages) {
+  const el = document.getElementById(containerId);
+  if (!el || !stages?.length) return;
+  const maxVal = Math.max(stages[0]?.value || 1, 1);
+  const barH = 36, gap = 4;
+  const h = stages.length * (barH + gap);
+  const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#22C55E'];
+
+  el.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+      ${`<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px">Conversion Funnel</div>`}
+      <div style="display:flex;flex-direction:column;gap:${gap}px">
+        ${stages.map((s, i) => {
+          const pct = Math.max(20, (s.value / maxVal) * 100);
+          const color = s.color || colors[i % colors.length];
+          const convRate = i > 0 && stages[i-1].value > 0 ? Math.round((s.value / stages[i-1].value) * 100) : null;
+          return `
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:100%;max-width:${pct}%;background:${color}18;border-radius:8px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-left:3px solid ${color};transition:max-width 0.8s ease">
+                <span style="font-size:13px;font-weight:600;color:var(--text)">${s.label}</span>
+                <span style="font-size:14px;font-weight:800;color:${color}">${s.value}</span>
+              </div>
+              ${convRate !== null ? `<span style="font-size:10px;color:var(--text3);font-weight:600;flex-shrink:0;width:40px">${convRate}%</span>` : `<span style="width:40px"></span>`}
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function renderAnalyticsCharts(profitData, sourcesData) {
+  // Revenue bar chart
+  const revenueData = DEMO.summary?.revenueByMonth || [];
+  if (revenueData.length) {
+    renderBarChart('analyticsRevenueChart', revenueData, {
+      title: 'Revenue by Month', height: 180, barWidth: 44, gap: 16,
+      colors: ['#3D6B35']
+    });
+  }
+
+  // Conversion funnel
+  const funnelData = DEMO.summary?.conversionFunnel;
+  if (funnelData) {
+    renderFunnelChart('analyticsFunnelChart', funnelData);
+  } else if (allLeads?.length) {
+    // Build funnel from real lead data
+    const stages = [
+      { label: 'Total Leads', value: allLeads.length },
+      { label: 'Contacted', value: allLeads.filter(l => !/new/i.test(g(l,'leadStatus','Status','status') || 'new')).length },
+      { label: 'Qualified', value: allLeads.filter(l => /qualified|proposal|booked|converted/i.test(g(l,'leadStatus','Status','status') || '')).length },
+      { label: 'Proposal Sent', value: allLeads.filter(l => /proposal|booked|converted/i.test(g(l,'leadStatus','Status','status') || '')).length },
+      { label: 'Won', value: allLeads.filter(l => /converted|won/i.test(g(l,'leadStatus','Status','status') || '')).length },
+    ];
+    renderFunnelChart('analyticsFunnelChart', stages);
+  }
+
+  // Lead sources donut
+  const sourceChartData = DEMO.summary?.leadSourcesChart;
+  if (sourceChartData) {
+    renderDonutChart('analyticsSourcesChart', sourceChartData, { title: 'Lead Sources' });
+  } else if (sourcesData?.length) {
+    renderDonutChart('analyticsSourcesChart', sourcesData.map(s => ({ label: s.source, value: s.leads })), { title: 'Lead Sources' });
+  }
+
+  // Profit margins bar chart
+  const marginData = DEMO.summary?.jobMargins;
+  if (marginData) {
+    renderBarChart('analyticsMarginChart', marginData, {
+      title: 'Profit Margins by Job', height: 180, barWidth: 44, gap: 16,
+      targetLine: 25
+    });
+  } else if (profitData?.jobs?.length) {
+    const bars = profitData.jobs.filter(j => j.margin !== null).map(j => ({
+      label: j.clientName?.split(' ')[0] || 'Job',
+      value: j.margin,
+      label2: j.margin + '%',
+      color: j.margin >= 25 ? '#22C55E' : j.margin >= 15 ? '#F59E0B' : '#EF4444'
+    }));
+    if (bars.length) renderBarChart('analyticsMarginChart', bars, { title: 'Profit Margins by Job', height: 180, barWidth: 44, gap: 16, targetLine: 25 });
+  }
+}
+
 // Summary 2x2 stat grid at the top of analytics
 function renderAnalyticsSummary(profitData, sourcesData, teamData) {
   const el = document.getElementById('analyticsSummary');
@@ -4619,6 +4814,9 @@ async function loadAnalytics() {
 
   // ── SUMMARY CARD ──
   renderAnalyticsSummary(profitData, sourcesData, teamData);
+
+  // ── VISUAL CHARTS ──
+  renderAnalyticsCharts(profitData, sourcesData);
 
   // ── PROFITABILITY ──
   if (profitEl && profitData) {
