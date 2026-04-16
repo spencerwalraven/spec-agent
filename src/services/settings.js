@@ -21,6 +21,13 @@ async function readSettings() {
     targetMargin:     parseFloat(row.target_margin)      || 25,
     contingencyPct:   parseFloat(row.contingency_pct)    || 10,
     defaultLaborRate: parseFloat(row.default_labor_rate)  || 45,
+    website:          row.website           || '',
+    license:          row.license_number    || '',
+    // Doc template IDs (Google Doc IDs)
+    proposalTemplateId: row.proposal_template_id || '',
+    estimateTemplateId: row.estimate_template_id || '',
+    contractTemplateId: row.contract_template_id || '',
+    kickoffTemplateId:  row.kickoff_template_id  || '',
   };
 }
 
@@ -28,8 +35,11 @@ async function writeSettings(data) {
   await query(`
     INSERT INTO settings (company_id, company_name, phone, email, address, owner_name,
       calendly_link, google_review_link, email_signature, email_tone,
-      target_margin, contingency_pct, default_labor_rate, updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
+      target_margin, contingency_pct, default_labor_rate,
+      website, license_number,
+      proposal_template_id, estimate_template_id, contract_template_id, kickoff_template_id,
+      updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW())
     ON CONFLICT (company_id) DO UPDATE SET
       company_name       = EXCLUDED.company_name,
       phone              = EXCLUDED.phone,
@@ -43,7 +53,13 @@ async function writeSettings(data) {
       target_margin      = EXCLUDED.target_margin,
       contingency_pct    = EXCLUDED.contingency_pct,
       default_labor_rate = EXCLUDED.default_labor_rate,
-      updated_at         = NOW()
+      website              = EXCLUDED.website,
+      license_number       = EXCLUDED.license_number,
+      proposal_template_id = EXCLUDED.proposal_template_id,
+      estimate_template_id = EXCLUDED.estimate_template_id,
+      contract_template_id = EXCLUDED.contract_template_id,
+      kickoff_template_id  = EXCLUDED.kickoff_template_id,
+      updated_at           = NOW()
   `, [
     COMPANY_ID,
     data.companyName      || data['Company Name']      || '',
@@ -58,6 +74,12 @@ async function writeSettings(data) {
     data.targetMargin     || data['Target Margin']     || 25,
     data.contingencyPct   || data['Contingency %']     || 10,
     data.defaultLaborRate || data['Default Labor Rate'] || 45,
+    data.website          || '',
+    data.license          || data.licenseNumber        || '',
+    data.proposalTemplateId || '',
+    data.estimateTemplateId || '',
+    data.contractTemplateId || '',
+    data.kickoffTemplateId  || '',
   ]);
 }
 

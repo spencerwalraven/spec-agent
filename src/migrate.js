@@ -573,6 +573,21 @@ async function migrate() {
   await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_labor_rate DECIMAL(8,2) DEFAULT 45`);
   console.log('✅ settings extra columns (target_margin, contingency_pct, default_labor_rate)');
 
+  // ── Settings: company extras + doc template IDs ──
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS website VARCHAR(500)`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS license_number VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS proposal_template_id VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS estimate_template_id VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS contract_template_id VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS kickoff_template_id VARCHAR(100)`);
+  // Seed default SPEC Sheets template IDs (users can swap for their own)
+  await query(`UPDATE settings SET
+    proposal_template_id = COALESCE(NULLIF(proposal_template_id,''), '1nx2fcw8W_BWXUMnAlmGS8Kqd-nvnemh_yPAEhi_TiXM'),
+    estimate_template_id = COALESCE(NULLIF(estimate_template_id,''), '1fei6alaqm2K_zIc8Q2LGoTWm7E89stRmZLPeBfxTf30'),
+    contract_template_id = COALESCE(NULLIF(contract_template_id,''), '1KpDGnrF1DZZewF1iDkLNFEBi_7VjFCJMGMm9I2gHLjk')
+    WHERE company_id = 1`);
+  console.log('✅ settings template columns (with SPEC Sheets defaults)');
+
   // ── Jobs: estimate tiers + review tracking ──
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_budget TEXT`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_midrange TEXT`);

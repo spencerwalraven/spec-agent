@@ -294,6 +294,192 @@ async function getDoc(docId) {
   return text;
 }
 
+/**
+ * Fill a Google Doc template by:
+ *   1. Copying the template to a new file
+ *   2. Stripping the "HOW TO USE" instructions page (everything above the logo marker)
+ *   3. Replacing every [BRACKETED] placeholder with real data from the replacements map
+ *
+ * @param {string} templateId - Google Docs ID of the template file
+ * @param {object} replacements - { 'CLIENT NAME': 'Sarah Chen', 'DATE': '4/16/2026', ... }
+ *                               Keys are the placeholder name WITHOUT brackets.
+ *                               Special key 'instructionsMarker' controls where to strip above.
+ * @param {string} outputTitle - name for the new doc (e.g. "Sarah Chen - Proposal")
+ * @returns {{docId, docUrl}}
+ */
+async function fillTemplate(templateId, replacements, outputTitle) {
+  if (!templateId) throw new Error('Template ID required');
+  const auth = getAuth();
+  const docs = google.docs({ version: 'v1', auth });
+  const drive = google.drive({ version: 'v3', auth });
+
+  // 1. Copy the template
+  const copied = await drive.files.copy({
+    fileId: templateId,
+    requestBody: { name: outputTitle || 'Untitled Document' },
+  });
+  const docId = copied.data.id;
+  logger.info('Docs', `Template copied → ${docId} (${outputTitle})`);
+
+  // 2. Build the replacement requests. Wrap every key in [] for the actual replace.
+  const requests = [];
+  for (const [key, value] of Object.entries(replacements || {})) {
+    if (key === 'instructionsMarker') continue;
+    const safe = value == null ? '' : String(value);
+    requests.push({
+      replaceAllText: {
+        containsText: { text: `[${key}]`, matchCase: false },
+        replaceText: safe,
+      },
+    });
+    // Also replace {{KEY}} style placeholders (in case of kickoff template)
+    requests.push({
+      replaceAllText: {
+        containsText: { text: `{{${key}}}`, matchCase: false },
+        replaceText: safe,
+      },
+    });
+  }
+
+  // 3. Apply replacements in batches of 50
+  for (let i = 0; i < requests.length; i += 50) {
+    await docs.documents.batchUpdate({
+      documentId: docId,
+      requestBody: { requests: requests.slice(i, i + 50) },
+    });
+  }
+
+  // 4. Strip the "HOW TO USE" instructions section.
+  // We do this by deleting content from the start of the doc up to the first
+  // occurrence of a known marker (the [YOUR COMPANY NAME] slot or the logo line).
+  // The marker in every SPEC Sheets template is the real content starts
+  // after the logo table, but since [YOUR COMPANY NAME] has been replaced
+  // with the actual company name, we use that as the boundary marker.
+  try {
+    const companyMarker = replacements['YOUR COMPANY NAME'] || replacements['COMPANY_NAME'];
+    if (companyMarker) {
+      const doc = await docs.documents.get({ documentId: docId });
+      const content = doc.data.body?.content || [];
+      // Find the first paragraph that contains the company marker
+      let boundaryIndex = null;
+      for (const block of content) {
+        if (!block.paragraph) continue;
+        const text = (block.paragraph.elements || [])
+          .map(el => el.textRun?.content || '').join('');
+        if (text.includes(companyMarker)) {
+          boundaryIndex = block.startIndex;
+          break;
+        }
+      }
+      if (boundaryIndex && boundaryIndex > 1) {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [{
+              deleteContentRange: {
+                range: { startIndex: 1, endIndex: boundaryIndex },
+              },
+            }],
+          },
+        });
+        logger.info('Docs', `Stripped instructions page (${boundaryIndex - 1} chars)`);
+      }
+    }
+  } catch (stripErr) {
+    logger.warn('Docs', `Could not strip instructions page (non-fatal): ${stripErr.message}`);
+  }
+
+  // 5. Share with anyone who has the link (same as createDoc)
+  try {
+    await drive.permissions.create({
+      fileId: docId,
+      requestBody: { role: 'reader', type: 'anyone' },
+    });
+  } catch (permErr) {
+    logger.warn('Docs', `Could not set public permission: ${permErr.message}`);
+  }
+
+  const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+  logger.success('Docs', `Template filled → ${docUrl}`);
+  return { docId, docUrl };
+}
+
+/**
+ * Build the standard placeholder map for a job.
+ * Used by proposal, estimate, contract, kickoff generators.
+ */
+function buildJobPlaceholders({ job, settings, extra }) {
+  const today = new Date();
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+  const startDate = job.startDate || job.start_date || '';
+  const endDate   = job.endDate   || job.end_date   || '';
+  const durationWeeks = (startDate && endDate)
+    ? Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24 * 7)))
+    : 4;
+
+  const jobValue = parseFloat(String(job.jobValue || job.job_value || 0).replace(/[^0-9.]/g, '')) || 0;
+  const tiers = {};
+  try { if (job.tierBudget)   tiers.good   = JSON.parse(typeof job.tierBudget === 'string' ? job.tierBudget : JSON.stringify(job.tierBudget)); } catch (_) {}
+  try { if (job.tierMidrange) tiers.better = JSON.parse(typeof job.tierMidrange === 'string' ? job.tierMidrange : JSON.stringify(job.tierMidrange)); } catch (_) {}
+  try { if (job.tierHighend)  tiers.best   = JSON.parse(typeof job.tierHighend === 'string' ? job.tierHighend : JSON.stringify(job.tierHighend)); } catch (_) {}
+
+  const fmtMoney = (n) => n ? '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$0';
+
+  return {
+    // Company info (from settings)
+    'YOUR COMPANY NAME':        settings.companyName || '',
+    'COMPANY_NAME':             settings.companyName || '',
+    'PHONE':                    settings.phone || '',
+    'PHONE NUMBER':             settings.phone || '',
+    'EMAIL':                    settings.email || '',
+    'EMAIL ADDRESS':            settings.email || '',
+    'WEBSITE':                  settings.website || settings.websiteUrl || '',
+    'CITY/SERVICE AREA, STATE': settings.address || '',
+    'YOUR ADDRESS':             settings.address || '',
+    'YOUR NAME':                settings.ownerName || '',
+    'LICENSE':                  settings.license || 'N/A',
+    'LICENSE #':                settings.license || 'N/A',
+    'STATE':                    (settings.address || '').split(',').pop()?.trim()?.split(' ')?.[0] || '',
+
+    // Client info
+    'CLIENT NAME':              job.clientName || job.client_name || '',
+    'CLIENT EMAIL':             job.clientEmail || job.client_email || '',
+    'CLIENT PHONE':             job.clientPhone || job.client_phone || '',
+    'CLIENT ADDRESS':           job.clientAddress || job.client_address || job.projectAddress || job.project_address || '',
+    'PROJECT ADDRESS':          job.projectAddress || job.project_address || job.clientAddress || job.client_address || '',
+
+    // Project info
+    'PROJECT TITLE':            job.service || job.project_type || job.projectName || 'Project',
+    'PROJECT DESCRIPTION':      job.description || job.scope || job.service || '',
+    'BRIEF PROJECT DESCRIPTION':job.description || job.service || '',
+    'DATE':                     fmtDate(today),
+    'DATE + 30 DAYS':           fmtDate(addDays(today, 30)),
+    'START DATE':               fmtDate(startDate) || 'TBD',
+    'END DATE':                 fmtDate(endDate) || 'TBD',
+    'X-X weeks':                durationWeeks + '-' + (durationWeeks + 1) + ' weeks',
+    'X':                        String(durationWeeks),
+
+    // IDs & pricing
+    'EST-0001':                 'EST-' + (job.jobRef || job.job_ref || job.id || '0001'),
+    'CONTRACT-NUMBER':          'C-' + (job.jobRef || job.job_ref || job.id || '0001'),
+    'PROPOSAL_NUMBER':          'P-' + (job.jobRef || job.job_ref || job.id || '0001'),
+    'TOTAL AMOUNT':             fmtMoney(jobValue),
+    'Good / Better / Best':     (job.selectedTier || 'Better').replace(/^\w/, c => c.toUpperCase()),
+    'MILESTONE':                'job is at 50% completion',
+
+    // Tier pricing (for proposal)
+    'AMOUNT':                   fmtMoney(jobValue), // fallback
+    'GOOD_TIER_AMOUNT':         tiers.good   ? fmtMoney(tiers.good.total)   : fmtMoney(jobValue * 0.75),
+    'BETTER_TIER_AMOUNT':       tiers.better ? fmtMoney(tiers.better.total) : fmtMoney(jobValue),
+    'BEST_TIER_AMOUNT':         tiers.best   ? fmtMoney(tiers.best.total)   : fmtMoney(jobValue * 1.4),
+
+    // Allow caller to override anything
+    ...(extra || {}),
+  };
+}
+
 // ─── AGENT TOOL WRAPPERS ─────────────────────────────────────────────────────
 
 async function toolCreateDoc({ title, body }) {
@@ -301,4 +487,4 @@ async function toolCreateDoc({ title, body }) {
   return `Document created: ${result.docUrl}`;
 }
 
-module.exports = { createDoc, getDoc, toolCreateDoc };
+module.exports = { createDoc, getDoc, toolCreateDoc, fillTemplate, buildJobPlaceholders };

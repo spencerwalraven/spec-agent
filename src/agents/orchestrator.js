@@ -53,6 +53,7 @@ const changeOrderAgent       = require('./change-order-agent');
 const welcomeAgent           = require('./welcome-agent');
 const paymentAgent           = require('./payment-agent');
 const subConfirmationAgent   = require('./sub-confirmation-agent');
+const templateDocGenerator   = require('./template-doc-generator');
 const { logger }             = require('../utils/logger');
 const { findRowByEmail, updateCell, readSettings, readTab } = require('../tools/sheets-compat');
 const { createJobFromLead }  = require('../tools/jobs');
@@ -137,11 +138,20 @@ async function route(type, payload = {}) {
 
       // ── JOB LIFECYCLE ──────────────────────────────────────────────────
       case 'estimate_ready':
-      case 'generate_estimate':
+      case 'generate_estimate': {
+        // Try template first, then fall back to AI if no template configured
+        const tpl = await templateDocGenerator.generateFromTemplate('estimate', payload.rowNumber);
+        if (tpl.ok) return `Estimate generated from template: ${tpl.docUrl}`;
+        logger.info('Orchestrator', `Estimate template skipped (${tpl.reason}) — using AI generation`);
         return await pricingAgent.generateEstimate({ rowNumber: payload.rowNumber });
+      }
 
-      case 'generate_proposal':
+      case 'generate_proposal': {
+        const tpl = await templateDocGenerator.generateFromTemplate('proposal', payload.rowNumber);
+        if (tpl.ok) return `Proposal generated from template: ${tpl.docUrl}`;
+        logger.info('Orchestrator', `Proposal template skipped (${tpl.reason}) — using AI generation`);
         return await jobAgent.generateProposal({ rowNumber: payload.rowNumber });
+      }
 
       case 'proposal_followup':
         return await jobAgent.sendProposalFollowUp({ rowNumber: payload.rowNumber });
@@ -149,8 +159,12 @@ async function route(type, payload = {}) {
       case 'proposal_decision':
         return await jobAgent.handleProposalDecision({ rowNumber: payload.rowNumber, threadId: payload.threadId });
 
-      case 'generate_contract':
+      case 'generate_contract': {
+        const tpl = await templateDocGenerator.generateFromTemplate('contract', payload.rowNumber);
+        if (tpl.ok) return `Contract generated from template: ${tpl.docUrl}`;
+        logger.info('Orchestrator', `Contract template skipped (${tpl.reason}) — using AI generation`);
         return await jobAgent.generateContract({ rowNumber: payload.rowNumber });
+      }
 
       case 'generate_template':
         return await jobAgent.generateJobTemplate({ rowNumber: payload.rowNumber });
@@ -228,8 +242,12 @@ async function route(type, payload = {}) {
         return await smartOrchestrator.scanJobs();
 
       // ── PROJECT PLANNING ──────────────────────────────────────────
-      case 'plan_project':
+      case 'plan_project': {
+        const tpl = await templateDocGenerator.generateFromTemplate('kickoff', payload.rowNumber);
+        if (tpl.ok) return `Kickoff plan generated from template: ${tpl.docUrl}`;
+        logger.info('Orchestrator', `Kickoff template skipped (${tpl.reason}) — using AI generation`);
         return await planningAgent.planProject({ rowNumber: payload.rowNumber });
+      }
 
       // ── CHANGE ORDERS ─────────────────────────────────────────────
       case 'change_order':

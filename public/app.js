@@ -3780,6 +3780,11 @@ async function loadSettings() {
   set('sTargetMargin',    s.targetMargin || 25);
   set('sContingency',     s.contingencyPct || 10);
   set('sDefaultLaborRate', s.defaultLaborRate || 45);
+  // Doc template IDs
+  set('sProposalTemplateId', s.proposalTemplateId);
+  set('sEstimateTemplateId', s.estimateTemplateId);
+  set('sContractTemplateId', s.contractTemplateId);
+  set('sKickoffTemplateId',  s.kickoffTemplateId);
   // Cache calendly link globally for use in lead modal
   _calendlyLink = s.calendlyLink || s.calendly_link || '';
   window._companyEmail = (s.email || '').toLowerCase();
@@ -3908,6 +3913,10 @@ async function saveSettings() {
     targetMargin:     parseFloat(get('sTargetMargin')) || 25,
     contingencyPct:   parseFloat(get('sContingency'))  || 10,
     defaultLaborRate: parseFloat(get('sDefaultLaborRate')) || 45,
+    proposalTemplateId: get('sProposalTemplateId').trim(),
+    estimateTemplateId: get('sEstimateTemplateId').trim(),
+    contractTemplateId: get('sContractTemplateId').trim(),
+    kickoffTemplateId:  get('sKickoffTemplateId').trim(),
     notifyPrefs,
   };
   try {
