@@ -4551,9 +4551,15 @@ function renderFunnelChart(containerId, stages) {
     </div>`;
 }
 
-function renderAnalyticsCharts(profitData, sourcesData) {
-  // Revenue bar chart
-  const revenueData = DEMO.summary?.revenueByMonth || [];
+async function renderAnalyticsCharts(profitData, sourcesData) {
+  // Revenue bar chart — fetch real data, fall back to demo
+  const [realRevenue, realFunnel, realReferrals] = await Promise.all([
+    api('/api/analytics/revenue-by-month').catch(() => null),
+    api('/api/analytics/funnel').catch(() => null),
+    api('/api/analytics/referrals').catch(() => null),
+  ]);
+
+  const revenueData = (realRevenue?.length ? realRevenue : null) || DEMO.summary?.revenueByMonth || [];
   if (revenueData.length) {
     renderBarChart('analyticsRevenueChart', revenueData, {
       title: 'Revenue by Month', height: 180, barWidth: 44, gap: 16,
@@ -4561,12 +4567,11 @@ function renderAnalyticsCharts(profitData, sourcesData) {
     });
   }
 
-  // Conversion funnel
-  const funnelData = DEMO.summary?.conversionFunnel;
+  // Conversion funnel — real API first, then compute from leads, then demo
+  const funnelData = (realFunnel?.length && realFunnel[0].value > 0) ? realFunnel : null;
   if (funnelData) {
     renderFunnelChart('analyticsFunnelChart', funnelData);
   } else if (allLeads?.length) {
-    // Build funnel from real lead data
     const stages = [
       { label: 'Total Leads', value: allLeads.length },
       { label: 'Contacted', value: allLeads.filter(l => !/new/i.test(g(l,'leadStatus','Status','status') || 'new')).length },
@@ -4575,27 +4580,21 @@ function renderAnalyticsCharts(profitData, sourcesData) {
       { label: 'Won', value: allLeads.filter(l => /converted|won/i.test(g(l,'leadStatus','Status','status') || '')).length },
     ];
     renderFunnelChart('analyticsFunnelChart', stages);
+  } else if (DEMO.summary?.conversionFunnel) {
+    renderFunnelChart('analyticsFunnelChart', DEMO.summary.conversionFunnel);
   }
 
-  // Lead sources donut
-  const sourceChartData = DEMO.summary?.leadSourcesChart;
-  if (sourceChartData) {
-    renderDonutChart('analyticsSourcesChart', sourceChartData, { title: 'Lead Sources' });
-  } else if (sourcesData?.length) {
+  // Lead sources donut — real API first, then demo
+  if (sourcesData?.length) {
     renderDonutChart('analyticsSourcesChart', sourcesData.map(s => ({ label: s.source, value: s.leads })), { title: 'Lead Sources' });
+  } else if (DEMO.summary?.leadSourcesChart) {
+    renderDonutChart('analyticsSourcesChart', DEMO.summary.leadSourcesChart, { title: 'Lead Sources' });
   }
 
-  // Referral leaderboard
+  // Referral leaderboard — use real API data first
   const refEl = document.getElementById('analyticsReferrals');
   if (refEl) {
-    // Build referral data from clients
-    const refData = (allClients || [])
-      .map(c => ({ name: c.name || c.clientName || c['Client Name'] || '', count: c.referralCount || c.referral_count || 0 }))
-      .filter(c => c.count > 0)
-      .sort((a, b) => b.count - a.count);
-
-    // Add demo data if nothing from real data
-    const displayData = refData.length ? refData : [
+    const displayData = (realReferrals?.length ? realReferrals : null) || [
       { name: 'Sarah Chen', count: 3 },
       { name: 'The Hendersons', count: 2 },
       { name: 'Tom Bradley', count: 1 },
@@ -4616,21 +4615,20 @@ function renderAnalyticsCharts(profitData, sourcesData) {
     }
   }
 
-  // Profit margins bar chart
-  const marginData = DEMO.summary?.jobMargins;
-  if (marginData) {
-    renderBarChart('analyticsMarginChart', marginData, {
-      title: 'Profit Margins by Job', height: 180, barWidth: 44, gap: 16,
-      targetLine: 25
-    });
-  } else if (profitData?.jobs?.length) {
-    const bars = profitData.jobs.filter(j => j.margin !== null).map(j => ({
+  // Profit margins bar chart — real data first, then demo
+  if (profitData?.jobs?.length) {
+    const bars = profitData.jobs.filter(j => j.margin !== null && j.margin !== undefined).map(j => ({
       label: j.clientName?.split(' ')[0] || 'Job',
       value: j.margin,
       label2: j.margin + '%',
       color: j.margin >= 25 ? '#22C55E' : j.margin >= 15 ? '#F59E0B' : '#EF4444'
     }));
     if (bars.length) renderBarChart('analyticsMarginChart', bars, { title: 'Profit Margins by Job', height: 180, barWidth: 44, gap: 16, targetLine: 25 });
+  } else if (DEMO.summary?.jobMargins) {
+    renderBarChart('analyticsMarginChart', DEMO.summary.jobMargins, {
+      title: 'Profit Margins by Job', height: 180, barWidth: 44, gap: 16,
+      targetLine: 25
+    });
   }
 }
 

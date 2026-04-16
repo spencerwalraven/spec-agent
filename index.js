@@ -816,7 +816,36 @@ app.post('/api/leads/:row/note', async (req, res) => {
 // ─── API: UPDATE JOB STATUS ──────────────────────────────────────────────────
 app.post('/api/jobs/:row/status', async (req, res) => {
   try {
-    await dbJobs.updateJobStatus(parseInt(req.params.row), req.body.status || '');
+    const jobId = parseInt(req.params.row);
+    const newStatus = (req.body.status || '').toLowerCase();
+    await dbJobs.updateJobStatus(jobId, req.body.status || '');
+
+    // Auto-triggers based on status change
+    if (newStatus === 'active' || newStatus === 'in progress') {
+      // Auto-assign available equipment to this job
+      try {
+        const equip = await require('./src/services/equipment').getEquipment('available');
+        const toAssign = equip.slice(0, 2); // Auto-assign first 2 available items
+        for (const item of toAssign) {
+          await require('./src/services/equipment').updateEquipmentStatus(item.id, 'in-use', 'Auto', jobId);
+        }
+        console.log(`Auto-assigned ${toAssign.length} equipment items to job ${jobId}`);
+      } catch (eqErr) { console.log('Equipment auto-assign skipped:', eqErr.message); }
+    }
+
+    if (newStatus === 'completed' || newStatus === 'complete') {
+      // Schedule review request (3 days after completion)
+      try {
+        const { updateOne } = require('./src/db');
+        // Mark review as pending — the scheduler or next login will send it
+        await updateOne(
+          `UPDATE jobs SET review_requested = false, review_requested_at = NOW() + INTERVAL '3 days' WHERE id = $1 AND company_id = $2 AND (review_requested IS NULL OR review_requested = false)`,
+          [jobId, 1]
+        );
+        console.log(`Review request scheduled for job ${jobId} (3 days)`);
+      } catch (revErr) { console.log('Review scheduling skipped:', revErr.message); }
+    }
+
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2335,6 +2364,72 @@ app.get('/api/analytics/lead-sources', async (req, res) => {
 });
 
 // ─── ANALYTICS: TEAM PERFORMANCE ──────────────────────────────────────────────
+app.get('/api/analytics/revenue-by-month', async (req, res) => {
+  try {
+    const { query: dbQuery } = require('./src/db');
+    const result = await dbQuery(`
+      SELECT DATE_TRUNC('month', COALESCE(end_date, start_date, created_at)) AS month,
+             SUM(COALESCE(actual_value, estimated_value, 0)) AS revenue,
+             COUNT(*) AS job_count
+      FROM jobs WHERE company_id = 1 AND status IN ('completed','Complete','Invoiced','in_progress','In Progress','Active')
+      GROUP BY month ORDER BY month DESC LIMIT 6
+    `);
+    const data = result.rows.map(r => {
+      const d = new Date(r.month);
+      const label = d.toLocaleString('en-US', { month: 'short' });
+      const val = parseFloat(r.revenue) || 0;
+      return { label, value: val, label2: val >= 1000 ? '$' + Math.round(val/1000) + 'k' : '$' + val, jobs: parseInt(r.job_count) };
+    }).reverse();
+    res.json(data);
+  } catch (e) { res.json([]); }
+});
+
+app.get('/api/analytics/referrals', async (req, res) => {
+  try {
+    const { query: dbQuery } = require('./src/db');
+    const result = await dbQuery(`
+      SELECT c.id, c.name AS client_name, c.referral_count,
+             COUNT(l.id) AS actual_referrals,
+             SUM(CASE WHEN l.budget IS NOT NULL THEN l.budget ELSE 0 END) AS referral_value
+      FROM clients c
+      LEFT JOIN leads l ON l.referral_client_id = c.id AND l.company_id = 1
+      WHERE c.company_id = 1
+      GROUP BY c.id, c.name, c.referral_count
+      HAVING COUNT(l.id) > 0 OR COALESCE(c.referral_count, 0) > 0
+      ORDER BY GREATEST(COUNT(l.id), COALESCE(c.referral_count, 0)) DESC
+      LIMIT 10
+    `);
+    res.json(result.rows.map(r => ({
+      name: r.client_name,
+      count: Math.max(parseInt(r.actual_referrals) || 0, parseInt(r.referral_count) || 0),
+      value: parseFloat(r.referral_value) || 0
+    })));
+  } catch (e) { res.json([]); }
+});
+
+app.get('/api/analytics/funnel', async (req, res) => {
+  try {
+    const { query: dbQuery } = require('./src/db');
+    const result = await dbQuery(`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('new')) AS contacted,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('qualified','proposal sent','consultation booked','converted','won')) AS qualified,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('proposal sent','consultation booked','converted','won')) AS proposal,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('converted','won')) AS won
+      FROM leads WHERE company_id = 1
+    `);
+    const r = result.rows[0] || {};
+    res.json([
+      { label: 'Total Leads', value: parseInt(r.total) || 0 },
+      { label: 'Contacted', value: parseInt(r.contacted) || 0 },
+      { label: 'Qualified', value: parseInt(r.qualified) || 0 },
+      { label: 'Proposal Sent', value: parseInt(r.proposal) || 0 },
+      { label: 'Won', value: parseInt(r.won) || 0 },
+    ]);
+  } catch (e) { res.json([]); }
+});
+
 app.get('/api/analytics/team', async (req, res) => {
   try {
     const { query: dbQuery } = require('./src/db');
