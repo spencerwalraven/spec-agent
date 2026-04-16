@@ -49,8 +49,18 @@ const DEMO = {
     { __row: 7, 'First Name': 'Linda', 'Last Name': 'Foster', Email: 'linda@email.com', Phone: '555-0606', 'Project Type': 'Full Landscape Redesign', Budget: '$80,000', Status: 'New', 'AI Score': '85', 'Score Label': 'Hot', 'Last Contact': '', Notes: 'Large project. Referred by Sarah Chen.', 'Assigned Rep': '', 'Timestamp': '2026-03-23' },
   ],
   jobs: [
-    { __row: 2, 'Job ID': 'JOB-001', 'Client Name': 'Sarah Chen', 'Project Type': 'Patio Installation', 'Job Value': '$28,500', Status: 'In Progress', 'Start Date': '2026-03-01', 'End Date': '2026-03-30', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Mike T., Carlos R.', 'Job Notes': 'Grading complete. Paver base going in Monday.' },
-    { __row: 3, 'Job ID': 'JOB-002', 'Client Name': 'The Hendersons', 'Project Type': 'Landscape Renovation', 'Job Value': '$62,000', Status: 'In Progress', 'Start Date': '2026-02-15', 'End Date': '2026-04-10', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': 'Spencer, Chase', 'Job Notes': 'Planting beds shaped. Irrigation install starts Friday.' },
+    { __row: 2, 'Job ID': 'JOB-001', 'Client Name': 'Sarah Chen', 'Project Type': 'Patio Installation', 'Job Value': '$28,500', Status: 'In Progress', 'Start Date': '2026-03-01', 'End Date': '2026-03-30', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Mike T., Carlos R.', 'Job Notes': 'Grading complete. Paver base going in Monday.', selectedTier: 'midrange',
+      tierBudget: JSON.stringify({ total: 18500, materials: 8200, labor: 7800, overhead: 2500, desc: 'Standard concrete pavers, basic layout, minimal landscaping' }),
+      tierMidrange: JSON.stringify({ total: 28500, materials: 13500, labor: 10800, overhead: 4200, desc: 'Premium pavers, custom pattern, integrated lighting, border plantings' }),
+      tierHighend: JSON.stringify({ total: 42000, materials: 21000, labor: 14500, overhead: 6500, desc: 'Natural stone, heated surface, built-in fire pit, full landscape surround' }),
+      tierLuxury: JSON.stringify({ total: 68000, materials: 35000, labor: 22000, overhead: 11000, desc: 'Imported travertine, outdoor kitchen, pergola, water feature, smart lighting' })
+    },
+    { __row: 3, 'Job ID': 'JOB-002', 'Client Name': 'The Hendersons', 'Project Type': 'Landscape Renovation', 'Job Value': '$62,000', Status: 'In Progress', 'Start Date': '2026-02-15', 'End Date': '2026-04-10', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': 'Spencer, Chase', 'Job Notes': 'Planting beds shaped. Irrigation install starts Friday.', selectedTier: 'highend',
+      tierBudget: JSON.stringify({ total: 32000, materials: 14000, labor: 13000, overhead: 5000, desc: 'Seed lawn, basic shrubs, standard irrigation, mulch beds' }),
+      tierMidrange: JSON.stringify({ total: 48000, materials: 22000, labor: 18000, overhead: 8000, desc: 'Sod lawn, native plants, drip irrigation, decorative rock borders' }),
+      tierHighend: JSON.stringify({ total: 62000, materials: 29000, labor: 22500, overhead: 10500, desc: 'Premium sod, specimen trees, smart irrigation, landscape lighting, water feature' }),
+      tierLuxury: JSON.stringify({ total: 95000, materials: 48000, labor: 31000, overhead: 16000, desc: 'Full estate design, mature trees, smart system, pool surround, outdoor living space' })
+    },
     { __row: 4, 'Job ID': 'JOB-003', 'Client Name': 'Raj Patel', 'Project Type': 'Irrigation System', 'Job Value': '$48,000', Status: 'Planning', 'Start Date': '2026-04-01', 'End Date': '2026-05-20', 'Deposit Status': 'Invoiced', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': '', 'Assigned Crew': '', 'Job Notes': 'Contract signed. Awaiting deposit.' },
     { __row: 5, 'Job ID': 'JOB-004', 'Client Name': 'Tom Bradley', 'Project Type': 'Retaining Wall', 'Job Value': '$22,000', Status: 'Complete', 'Start Date': '2026-01-10', 'End Date': '2026-02-28', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Paid', 'Proposal Link': '', 'Contract Link': '', 'Kickoff Doc Link': '', 'Assigned Crew': 'Mike T.', 'Job Notes': 'Completed on time. Great feedback from client.' },
     { __row: 6, 'Job ID': 'JOB-005', 'Client Name': 'Garcia Family', 'Project Type': 'Sod Installation', 'Job Value': '$16,500', Status: 'In Progress', 'Start Date': '2026-03-18', 'End Date': '2026-03-25', 'Deposit Status': 'Paid', 'Final Invoice Status': 'Pending', 'Proposal Link': 'https://docs.google.com', 'Contract Link': 'https://docs.google.com', 'Kickoff Doc Link': 'https://docs.google.com', 'Assigned Crew': 'Carlos R.', 'Job Notes': '4 of 5 zones sodded. Final zone tomorrow.' },
@@ -1504,6 +1514,64 @@ const JOB_STATUS_DB = {
   'Invoiced':     'invoiced',
 };
 
+/* ─── TIER COMPARISON ──────────────────────────────────────────── */
+function renderTierComparison(j) {
+  const tiers = [
+    { key: 'budget',   label: 'Budget',    color: '#22C55E', data: j.tierBudget || j.tier_budget },
+    { key: 'midrange', label: 'Mid-Range',  color: '#3B82F6', data: j.tierMidrange || j.tier_midrange },
+    { key: 'highend',  label: 'High-End',   color: '#F59E0B', data: j.tierHighend || j.tier_highend },
+    { key: 'luxury',   label: 'Luxury',     color: '#EC4899', data: j.tierLuxury || j.tier_luxury },
+  ];
+
+  // Only show if at least one tier has data
+  const hasTiers = tiers.some(t => t.data);
+  if (!hasTiers) return '';
+
+  const selected = (j.selectedTier || j.selected_tier || '').toLowerCase();
+  const row = j._row || j.id;
+
+  return `
+    <div class="modal-section">
+      <div class="modal-section-label">Estimate Tiers</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;overflow-x:auto">
+        ${tiers.map(t => {
+          if (!t.data) return `<div style="background:var(--card2);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border);opacity:.4"><div style="font-size:12px;font-weight:700;color:var(--text3)">${t.label}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Not generated</div></div>`;
+          let d;
+          try { d = typeof t.data === 'string' ? JSON.parse(t.data) : t.data; } catch(_) { return ''; }
+          const isSelected = selected === t.key;
+          return `
+            <div style="background:${isSelected ? t.color + '08' : 'var(--card2)'};border-radius:12px;padding:14px;text-align:center;border:1.5px solid ${isSelected ? t.color : 'var(--border)'};position:relative;transition:all .15s">
+              ${isSelected ? `<div style="position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;background:${t.color};display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>` : ''}
+              <div style="font-size:11px;font-weight:700;color:${t.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t.label}</div>
+              <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px">${formatCurrency(d.total)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.4;min-height:32px">${d.desc || ''}</div>
+              <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--text3)">Materials</span><span style="font-weight:600;color:var(--text)">${formatCurrency(d.materials)}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--text3)">Labor</span><span style="font-weight:600;color:var(--text)">${formatCurrency(d.labor)}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--text3)">Overhead</span><span style="font-weight:600;color:var(--text)">${formatCurrency(d.overhead)}</span></div>
+              </div>
+              ${!isSelected ? `<button onclick="selectTier(${row},'${t.key}',${d.total})" style="margin-top:8px;width:100%;padding:6px;border:1px solid ${t.color};border-radius:8px;background:none;color:${t.color};font-size:11px;font-weight:700;cursor:pointer">Select</button>` : `<div style="margin-top:8px;font-size:11px;font-weight:700;color:${t.color}">Selected</div>`}
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+async function selectTier(jobRow, tierKey, total) {
+  try {
+    await api(`/api/jobs/${jobRow}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ field: 'selected_tier', value: tierKey })
+    });
+    // Update local data
+    const job = allJobs.find(j => (j._row || j.id) === jobRow);
+    if (job) { job.selectedTier = tierKey; job.selected_tier = tierKey; }
+    toast(`${tierKey.charAt(0).toUpperCase() + tierKey.slice(1)} tier selected`);
+    const idx = allJobs.indexOf(job);
+    if (idx >= 0) showJobDetail(idx);
+  } catch(e) { toastError('Failed to select tier'); }
+}
+
 async function showJobDetail(idx) {
   const j = allJobs[idx];
   if (!j) return;
@@ -1683,20 +1751,7 @@ async function showJobDetail(idx) {
       ${j.siteVisitDate ? '<div style="font-size:11px;color:var(--text3);margin-top:8px">Last site visit: '+j.siteVisitDate+'</div>' : ''}
     </div>` : ''}
 
-    ${currentUser?.role !== 'field' && (j.tierBudget || j.tierMidrange || j.tierHighend || j.tierLuxury) ? `<div class="modal-section" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
-      <div class="modal-section-label" style="margin-bottom:10px">🎯 Client Tier Selection</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${[
-          {key:'budget',label:'🟢 Budget',desc:j.tierBudget},
-          {key:'mid-range',label:'🔵 Mid-Range',desc:j.tierMidrange},
-          {key:'high-end',label:'🟡 High-End',desc:j.tierHighend},
-          {key:'luxury',label:'🔴 Luxury',desc:j.tierLuxury}
-        ].filter(t=>t.desc).map(t =>
-          '<button onclick="selectTier('+_currentJobRow+',\''+t.key+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid '+(j.selectedTier===t.key?'var(--gold)':'var(--border)')+';background:'+(j.selectedTier===t.key?'rgba(74,140,63,0.15)':'var(--card)')+';cursor:pointer;text-align:left;width:100%"><div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--text)">'+t.label+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+t.desc+'</div></div>'+(j.selectedTier===t.key?'<span style="color:var(--gold);font-weight:800;font-size:12px">SELECTED ✓</span>':'')+'</button>'
-        ).join('')}
-      </div>
-      ${j.selectedTier ? '<div style="font-size:11px;color:var(--gold);margin-top:8px;font-weight:600">✅ Client chose: '+j.selectedTier.charAt(0).toUpperCase()+j.selectedTier.slice(1)+' — now generate the detailed estimate</div>' : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Select the tier the client chose, then generate the estimate</div>'}
-    </div>` : ''}
+    <!-- Tier comparison rendered by renderTierComparison() above -->
 
     ${currentUser?.role !== 'field' ? `<div class="modal-section">
       <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center">
@@ -1726,6 +1781,8 @@ async function showJobDetail(idx) {
       ${(matCost || labCost) ? `<div class="detail-row"><div class="detail-key">Gross Profit</div><div class="detail-val" style="color:var(--green)">${formatCurrency(grossProfit)} <span style="font-size:11px;color:var(--text3)">(${marginPct}%)</span></div></div>` : ''}
       <div class="detail-row"><div class="detail-key">Deposit</div><div class="detail-val">${depAmt ? formatCurrency(depAmt) : '—'} ${statusBadge(depPaid === 'Paid' ? 'Paid' : 'Pending')}</div></div>
     </div>` : ''}
+
+    ${renderTierComparison(j)}
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
       [{name:'Proposal',icon:'📄',link:propLink,event:'generate_proposal',status:propStat,sendType:'proposal'},
