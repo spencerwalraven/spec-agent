@@ -747,21 +747,30 @@
 
   /* ── NOTE EDITOR ──────────────────────────────────────────────── */
   .note-editor{
-    background:var(--card2);border:1px solid var(--border);
-    border-radius:var(--r-sm);padding:10px 12px;
-    font-size:14px;color:var(--text);line-height:1.5;
-    width:100%;min-height:72px;resize:none;
+    background:var(--card);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;
+    font-size:14px;color:var(--text);line-height:1.6;
+    width:100%;min-height:88px;resize:vertical;
     font-family:inherit;
+    transition:border-color .2s,box-shadow .2s;
   }
-  .note-editor::placeholder{color:var(--text3)}
-  .note-editor:focus{border-color:var(--gold);outline:none}
+  .note-editor::placeholder{color:var(--text3);font-style:italic}
+  .note-editor:focus{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px rgba(45,122,30,0.08)}
   .save-note-btn{
-    margin-top:8px;width:100%;padding:11px;
-    background:var(--card2);border:1px solid var(--border);
-    border-radius:var(--r-sm);font-size:14px;font-weight:700;
-    color:var(--gold);cursor:pointer;transition:all .15s;
+    margin-top:10px;width:100%;padding:12px;
+    background:var(--gold);border:none;
+    border-radius:10px;font-size:13px;font-weight:700;
+    color:#fff;cursor:pointer;transition:all .15s;
+    letter-spacing:.3px;text-transform:uppercase;
   }
-  .save-note-btn:active{background:var(--card)}
+  .save-note-btn:hover{opacity:.9}
+  .save-note-btn:active{transform:scale(.98)}
+  .notes-box{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:10px;padding:14px 16px;
+    font-size:13px;color:var(--text2);line-height:1.6;
+    white-space:pre-wrap;
+  }
 
   /* ── AI AGENT FEED ────────────────────────────────────────────── */
   .agent-feed-card{
@@ -1093,7 +1102,7 @@
   <!-- SIDEBAR (Desktop only) -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <div class="logo">🌿 LCU</div>
+      <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V2"/><path d="M2 12c4-4 8-4 10 0"/><path d="M22 12c-4-4-8-4-10 0"/></svg> LCU</div>
       <span style="font-size:12px;color:var(--text3);font-weight:500" id="sidebarCompanyName">Landcare Unlimited</span>
     </div>
     <div class="sidebar-section">
@@ -1125,12 +1134,12 @@
 
   <!-- TOP BAR -->
   <header class="top-bar">
-    <div class="logo sidebar-hide-desktop">🌿 LCU</div>
+    <div class="logo sidebar-hide-desktop"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V2"/><path d="M2 12c4-4 8-4 10 0"/><path d="M22 12c-4-4-8-4-10 0"/></svg> LCU</div>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div class="conn-dot" id="connDot" title="Checking connection…"></div>
     <button class="icon-btn refresh-btn" id="refreshBtn" onclick="refreshAll()" aria-label="Refresh">↻</button>
     <button class="icon-btn" style="position:relative" id="notifBellBtn" aria-label="Alerts">
-      🔔<span class="alert-badge" id="alertBadge" style="display:none"></span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="alert-badge" id="alertBadge" style="display:none"></span>
     </button>
   </header>
 
@@ -1139,7 +1148,7 @@
   <div id="notifPanel" style="display:none;position:fixed;top:0;left:0;right:0;z-index:491;background:var(--card);border-bottom:1px solid var(--border);max-height:72vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.1);border-radius:0 0 20px 20px">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;border-bottom:1px solid var(--border)">
       <div style="font-size:16px;font-weight:800;color:var(--text)">Notifications</div>
-      <button id="notifCloseBtn" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+      <button id="notifCloseBtn" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
     </div>
     <div id="notifPanelContent" style="padding:8px 0 16px">
       <div style="padding:24px;text-align:center;color:var(--text3);font-size:14px">Loading…</div>
@@ -1157,10 +1166,10 @@
         <div class="setup-wizard-card">
           <div class="setup-wizard-hdr">
             <div>
-              <div class="setup-wizard-title">🚀 Finish Setting Up Your CRM</div>
+              <div class="setup-wizard-title"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> Finish Setting Up Your CRM</div>
               <div class="setup-wizard-sub" id="setupProgress">0 of 5 steps complete</div>
             </div>
-            <button class="setup-dismiss" onclick="dismissWizard()" title="Dismiss">✕</button>
+            <button class="setup-dismiss" onclick="dismissWizard()" title="Dismiss">×</button>
           </div>
           <div class="setup-steps" id="setupSteps"></div>
         </div>
@@ -1299,25 +1308,25 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <div class="search-bar" style="flex:1;margin-bottom:0;min-width:160px">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="search" id="leadSearch" placeholder="Search leads…" oninput="filterLeads()">
         </div>
         <select id="leadFilterSelect" onchange="setLeadFilterFromSelect(this)" style="height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239A9AA0%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px">
           <option value="all">All Leads</option>
-          <option value="hot">🔥 Hot</option>
+          <option value="hot"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z"/></svg> Hot</option>
           <option value="new">New</option>
           <option value="contacted">Contacted</option>
           <option value="proposal">Proposal Sent</option>
           <option value="booked">Booked</option>
           <option value="lost">Lost</option>
         </select>
-        <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">🗂️ Pipeline</button>
+        <button id="leadViewBtn" onclick="toggleLeadView()" style="flex-shrink:0;height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>️ Pipeline</button>
         <button onclick="showAddLead()" class="btn-primary" style="height:42px;padding:0 16px;margin-bottom:0;flex-shrink:0">+ Add</button>
       </div>
       <!-- Keep hidden chips for backwards compat -->
       <div id="leadFilterChips" class="filter-chips" style="display:none">
         <button class="chip active" data-filter="all" onclick="setLeadFilter(this)">All</button>
-        <button class="chip" data-filter="hot" onclick="setLeadFilter(this)">🔥 Hot</button>
+        <button class="chip" data-filter="hot" onclick="setLeadFilter(this)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z"/></svg> Hot</button>
         <button class="chip" data-filter="new" onclick="setLeadFilter(this)">New</button>
         <button class="chip" data-filter="contacted" onclick="setLeadFilter(this)">Contacted</button>
         <button class="chip" data-filter="proposal" onclick="setLeadFilter(this)">Proposal Sent</button>
@@ -1335,7 +1344,7 @@
     <section class="page" id="page-jobs">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <div class="search-bar" style="flex:1;margin-bottom:0;min-width:160px">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="search" id="jobSearch" placeholder="Search jobs…" oninput="filterJobs()">
         </div>
         <select id="jobFilterSelect" onchange="setJobFilterFromSelect(this)" style="height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%239A9AA0%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px">
@@ -1364,7 +1373,7 @@
     <!-- ── CLIENTS ─────────────────────────────────────────────────── -->
     <section class="page" id="page-clients">
       <div class="search-bar">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="search" id="clientSearch" placeholder="Search clients…" oninput="filterClients()">
       </div>
       <div id="clientsList">
@@ -1483,7 +1492,7 @@
         </div>
 
         <button type="submit" class="est-submit" id="estSubmitBtn">
-          <span>⚡</span><span id="estSubmitLabel">Send to Estimate Agent</span>
+          <span><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span id="estSubmitLabel">Send to Estimate Agent</span>
         </button>
         <div style="text-align:center;font-size:12px;color:var(--text3);margin-top:10px;margin-bottom:24px">Estimate ready in ~2 minutes · Sent directly to your inbox</div>
 
@@ -1494,14 +1503,14 @@
     <section class="page" id="page-team">
       <!-- Tab bar -->
       <div class="inv-tab-bar">
-        <button class="inv-tab active" id="teamTabMembers" onclick="switchTeamTab('members')">👥 Team</button>
-        <button class="inv-tab" id="teamTabClock" onclick="switchTeamTab('clock')">⏱️ Time Clock</button>
+        <button class="inv-tab active" id="teamTabMembers" onclick="switchTeamTab('members')"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Team</button>
+        <button class="inv-tab" id="teamTabClock" onclick="switchTeamTab('clock')"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Time Clock</button>
       </div>
 
       <!-- Team Members view (existing content) -->
       <div id="teamMembersView">
         <div class="search-bar">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="search" id="teamSearch" placeholder="Search team…" oninput="filterTeam()">
         </div>
         <div class="filter-chips">
@@ -1597,20 +1606,20 @@
       <div class="settings-section">
         <div class="settings-label">Company Info</div>
         <div class="settings-row">
-          <div class="settings-field"><span class="sfield-icon">🏠</span><div class="sfield-body"><div class="sfield-label">Company Name</div><input id="sCompanyName" placeholder="Landcare Unlimited" type="text"></div></div>
-          <div class="settings-field"><span class="sfield-icon">📞</span><div class="sfield-body"><div class="sfield-label">Phone</div><input id="sPhone" placeholder="(555) 000-0000" type="tel"></div></div>
-          <div class="settings-field"><span class="sfield-icon">✉️</span><div class="sfield-body"><div class="sfield-label">Email</div><input id="sEmail" placeholder="hello@company.com" type="email"></div></div>
-          <div class="settings-field"><span class="sfield-icon">📍</span><div class="sfield-body"><div class="sfield-label">Address</div><input id="sAddress" placeholder="123 Main St, City, ST" type="text"></div></div>
-          <div class="settings-field"><span class="sfield-icon">👤</span><div class="sfield-body"><div class="sfield-label">Owner Name</div><input id="sOwnerName" placeholder="John Smith" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><div class="sfield-body"><div class="sfield-label">Company Name</div><input id="sCompanyName" placeholder="Landcare Unlimited" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span><div class="sfield-body"><div class="sfield-label">Phone</div><input id="sPhone" placeholder="(555) 000-0000" type="tel"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span><div class="sfield-body"><div class="sfield-label">Email</div><input id="sEmail" placeholder="hello@company.com" type="email"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span><div class="sfield-body"><div class="sfield-label">Address</div><input id="sAddress" placeholder="123 Main St, City, ST" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><div class="sfield-body"><div class="sfield-label">Owner Name</div><input id="sOwnerName" placeholder="John Smith" type="text"></div></div>
         </div>
       </div>
 
       <div class="settings-section">
         <div class="settings-label">Integrations</div>
         <div class="settings-row">
-          <div class="settings-field"><span class="sfield-icon">📅</span><div class="sfield-body"><div class="sfield-label">Calendly Link</div><input id="sCalendly" placeholder="https://calendly.com/you/30min" type="url"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><div class="sfield-body"><div class="sfield-label">Calendly Link</div><input id="sCalendly" placeholder="https://calendly.com/you/30min" type="url"></div></div>
           <div class="settings-field"><span class="sfield-icon">⭐</span><div class="sfield-body"><div class="sfield-label">Google Review Link</div><input id="sReviewLink" placeholder="https://g.page/r/…/review" type="url"></div></div>
-          <div class="settings-field"><span class="sfield-icon">✍️</span><div class="sfield-body"><div class="sfield-label">Email Signature</div><input id="sSignature" placeholder="John Smith | Landcare Unlimited" type="text"></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><div class="sfield-body"><div class="sfield-label">Email Signature</div><input id="sSignature" placeholder="John Smith | Landcare Unlimited" type="text"></div></div>
         </div>
       </div>
 
@@ -1619,7 +1628,7 @@
         <div class="settings-label">AI Business Profile</div>
         <div class="settings-row">
           <div class="settings-field">
-            <span class="sfield-icon">🎙️</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">Email Tone</div>
               <select id="sEmailTone" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
@@ -1632,7 +1641,7 @@
             </div>
           </div>
           <div class="settings-field">
-            <span class="sfield-icon">🏢</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">About Us <span style="font-size:11px;color:var(--text3)">(injected into AI emails)</span></div>
               <textarea id="sAboutUs" rows="3" placeholder="Family-owned since 2005. We specialize in landscape design and maintenance with a focus on quality and reliability..." style="width:100%;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;resize:vertical;padding:4px 0;line-height:1.5"></textarea>
@@ -1650,24 +1659,24 @@
 
       <!-- ── ESTIMATE & PRICING SETTINGS ──────────────────────────── -->
       <div class="settings-section">
-        <div class="settings-label">💰 Estimate & Pricing</div>
+        <div class="settings-label"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Estimate & Pricing</div>
         <div class="settings-row">
           <div class="settings-field">
-            <span class="sfield-icon">📊</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">Target Profit Margin (%) <span style="font-size:11px;color:var(--text3)">applied to all estimates</span></div>
               <input type="number" id="sTargetMargin" placeholder="25" min="0" max="100" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
             </div>
           </div>
           <div class="settings-field">
-            <span class="sfield-icon">🛡️</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">Contingency Buffer (%) <span style="font-size:11px;color:var(--text3)">for unexpected costs</span></div>
               <input type="number" id="sContingency" placeholder="10" min="0" max="50" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
             </div>
           </div>
           <div class="settings-field">
-            <span class="sfield-icon">👷</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="3" y1="1" x2="21" y2="1"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">Default Labor Rate ($/hr) <span style="font-size:11px;color:var(--text3)">when team member rate isn't set</span></div>
               <input type="number" id="sDefaultLaborRate" placeholder="45" min="0" step="0.50" style="width:100%;background:transparent;border:none;color:var(--text);font-size:15px;outline:none;padding:2px 0">
@@ -1687,7 +1696,7 @@
         </div>
       </div>
 
-      <button class="btn btn-primary btn-full" onclick="saveSettings()">💾 Save Settings</button>
+      <button class="btn btn-primary btn-full" onclick="saveSettings()">Save Settings</button>
 
       <!-- ── USERS / TEAM ACCESS ────────────────────────────────────── -->
       <div class="settings-section" style="margin-top:8px">
@@ -1700,7 +1709,7 @@
         </div>
         <div class="settings-row" style="margin-top:8px">
           <div class="settings-field" id="currentUserField">
-            <span class="sfield-icon">🔑</span>
+            <span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span>
             <div class="sfield-body">
               <div class="sfield-label">Logged In As</div>
               <div id="currentUserDisplay" style="font-size:15px;font-weight:600;color:var(--text)">—</div>
@@ -1712,8 +1721,8 @@
       <div class="settings-section" style="margin-top:8px">
         <div class="settings-label">About</div>
         <div class="settings-row">
-          <div class="settings-field"><span class="sfield-icon">⚡</span><div class="sfield-body"><div class="sfield-label">Powered by</div><div style="font-size:15px;font-weight:700">SPEC Systems</div></div></div>
-          <div class="settings-field"><span class="sfield-icon">🔖</span><div class="sfield-body"><div class="sfield-label">Version</div><div style="font-size:15px">1.0.0</div></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><div class="sfield-body"><div class="sfield-label">Powered by</div><div style="font-size:15px;font-weight:700">SPEC Systems</div></div></div>
+          <div class="settings-field"><span class="sfield-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span><div class="sfield-body"><div class="sfield-label">Version</div><div style="font-size:15px">1.0.0</div></div></div>
         </div>
       </div>
 
@@ -1743,14 +1752,14 @@
     <section class="page" id="page-conversations">
       <!-- Tab bar -->
       <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button id="convTabEmail" onclick="switchConvTab('email')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--gold);color:#000;font-size:13px;font-weight:700;cursor:pointer">✉️ Email</button>
-        <button id="convTabSms" onclick="switchConvTab('sms')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer">📱 SMS</button>
+        <button id="convTabEmail" onclick="switchConvTab('email')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--gold);color:#000;font-size:13px;font-weight:700;cursor:pointer"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email</button>
+        <button id="convTabSms" onclick="switchConvTab('sms')" style="flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> SMS</button>
       </div>
 
       <!-- Email panel -->
       <div id="convPanelEmail">
         <div class="search-bar">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="search" id="convSearch" placeholder="Search conversations…" oninput="filterConversations()">
         </div>
         <div id="convList">
@@ -1796,55 +1805,55 @@
       </div>
       <div class="trigger-grid">
         <button class="trigger-btn" onclick="triggerAgent('new_lead')">
-          <span class="trigger-icon">👤</span>New Lead
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>New Lead
         </button>
         <button class="trigger-btn" onclick="triggerAgent('nurture_step')">
-          <span class="trigger-icon">💬</span>Nurture Step
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Nurture Step
         </button>
         <button class="trigger-btn" onclick="triggerAgent('estimate_ready')">
-          <span class="trigger-icon">📊</span>Gen Estimate
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Gen Estimate
         </button>
         <button class="trigger-btn" onclick="triggerAgent('generate_proposal')">
-          <span class="trigger-icon">📄</span>Gen Proposal
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Gen Proposal
         </button>
         <button class="trigger-btn" onclick="triggerAgent('generate_contract')">
-          <span class="trigger-icon">✍️</span>Gen Contract
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>Gen Contract
         </button>
         <button class="trigger-btn" onclick="triggerAgent('generate_template')">
-          <span class="trigger-icon">🔨</span>Job Template
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>Job Template
         </button>
         <button class="trigger-btn" onclick="triggerAgent('weekly_update')">
-          <span class="trigger-icon">📋</span>Weekly Update
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>Weekly Update
         </button>
         <button class="trigger-btn" onclick="triggerAgent('deposit_invoice')">
-          <span class="trigger-icon">💰</span>Deposit Invoice
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Deposit Invoice
         </button>
         <button class="trigger-btn" onclick="triggerAgent('final_invoice')">
-          <span class="trigger-icon">🏁</span>Final Invoice
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>Final Invoice
         </button>
         <button class="trigger-btn" onclick="triggerAgent('job_complete')">
-          <span class="trigger-icon">🎉</span>Job Complete
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6h7l-5.5 4 2 7L12 15l-6.5 4 2-7L2 8h7z"/></svg></span>Job Complete
         </button>
         <button class="trigger-btn" onclick="triggerAgent('review_followup')">
           <span class="trigger-icon">⭐</span>Review Ask
         </button>
         <button class="trigger-btn" onclick="triggerAgent('thirty_day')">
-          <span class="trigger-icon">📅</span>30-Day Check-in
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>30-Day Check-in
         </button>
         <button class="trigger-btn" onclick="triggerAgent('generate_estimate')">
-          <span class="trigger-icon">💰</span>Price Estimate
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Price Estimate
         </button>
         <button class="trigger-btn" onclick="triggerAgent('plan_project')">
-          <span class="trigger-icon">📋</span>Plan Project
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span>Plan Project
         </button>
         <button class="trigger-btn" onclick="triggerAgent('learn_from_job')">
-          <span class="trigger-icon">🧠</span>Learn from Job
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 3 1.5 5.5 4 7v5h8v-5c2.5-1.5 4-4 4-7a8 8 0 0 0-8-8z"/></svg></span>Learn from Job
         </button>
         <button class="trigger-btn" onclick="triggerAgent('daily_scan')" style="grid-column:span 2;background:rgba(191,148,56,.08);border-color:var(--gold-dim)">
-          <span class="trigger-icon">🤖</span>Run Daily Scan (Smart Orchestrator)
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg></span>Run Daily Scan (Smart Orchestrator)
         </button>
         <button class="trigger-btn" id="briefingBtn" onclick="sendDailyBriefing()" style="grid-column:span 2;background:rgba(10,34,64,.06);border-color:rgba(10,34,64,.2)">
-          <span class="trigger-icon">☀️</span>Send Morning Briefing to Owner
+          <span class="trigger-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>Send Morning Briefing to Owner
         </button>
       </div>
     </section>
@@ -1854,48 +1863,48 @@
       <!-- DAILY TOOLS -->
       <div class="more-section" data-roles="owner sales" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px;margin-top:4px">Daily Tools</div>
       <div class="more-grid more-section" data-roles="owner sales" style="margin-bottom:20px">
-        <button class="more-item" data-roles="owner sales" onclick="navigate('field')"><div class="more-icon">📐</div><div class="more-name">Job Estimate</div><div class="more-desc">Site visit form</div></button>
-        <button class="more-item" data-roles="owner sales" onclick="navigate('schedule')"><div class="more-icon">🗓️</div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
-        <button class="more-item" data-roles="owner sales" onclick="navigate('tasks')"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc" id="moreTaskDesc">Action items</div></button>
-        <button class="more-item" data-roles="owner field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('field')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21L3 3 21 21z"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div><div class="more-name">Job Estimate</div><div class="more-desc">Site visit form</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('schedule')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="more-name">Schedule</div><div class="more-desc">Calendar sync</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('tasks')"><div class="more-icon">✓</div><div class="more-name">Tasks</div><div class="more-desc" id="moreTaskDesc">Action items</div></button>
+        <button class="more-item" data-roles="owner field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
       </div>
 
       <!-- FIELD TOOLS (field workers only see this + time clock + alerts) -->
       <div class="more-section" data-roles="field" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:4px 4px 8px;margin-top:4px">My Tools</div>
       <div class="more-grid more-section" data-roles="field" style="margin-bottom:20px">
-        <button class="more-item" data-roles="field" onclick="navigate('tasks')"><div class="more-icon">✅</div><div class="more-name">Tasks</div><div class="more-desc">My tasks</div></button>
-        <button class="more-item" data-roles="field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon">⏱️</div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
-        <button class="more-item" data-roles="field" onclick="navigate('alerts')"><div class="more-icon">🔔</div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
+        <button class="more-item" data-roles="field" onclick="navigate('tasks')"><div class="more-icon">✓</div><div class="more-name">Tasks</div><div class="more-desc">My tasks</div></button>
+        <button class="more-item" data-roles="field" onclick="navigate('team');setTimeout(()=>switchTeamTab('clock'),100)"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="more-name">Time Clock</div><div class="more-desc">Clock in &amp; out</div></button>
+        <button class="more-item" data-roles="field" onclick="navigate('alerts')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
       </div>
 
       <!-- MANAGE -->
       <div class="more-section" data-roles="owner sales" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Manage</div>
       <div class="more-grid more-section" data-roles="owner sales" style="margin-bottom:20px">
-        <button class="more-item" data-roles="owner" onclick="navigate('team')"><div class="more-icon">👥</div><div class="more-name">Team</div><div class="more-desc">Members &amp; rates</div></button>
-        <button class="more-item" data-roles="owner sales" onclick="navigate('clients')"><div class="more-icon">🤝</div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
-        <button class="more-item" data-roles="owner sales" onclick="navigate('conversations')"><div class="more-icon">💬</div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
-        <button class="more-item" data-roles="owner sales" onclick="navigate('approvals')"><div class="more-icon">✅</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
-        <button class="more-item" data-roles="owner" onclick="navigate('marketing')"><div class="more-icon">📢</div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
-        <button class="more-item" data-roles="owner" onclick="navigate('inventory')"><div class="more-icon">📦</div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; equipment</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('team')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="more-name">Team</div><div class="more-desc">Members &amp; rates</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('clients')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="more-name">Clients</div><div class="more-desc">Profiles &amp; history</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('conversations')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="more-name">Conversations</div><div class="more-desc">Email threads</div></button>
+        <button class="more-item" data-roles="owner sales" onclick="navigate('approvals')"><div class="more-icon">✓</div><div class="more-name">Approvals</div><div class="more-desc" id="moreApprovalDesc">Review queue</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('marketing')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="more-name">Marketing</div><div class="more-desc">Campaigns</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('inventory')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="more-name">Inventory</div><div class="more-desc">Materials &amp; equipment</div></button>
       </div>
 
       <!-- INSIGHTS -->
       <div class="more-section" data-roles="owner" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Insights</div>
       <div class="more-grid more-section" data-roles="owner" style="margin-bottom:20px">
-        <button class="more-item" data-roles="owner" onclick="navigate('analytics')"><div class="more-icon">📊</div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
-        <button class="more-item" data-roles="owner" onclick="navigate('agents')"><div class="more-icon">🤖</div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('analytics')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="more-name">Analytics</div><div class="more-desc">Revenue &amp; insights</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('agents')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg></div><div class="more-name">AI Agents</div><div class="more-desc">Live activity</div></button>
       </div>
 
       <!-- ADMIN -->
       <div class="more-section" data-roles="owner" style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);padding:0 4px 8px">Admin</div>
       <div class="more-grid more-section" data-roles="owner" style="margin-bottom:20px">
-        <button class="more-item" data-roles="owner" onclick="navigate('settings')"><div class="more-icon">⚙️</div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
-        <button class="more-item" data-roles="owner" onclick="navigate('recurring')"><div class="more-icon">🔁</div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
-        <button class="more-item" data-roles="owner sales field" onclick="navigate('alerts')"><div class="more-icon">🔔</div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('settings')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="more-name">Settings</div><div class="more-desc">Company info</div></button>
+        <button class="more-item" data-roles="owner" onclick="navigate('recurring')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div><div class="more-name">Recurring</div><div class="more-desc">Scheduled services</div></button>
+        <button class="more-item" data-roles="owner sales field" onclick="navigate('alerts')"><div class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="more-name">Alerts</div><div class="more-desc">Notifications</div></button>
       </div>
 
       <a href="/logout" onclick="return confirm('Sign out of the dashboard?')" style="display:block;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:14px;font-weight:600;text-align:center;text-decoration:none;transition:background .15s" onmouseover="this.style.background='#1F0A0A'" onmouseout="this.style.background='var(--card)'">
-        🔒 Sign Out
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Sign Out
       </a>
     </section>
 
@@ -1904,8 +1913,8 @@
 
       <!-- Main tab switcher: Materials vs Equipment -->
       <div class="inv-tab-bar">
-        <button class="inv-tab active" id="invTabMaterials" onclick="switchInvTab('materials')">📦 Job Materials</button>
-        <button class="inv-tab" id="invTabEquipment" onclick="switchInvTab('equipment')">🔧 Equipment</button>
+        <button class="inv-tab active" id="invTabMaterials" onclick="switchInvTab('materials')"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Job Materials</button>
+        <button class="inv-tab" id="invTabEquipment" onclick="switchInvTab('equipment')"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Equipment</button>
       </div>
 
       <!-- Materials sub-filters (job filter chips) -->
@@ -1941,7 +1950,7 @@
         <div class="modal-handle"></div>
         <div class="modal-header">
           <div class="modal-title" id="eqModalTitle">Add Equipment</div>
-          <button class="modal-close" onclick="closeModal('equipmentModal')">✕</button>
+          <button class="modal-close" onclick="closeModal('equipmentModal')">×</button>
         </div>
         <div class="modal-body" id="eqModalBody">
           <div class="form-group">
@@ -1998,14 +2007,14 @@
           <div style="font-size:13px;color:var(--text2);margin-top:2px">Upcoming jobs &amp; phases</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="syncAllToCalendar()">🔄 Sync All</button>
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="syncAllToCalendar()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync All</button>
           <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadSchedule()">↻</button>
         </div>
       </div>
       <!-- Daily Dispatch -->
       <div style="margin-bottom:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">🗺️ Today's Dispatch</div>
+          <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Today's Dispatch</div>
           <div style="font-size:12px;color:var(--text3)" id="dispatchDate">—</div>
         </div>
         <div id="dispatchList">
@@ -2015,7 +2024,7 @@
       <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
 
       <div style="background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:var(--text2);line-height:1.5">
-        📅 Events from your <strong style="color:var(--text1)">Google Calendar</strong> — next 60 days. Hit <strong style="color:var(--text1)">Sync All</strong> to push all active jobs and phases to your calendar at once, or use <strong style="color:var(--text1)">🗓️ Schedule Kickoff</strong> on a job to add individual kickoff events.
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Events from your <strong style="color:var(--text1)">Google Calendar</strong> — next 60 days. Hit <strong style="color:var(--text1)">Sync All</strong> to push all active jobs and phases to your calendar at once, or use <strong style="color:var(--text1)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Schedule Kickoff</strong> on a job to add individual kickoff events.
       </div>
       <div id="scheduleList">
         <div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>
@@ -2031,7 +2040,7 @@
           <div style="font-size:13px;color:var(--text2);margin-top:2px">Revenue, sources &amp; team</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="openGoalsModal()">🎯 Goals</button>
+          <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="openGoalsModal()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Goals</button>
           <button class="action-btn" style="padding:8px 14px;font-size:13px" onclick="loadAnalytics()">↻ Refresh</button>
         </div>
       </div>
@@ -2116,8 +2125,8 @@
 
     <div class="filter-chips" style="margin-bottom:12px">
       <button class="chip active" data-tfilter="open"     onclick="setTaskFilter(this)">Open</button>
-      <button class="chip"        data-tfilter="high"     onclick="setTaskFilter(this)">🔴 High</button>
-      <button class="chip"        data-tfilter="complete" onclick="setTaskFilter(this)">✅ Done</button>
+      <button class="chip"        data-tfilter="high"     onclick="setTaskFilter(this)"><span style="color:#DC2626">●</span> High</button>
+      <button class="chip"        data-tfilter="complete" onclick="setTaskFilter(this)">✓ Done</button>
       <button class="chip"        data-tfilter="all"      onclick="setTaskFilter(this)">All</button>
     </div>
 
@@ -2147,8 +2156,8 @@
 
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#0d0d14;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0">
-      <button id="chatCloseBtn" style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;flex-shrink:0">✕</button>
-      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3D6B35,#6BB85C);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🤖</div>
+      <button id="chatCloseBtn" style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;flex-shrink:0">×</button>
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3D6B35,#6BB85C);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg></div>
       <div style="flex:1">
         <div style="font-weight:700;font-size:15px;color:#fff;line-height:1.2">AI Assistant</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:1px;display:flex;align-items:center;gap:5px">
@@ -2163,15 +2172,15 @@
 
       <!-- Welcome bubble -->
       <div style="display:flex;gap:10px;align-items:flex-start;max-width:88%">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3D6B35,#6BB85C);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px">🤖</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3D6B35,#6BB85C);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg></div>
         <div style="background:#1c1c2e;border-radius:4px 14px 14px 14px;padding:12px 14px;font-size:13.5px;line-height:1.6;color:rgba(255,255,255,0.8)">
           Hey! Ask me anything about Landcare Unlimited — leads, jobs, revenue, team. I pull from your live database.<br><br>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:rgba(255,255,255,0.3);margin-bottom:8px">Quick questions</div>
           <div id="chatSuggestions" style="display:flex;flex-direction:column;gap:6px">
-            <button data-q="What should I focus on today?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%">📊 What should I focus on today?</button>
-            <button data-q="Who are our hottest leads right now?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%">🔥 Who are our hottest leads?</button>
-            <button data-q="What is our total pipeline value?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%">💰 What's our pipeline value?</button>
-            <button data-q="Set a monthly revenue goal of $50,000" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%">🎯 Set a $50k revenue goal</button>
+            <button data-q="What should I focus on today?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> What should I focus on today?</button>
+            <button data-q="Who are our hottest leads right now?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z"/></svg> Who are our hottest leads?</button>
+            <button data-q="What is our total pipeline value?" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> What's our pipeline value?</button>
+            <button data-q="Set a monthly revenue goal of $50,000" style="background:rgba(74,140,63,0.1);border:1px solid rgba(74,140,63,0.2);border-radius:8px;padding:7px 11px;color:#6BB85C;font-size:12.5px;cursor:pointer;text-align:left;width:100%"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Set a $50k revenue goal</button>
           </div>
         </div>
       </div>
@@ -2245,7 +2254,7 @@
       if (!isUser) {
         var avatar = document.createElement('div');
         avatar.style.cssText = 'width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3D6B35,#6BB85C);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px';
-        avatar.textContent = '🤖';
+        avatar.textContent = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg>';
         wrap.appendChild(avatar);
       }
       var bubble = document.createElement('div');
@@ -2264,7 +2273,7 @@
       chatHistory.push({ role: 'user', content: text });
 
       // Typing indicator
-      var typing = addBubble('assistant', '<span style="letter-spacing:2px;color:rgba(255,255,255,0.4)">●●●</span>');
+      var typing = addBubble('assistant', '<span style="letter-spacing:2px;color:rgba(255,255,255,0.4)">•••</span>');
 
       fetch('/api/chat', {
         method: 'POST',
@@ -2338,11 +2347,11 @@
     </div>
     <div class="modal-body" id="lmBody"></div>
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
-      <a class="btn btn-secondary" id="lmCall" href="#" style="flex:1">📞 Call</a>
-      <a class="btn btn-secondary" id="lmEmail" href="#" style="flex:1">✉️ Email</a>
-      <a class="btn btn-secondary" id="lmCalendly" href="#" target="_blank" style="flex:1;display:none">📅 Book</a>
-      <button class="btn btn-green" id="lmConvertBtn" onclick="convertLead()" style="flex:1">🎉 Convert</button>
-      <button class="btn btn-danger" id="lmLostBtn" onclick="lostLead()" style="flex:1">❌ Lost</button>
+      <a class="btn btn-secondary" id="lmCall" href="#" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call</a>
+      <a class="btn btn-secondary" id="lmEmail" href="#" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email</a>
+      <a class="btn btn-secondary" id="lmCalendly" href="#" target="_blank" style="flex:1;display:none"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Book</a>
+      <button class="btn btn-green" id="lmConvertBtn" onclick="convertLead()" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6h7l-5.5 4 2 7L12 15l-6.5 4 2-7L2 8h7z"/></svg> Convert</button>
+      <button class="btn btn-danger" id="lmLostBtn" onclick="lostLead()" style="flex:1">× Lost</button>
     </div>
   </div>
 </div>
@@ -2358,9 +2367,9 @@
     <div class="modal-body" id="jmBody"></div>
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="closeModal('jobModal')" style="flex:1">Close</button>
-      <button class="btn btn-secondary" onclick="openPhotoModal()" style="flex:1">📸 Photos</button>
-      <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1">🗓️ Kickoff</button>
-      <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1">📝 Change Order</button>
+      <button class="btn btn-secondary" onclick="openPhotoModal()" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photos</button>
+      <button class="btn btn-secondary" onclick="sendKickoffSchedule()" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Kickoff</button>
+      <button class="btn btn-gold" onclick="openChangeOrderModal()" style="flex:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Change Order</button>
     </div>
   </div>
 </div>
@@ -2408,8 +2417,8 @@
       <div id="cmHistoryContent" style="display:none"></div>
     </div>
     <div class="modal-actions">
-      <a class="btn btn-secondary" id="cmCall" href="#">📞 Call</a>
-      <a class="btn btn-primary" id="cmEmail" href="#">✉️ Email</a>
+      <a class="btn btn-secondary" id="cmCall" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call</a>
+      <a class="btn btn-primary" id="cmEmail" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email</a>
     </div>
   </div>
 </div>
@@ -2419,7 +2428,7 @@
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="score-ring" id="tmAvatar" style="font-size:22px;background:var(--card2)">👤</div>
+      <div class="score-ring" id="tmAvatar" style="font-size:22px;background:var(--card2)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div>
         <div class="modal-title" id="tmName">—</div>
         <div class="modal-sub" id="tmSub">—</div>
@@ -2427,8 +2436,8 @@
     </div>
     <div class="modal-body" id="tmBody"></div>
     <div class="modal-actions">
-      <a class="btn btn-secondary" id="tmCall" href="#">📞 Call</a>
-      <a class="btn btn-primary" id="tmEmail" href="#">✉️ Email</a>
+      <a class="btn btn-secondary" id="tmCall" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call</a>
+      <a class="btn btn-primary" id="tmEmail" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email</a>
     </div>
   </div>
 </div>
@@ -2456,10 +2465,10 @@
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div>
-        <div class="modal-title">📸 Job Photos</div>
+        <div class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Job Photos</div>
         <div class="modal-sub" id="photoModalSub">Before &amp; after — visible to client automatically</div>
       </div>
-      <button class="modal-close" onclick="closeModal('photoModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('photoModal')">×</button>
     </div>
     <div class="modal-body">
       <!-- Existing photos grid -->
@@ -2467,11 +2476,11 @@
 
       <!-- Upload section -->
       <div style="background:var(--card2);border:1px dashed var(--border);border-radius:12px;padding:20px;text-align:center">
-        <div style="font-size:32px;margin-bottom:8px">📷</div>
+        <div style="font-size:32px;margin-bottom:8px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
         <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px">Add Photo</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Photos appear on the client portal automatically</div>
         <input type="file" id="photoFileInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelected()">
-        <button class="btn btn-primary" style="margin-bottom:10px" onclick="document.getElementById('photoFileInput').click()">📷 Take / Choose Photo</button>
+        <button class="btn btn-primary" style="margin-bottom:10px" onclick="document.getElementById('photoFileInput').click()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Take / Choose Photo</button>
         <div id="photoPreviewWrap" style="display:none;margin-top:12px">
           <img id="photoPreview" style="max-width:100%;border-radius:10px;margin-bottom:10px" src="" alt="preview">
           <select class="form-input" id="photoCaption" style="margin-bottom:10px">
@@ -2496,7 +2505,7 @@
 
 <!-- Photo Lightbox -->
 <div id="photoLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column;padding:20px" onclick="this.style.display='none'">
-  <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer" onclick="document.getElementById('photoLightbox').style.display='none'">✕</div>
+  <div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer" onclick="document.getElementById('photoLightbox').style.display='none'">×</div>
   <img id="lbImg" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain" src="" alt="">
   <div id="lbCaption" style="color:rgba(255,255,255,.7);font-size:13px;margin-top:12px"></div>
 </div>
@@ -2508,7 +2517,7 @@
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">New Task</div>
-      <button class="modal-close" onclick="closeModal('addTaskModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('addTaskModal')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -2558,7 +2567,7 @@
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title">New Recurring Job</div>
-      <button class="modal-close" onclick="closeModal('addRecurringModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('addRecurringModal')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -2626,8 +2635,8 @@
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">🎯 Set Monthly Goals</div>
-      <button class="modal-close" onclick="closeModal('goalsModal')">✕</button>
+      <div class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Set Monthly Goals</div>
+      <button class="modal-close" onclick="closeModal('goalsModal')">×</button>
     </div>
     <div class="modal-body">
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Set your targets and SPEC will track your progress automatically.</div>
@@ -2660,7 +2669,7 @@
   <div class="modal-sheet">
     <div class="modal-header">
       <span class="modal-title">Add Team Member</span>
-      <button class="modal-close" onclick="closeModal('addTeamModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('addTeamModal')">×</button>
     </div>
     <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div>
@@ -2720,7 +2729,7 @@
   <div class="modal-sheet">
     <div class="modal-header">
       <span class="modal-title">Set Login — <span id="setLoginMemberName"></span></span>
-      <button class="modal-close" onclick="closeModal('setLoginModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('setLoginModal')">×</button>
     </div>
     <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div>
@@ -2750,7 +2759,7 @@
   <div class="modal-sheet">
     <div class="modal-header">
       <span class="modal-title">Add Lead</span>
-      <button class="modal-close" onclick="closeModal('addLeadModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('addLeadModal')">×</button>
     </div>
     <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div>
@@ -2799,7 +2808,7 @@
   <div class="modal-sheet">
     <div class="modal-header">
       <span class="modal-title">Create Job</span>
-      <button class="modal-close" onclick="closeModal('createJobModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('createJobModal')">×</button>
     </div>
     <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div>

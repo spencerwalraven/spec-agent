@@ -24,7 +24,7 @@ if (process.env.DATABASE_URL) {
     try {
       // Check if schema exists
       await pool.query(`SELECT 1 FROM companies LIMIT 1`);
-      console.log('✅ Database schema already up to date');
+      console.log('* Database schema already up to date');
     } catch {
       console.log('🚀 Running database migration...');
       try {
@@ -43,14 +43,14 @@ if (process.env.DATABASE_URL) {
         console.log('🌱 Database is empty — running seed...');
         const { execSync } = require('child_process');
         execSync('node src/seed.js', { stdio: 'inherit', cwd: __dirname });
-        console.log('✅ Demo data loaded');
+        console.log('* Demo data loaded');
       }
     } catch (e) {
-      console.warn('⚠️  Auto-seed skipped:', e.message);
+      console.warn('!  Auto-seed skipped:', e.message);
     }
   })();
 } else {
-  console.warn('⚠️  DATABASE_URL not set — running without PostgreSQL (Sheets fallback active)');
+  console.warn('!  DATABASE_URL not set — running without PostgreSQL (Sheets fallback active)');
 }
 
 // ─── AI AGENT SYSTEM ─────────────────────────────────────────────────────────
@@ -59,9 +59,9 @@ try {
   webhookRouter  = require('./src/triggers/webhooks');
   ({ startScheduler } = require('./src/triggers/scheduler'));
   ({ logger, addClient: addSseClient } = require('./src/utils/logger'));
-  console.log('✅ AI Agent system loaded');
+  console.log('* AI Agent system loaded');
 } catch (e) {
-  console.warn('⚠️  AI Agent system failed to load:', e.message);
+  console.warn('!  AI Agent system failed to load:', e.message);
   webhookRouter = null; startScheduler = null; addSseClient = null;
   logger = { info: console.log, success: console.log, warn: console.warn, error: console.error };
 }
@@ -902,6 +902,17 @@ app.post('/api/phases/:row/status', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/phases/:row/assign', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid phase ID' });
+    const { assignedTo } = req.body;
+    const { query: dbQ } = require('./src/db');
+    await dbQ('UPDATE job_phases SET assigned_to = $1 WHERE id = $2', [assignedTo || null, id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: CLIENTS (PostgreSQL) ───────────────────────────────────────────────
 app.get('/api/clients', async (req, res) => {
   try { res.json(await dbClients.getClients()); }
@@ -1379,7 +1390,7 @@ app.get('/api/alerts', async (req, res) => {
       const score = parseInt(l.score) || 0;
       const status = (l.status || '').toLowerCase();
       if (score >= 80 && status === 'new' && !l.lastContact && l.name) {
-        alerts.push({ type:'urgent', priority:'high', icon:'🔥',
+        alerts.push({ type:'urgent', priority:'high', icon:'!',
           title:'Hot lead not yet contacted',
           desc:`${l.name} · Score ${score}/100 · ${l.serviceRequested || 'new lead'}`,
           tag:`Lead: ${l.name}` });
@@ -1421,7 +1432,7 @@ app.get('/api/alerts', async (req, res) => {
 
       const daysProposal = daysBetween(j.proposalSentAt);
       if (daysProposal !== null && daysProposal >= 5 && !contractStatus.includes('sign') && name && contractStatus && !contractStatus.includes('decline')) {
-        alerts.push({ type:'warning', priority:'medium', icon:'📄',
+        alerts.push({ type:'warning', priority:'medium', icon:'',
           title:`Contract not signed — ${name}`,
           desc:`Proposal sent ${daysProposal} days ago · ${j.service || ''}`,
           tag:jobId ? `Job: ${jobId}` : `Job: ${name}` });
@@ -1672,13 +1683,13 @@ app.post('/api/jobs/:row/field-issue', async (req, res) => {
     const job = await dbJobs.getJob(id);
     if (!job) return res.status(404).json({ error: 'Job not found' });
     const timestamp = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-    const issueNote = `[${timestamp}] ⚠️ ISSUE FLAGGED: ${issue}`;
+    const issueNote = `[${timestamp}] ! ISSUE FLAGGED: ${issue}`;
     const newNotes = job.notes ? `${job.notes}\n${issueNote}` : issueNote;
     await dbJobs.updateJobField(id, 'notes', newNotes);
 
     const { notifyOwner } = require('./src/tools/notify');
     await notifyOwner({
-      subject: `⚠️ Issue Flagged — ${job.clientName || 'Client'} ${job.service || ''}`,
+      subject: `! Issue Flagged — ${job.clientName || 'Client'} ${job.service || ''}`,
       message: `A field issue was flagged on the ${job.clientName || ''} job.\n\nSeverity: ${severity || 'Unknown'}\n\nIssue: ${issue}\n\nLogged at: ${timestamp}`,
       urgent: true, eventType: 'fieldIssue',
     });
@@ -1947,7 +1958,7 @@ app.get('/api/change-order/approve/:token', async (req, res) => {
     // Notify owner
     const { notifyOwner } = require('./src/tools/notify');
     await notifyOwner({
-      subject: `✅ Change Order Approved — ${g(co, 'Client Name')}`,
+      subject: `* Change Order Approved — ${g(co, 'Client Name')}`,
       message: `${g(co, 'Client Name')} approved the change order.\n\nChange: ${g(co, 'Description')}\nCost Impact: +$${costImpact.toLocaleString()}\nTimeline: +${g(co, 'Timeline Impact') || 0} days\n\nJob value has been updated automatically.`,
       urgent: true,
       eventType: 'changeOrder',
@@ -1988,12 +1999,12 @@ app.get('/api/change-order/decline/:token', async (req, res) => {
 
 function changeOrderResponsePage(type, co, companyName = 'Your Contractor') {
   const msgs = {
-    'approved':         { icon: '✅', title: 'Change Order Approved!', sub: 'Thank you — we\'ll get started on the updated scope right away.', color: '#22C55E' },
+    'approved':         { icon: '*', title: 'Change Order Approved!', sub: 'Thank you — we\'ll get started on the updated scope right away.', color: '#22C55E' },
     'declined':         { icon: '❌', title: 'Change Order Declined', sub: 'No problem — we\'ll be in touch to discuss your options.', color: '#EF4444' },
-    'already-approved': { icon: '✅', title: 'Already Approved', sub: 'This change order was already approved. We\'re on it!', color: '#22C55E' },
+    'already-approved': { icon: '*', title: 'Already Approved', sub: 'This change order was already approved. We\'re on it!', color: '#22C55E' },
     'already-declined': { icon: '❌', title: 'Already Declined', sub: 'This change order was already declined.', color: '#EF4444' },
     'not-found':        { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us directly.', color: '#6B7280' },
-    'error':            { icon: '⚠️', title: 'Something went wrong', sub: 'Please contact us directly.', color: '#F59E0B' },
+    'error':            { icon: '!', title: 'Something went wrong', sub: 'Please contact us directly.', color: '#F59E0B' },
   };
   const m = msgs[type] || msgs['error'];
   const desc = co ? g(co, 'Description') : '';
@@ -2175,7 +2186,7 @@ app.get('/paid', (req, res) => {
 </head>
 <body>
   <div>
-    <div class="icon">✅</div>
+    <div class="icon">*</div>
     <h1>Payment Received!</h1>
     <p>Thank you — your payment has been processed.<br>You'll receive a confirmation email shortly.</p>
     <p style="margin-top:20px;font-size:13px" class="gold">Powered by SPEC Systems</p>
@@ -2330,10 +2341,10 @@ function proposalResponsePage(type, job, companyName = 'Your Contractor') {
   const msgs = {
     'approved':         { icon: '🎉', title: 'You\'re In!', sub: 'Thanks for approving — we\'re excited to get started. We\'ll be in touch shortly with your contract and next steps.', color: '#22C55E' },
     'declined':         { icon: '👋', title: 'Got It', sub: 'No worries at all. If you change your mind or want to chat through any details, just reply to our email or give us a call. We\'re here when you\'re ready.', color: '#6B7280' },
-    'already-approved': { icon: '✅', title: 'Already Approved!', sub: 'You\'re all set — your proposal has already been approved. We\'ll be in touch with next steps soon.', color: '#22C55E' },
+    'already-approved': { icon: '*', title: 'Already Approved!', sub: 'You\'re all set — your proposal has already been approved. We\'ll be in touch with next steps soon.', color: '#22C55E' },
     'already-declined': { icon: '👋', title: 'Already Noted', sub: 'You\'ve already declined this proposal. Reach out anytime if you change your mind!', color: '#6B7280' },
     'not-found':        { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us directly and we\'ll get you sorted.', color: '#6B7280' },
-    'error':            { icon: '⚠️', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll take care of it right away.', color: '#F59E0B' },
+    'error':            { icon: '!', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll take care of it right away.', color: '#F59E0B' },
   };
   const m = msgs[type] || msgs['error'];
   const projectType = job ? g(job, 'Service Type', 'Project Type') : '';
@@ -2695,7 +2706,7 @@ app.get('/api/kickoff/select/:jobId/:date', async (req, res) => {
     <div style="font-size:48px;margin-bottom:12px">🎉</div>
     <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:8px">You're all set, ${clientFirst}!</div>
     <div style="font-size:15px;color:#6B7280;line-height:1.6;margin-bottom:20px">We'll see you on <strong>${fmtDate}</strong> to kick off your ${projectType}. We'll follow up a day or two before to confirm everything.</div>
-    <div style="background:#F0FDF4;border-radius:10px;padding:14px;font-size:13px;color:#15803D;font-weight:600">✅ Your project start date is confirmed</div>
+    <div style="background:#F0FDF4;border-radius:10px;padding:14px;font-size:13px;color:#15803D;font-weight:600">* Your project start date is confirmed</div>
   </div>
   <div style="padding:16px;text-align:center;font-size:12px;color:#9CA3AF">Powered by ${companyName}</div>
 </div>`.trim();
@@ -2717,7 +2728,7 @@ function kickoffResponsePage(type, job, dateStr, companyName = 'Your Contractor'
   const msgs = {
     'confirmed':  { icon: '🎉', title: 'Kickoff Confirmed!', sub: `Your start date is locked in — ${dateStr}. We'll be in touch a day before to confirm everything is ready.`, color: '#22C55E' },
     'not-found':  { icon: '🔍', title: 'Link Expired', sub: 'This link is no longer valid. Please contact us to schedule your start date.', color: '#6B7280' },
-    'error':      { icon: '⚠️', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll get your start date confirmed right away.', color: '#F59E0B' },
+    'error':      { icon: '!', title: 'Something Went Wrong', sub: 'Please contact us directly and we\'ll get your start date confirmed right away.', color: '#F59E0B' },
   };
   const m = msgs[type] || msgs['error'];
   const projectType = job ? g(job, 'Service Type', 'Project Type') : '';
@@ -3523,7 +3534,7 @@ app.get('/api/sgc/quickbooks/callback', async (req, res) => {
     const redirectUri = `${baseUrl}/api/sgc/quickbooks/callback`;
     const tokens = await sgcQb.exchangeCodeForTokens(code, realmId, redirectUri);
     res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0a0a0a;color:#f0f0f0">
-      <h2 style="color:#C9A84C">✅ QuickBooks Connected!</h2>
+      <h2 style="color:#C9A84C">* QuickBooks Connected!</h2>
       <p>Connected to: <strong>${tokens.companyName || 'Your QB Company'}</strong></p>
       <p style="color:#888">This window will close automatically…</p>
       <script>
@@ -3719,7 +3730,7 @@ app.get('/ping', (req, res) => res.send('pong'));
 // ─── STARTUP SHEET VALIDATION ─────────────────────────────────────────────────
 async function validateSheetSchema() {
   if (!process.env.SHEET_ID) {
-    logger.warn('Startup', '⚠️  SHEET_ID not set — skipping schema validation');
+    logger.warn('Startup', '!  SHEET_ID not set — skipping schema validation');
     return;
   }
   try {
@@ -3736,25 +3747,25 @@ async function validateSheetSchema() {
       try {
         const rows = await readTab(tab);
         if (rows.length === 0) {
-          logger.warn('Startup', `⚠️  "${tab}" tab is empty — add data before using agents`);
+          logger.warn('Startup', `!  "${tab}" tab is empty — add data before using agents`);
           continue;
         }
         // Check headers from first row's keys
         const headers = Object.keys(rows[0]).filter(k => !k.startsWith('_'));
         const missing = requiredCols.filter(c => !headers.includes(c));
         if (missing.length > 0) {
-          logger.warn('Startup', `⚠️  "${tab}" tab is missing columns: ${missing.join(', ')}`);
+          logger.warn('Startup', `!  "${tab}" tab is missing columns: ${missing.join(', ')}`);
           allOk = false;
         } else if (requiredCols.length > 0) {
-          logger.success('Startup', `✅ "${tab}" tab schema OK`);
+          logger.success('Startup', `* "${tab}" tab schema OK`);
         }
       } catch (err) {
-        logger.warn('Startup', `⚠️  Could not read "${tab}" tab: ${err.message}`);
+        logger.warn('Startup', `!  Could not read "${tab}" tab: ${err.message}`);
         allOk = false;
       }
     }
 
-    if (allOk) logger.success('Startup', '✅ Sheet schema validation passed');
+    if (allOk) logger.success('Startup', '* Sheet schema validation passed');
   } catch (err) {
     logger.warn('Startup', `Sheet validation skipped: ${err.message}`);
   }
@@ -3916,7 +3927,7 @@ app.get('/admin/seed', async (req, res) => {
   try {
     const { execSync } = require('child_process');
     execSync('node src/seed.js', { stdio: 'pipe', cwd: __dirname });
-    res.send('<h2>✅ Demo data loaded!</h2><p>Refresh your CRM dashboard to see demo data.</p><a href="/">Go to Dashboard</a>');
+    res.send('<h2>* Demo data loaded!</h2><p>Refresh your CRM dashboard to see demo data.</p><a href="/">Go to Dashboard</a>');
   } catch (e) {
     res.status(500).send(`<h2>❌ Seed failed</h2><pre>${e.message}</pre>`);
   }
@@ -3966,7 +3977,7 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ CRM running on port ${PORT}`);
+  console.log(`* CRM running on port ${PORT}`);
   // Validate sheet schema in background (non-blocking)
   setTimeout(() => validateSheetSchema(), 3000);
   // Start cron scheduler after server is up
