@@ -8,7 +8,7 @@
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    background:#0A0A0A;
+    background:#F5F0EB;
     min-height:100vh;
     display:flex;
     align-items:center;
@@ -33,57 +33,58 @@
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    font-size:26px;
     margin-bottom:14px;
   }
+  .brand-icon svg{width:28px;height:28px;stroke:#fff;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
   .brand-name{
     font-size:22px;
     font-weight:800;
-    color:#F0F0F0;
+    color:#1A1A1A;
     letter-spacing:-.3px;
   }
   .brand-sub{
     font-size:13px;
-    color:#666;
+    color:#8A8A8A;
     margin-top:4px;
   }
 
   /* Card */
   .card{
-    background:#141414;
-    border:1px solid #2A2A2A;
+    background:#FFFFFF;
+    border:1px solid #E5E0DA;
     border-radius:18px;
     padding:32px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.06);
   }
 
   .card-title{
     font-size:18px;
     font-weight:700;
-    color:#F0F0F0;
+    color:#1A1A1A;
     margin-bottom:6px;
   }
   .card-sub{
     font-size:14px;
-    color:#666;
+    color:#8A8A8A;
     margin-bottom:28px;
   }
 
   label{
     display:block;
-    font-size:13px;
-    font-weight:600;
-    color:#9A9A9A;
+    font-size:11px;
+    font-weight:700;
+    color:#8A8A8A;
     margin-bottom:8px;
-    letter-spacing:.3px;
+    letter-spacing:.5px;
     text-transform:uppercase;
   }
 
   input[type=password], input[type=text]{
     width:100%;
-    background:#0A0A0A;
-    border:1.5px solid #2A2A2A;
+    background:#FAF8F5;
+    border:1.5px solid #E5E0DA;
     border-radius:10px;
-    color:#F0F0F0;
+    color:#1A1A1A;
     font-size:16px;
     padding:14px 16px;
     outline:none;
@@ -93,17 +94,18 @@
   }
   input[type=password]:focus, input[type=text]:focus{
     border-color:#4A8C3F;
+    box-shadow:0 0 0 3px rgba(74,140,63,0.1);
   }
   input[type=password]::placeholder, input[type=text]::placeholder{
-    color:#444;
+    color:#C0B8AE;
   }
 
   .error-msg{
     display:none;
-    background:#1F0A0A;
-    border:1px solid #7F1D1D;
+    background:#FEF2F2;
+    border:1px solid #FECACA;
     border-radius:8px;
-    color:#FCA5A5;
+    color:#DC2626;
     font-size:13px;
     padding:10px 14px;
     margin-top:14px;
@@ -115,10 +117,10 @@
   .btn{
     display:block;
     width:100%;
-    background:#4A8C3F;
-    color:#0A0A0A;
+    background:#3D6B35;
+    color:#FFFFFF;
     font-size:15px;
-    font-weight:800;
+    font-weight:700;
     padding:15px;
     border:none;
     border-radius:10px;
@@ -135,7 +137,7 @@
     text-align:center;
     margin-top:24px;
     font-size:12px;
-    color:#444;
+    color:#A09890;
   }
 </style>
 </head>
@@ -143,8 +145,8 @@
 
 <div class="wrap">
   <div class="brand">
-    <div class="brand-icon">🏗️</div>
-    <div class="brand-name">Scottsdale General</div>
+    <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+    <div class="brand-name" id="brandName">Operations CRM</div>
     <div class="brand-sub">Sign in to your operations dashboard</div>
   </div>
 
@@ -162,25 +164,25 @@
         autocomplete="username"
         autofocus
         required
-        style="margin-bottom:12px"
+        style="margin-bottom:14px"
       >
       <label for="password">Password</label>
       <input
         type="password"
         id="password"
         name="password"
-        placeholder="••••••••••••"
+        placeholder="Enter password"
         autocomplete="current-password"
         required
       >
       <div class="error-msg" id="errorMsg">
-        ❌ Invalid username or password — try again.
+        Invalid username or password. Please try again.
       </div>
-      <button type="submit" class="btn" id="submitBtn">Sign In →</button>
+      <button type="submit" class="btn" id="submitBtn">Sign In</button>
     </form>
   </div>
 
-  <div class="footer">Secure access · Session expires in 7 days</div>
+  <div class="footer">Secure access &middot; Session expires in 7 days</div>
 </div>
 
 <script>
@@ -201,7 +203,7 @@
   form.addEventListener('submit', function() {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.textContent = 'Signing in…';
+    btn.textContent = 'Signing in\u2026';
   });
 </script>
 </body>

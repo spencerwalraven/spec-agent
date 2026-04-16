@@ -115,7 +115,8 @@
     position:relative;transition:color .2s;
     -webkit-tap-highlight-color:transparent;
   }
-  .nav-item .nav-icon{font-size:22px;line-height:1;transition:transform .2s}
+  .nav-item .nav-icon{font-size:22px;line-height:1;transition:transform .2s;display:flex;align-items:center;justify-content:center}
+  .nav-item .nav-icon svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
   .nav-item.active{color:var(--gold)}
   .nav-item.active .nav-icon{transform:scale(1.1)}
   .nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:24px;height:2px;border-radius:0 0 2px 2px;background:var(--gold)}
@@ -987,12 +988,12 @@
     .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     .dash-grid .dash-full{grid-column:1/-1}
     .kpi-grid{grid-template-columns:repeat(4,1fr)}
-    .page{padding:28px 40px calc(24px);max-width:1100px}
+    .page{padding:28px 32px 24px}
     .more-grid{grid-template-columns:repeat(3,1fr)}
     .list-item{padding:16px 20px}
   }
   @media(min-width:1200px){
-    .page{padding:32px 48px calc(24px)}
+    .page{padding:32px 48px 24px}
   }
 
   /* ── PHASE CARD STATUS BORDERS ──────────────────────────────── */
@@ -1184,7 +1185,7 @@
         <div>
           <div class="today-strip">
             <div class="today-strip-hdr">
-              <span class="today-strip-title">📅 Today's Schedule</span>
+              <span class="today-strip-title">Today's Schedule</span>
               <button style="font-size:12px;font-weight:700;color:var(--gold);background:none;border:none;cursor:pointer;padding:0" onclick="navigate('schedule')">View all →</button>
             </div>
             <div id="todayEvents">
@@ -1197,7 +1198,7 @@
         <div>
           <div class="card">
             <div class="card-header">
-              <span class="card-title">⚡ Action Items</span>
+              <span class="card-title">Action Items</span>
             </div>
             <div class="card-body" style="padding:8px 16px">
               <div id="dashTasksStrip" style="margin-bottom:0">
@@ -1227,7 +1228,7 @@
         <!-- Right: AI Activity Feed -->
         <div>
           <div class="section-header" style="margin-top:4px">
-            <span class="section-title">🤖 AI Activity</span>
+            <span class="section-title">AI Activity</span>
             <button onclick="navigate('agents')" class="section-action">See all →</button>
           </div>
           <div class="agent-feed-card">
@@ -1238,7 +1239,7 @@
               </span>
             </div>
             <div class="agent-log" id="dashAgentLog">
-              <div class="agent-empty">🤖 AI agents standing by</div>
+              <div class="agent-empty">AI agents standing by</div>
             </div>
           </div>
         </div>
@@ -2041,7 +2042,7 @@
   </main>
 
   <!-- AI Chat Button -->
-  <button id="chatBtn" style="position:fixed;bottom:80px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:8000;display:flex;align-items:center;justify-content:center;pointer-events:all">🤖</button>
+  <button id="chatBtn" style="position:fixed;bottom:80px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:8000;display:flex;align-items:center;justify-content:center;pointer-events:all"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="9" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="15" y1="10" x2="15" y2="10"/></svg></button>
   <script>
     document.getElementById('chatBtn').addEventListener('click', function() {
       var modal = document.getElementById('chatModal');
@@ -2212,20 +2213,20 @@
   <!-- BOTTOM NAV — rebuilt by applyRoleNav() on init -->
   <nav class="bottom-nav" id="bottomNav">
     <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')" style="position:relative">
-      <span class="nav-icon">🏠</span><span>Home</span>
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span><span>Home</span>
     </button>
     <button class="nav-item" data-page="leads" onclick="navigate('leads')" style="position:relative">
-      <span class="nav-icon">👤</span><span>Leads</span>
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Leads</span>
       <span id="leadsNavBadge" style="display:none;position:absolute;top:4px;right:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:99px;align-items:center;justify-content:center;padding:0 4px"></span>
     </button>
     <button class="nav-item" data-page="jobs" onclick="navigate('jobs')" style="position:relative">
-      <span class="nav-icon">🔨</span><span>Jobs</span>
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span>Jobs</span>
     </button>
-    <button class="nav-item" data-page="schedule" onclick="navigate('schedule')" style="position:relative">
-      <span class="nav-icon">🗓️</span><span>Schedule</span>
+    <button class="nav-item" data-page="team" onclick="navigate('team')" style="position:relative">
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><span>Team</span>
     </button>
     <button class="nav-item" data-page="more" onclick="navigate('more')" style="position:relative">
-      <span class="nav-icon">☰</span><span>More</span>
+      <span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span><span>More</span>
     </button>
   </nav>
 

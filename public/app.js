@@ -125,26 +125,37 @@ function applyRoleNav(role) {
   const nav = document.getElementById('bottomNav');
   if (!nav) return;
 
+  // SVG icon helpers for bottom nav
+  const _ni = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
+  const NAV_ICONS = {
+    home:     _ni('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>'),
+    leads:    _ni('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    jobs:     _ni('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
+    team:     _ni('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'),
+    schedule: _ni('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+    more:     _ni('<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>'),
+  };
+
   const configs = {
     owner: [
-      { page: 'dashboard', icon: '🏠', label: 'Home' },
-      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
-      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'team',      icon: '👥', label: 'Team' },
-      { page: 'more',      icon: '☰',  label: 'More' },
+      { page: 'dashboard', icon: NAV_ICONS.home,  label: 'Home' },
+      { page: 'leads',     icon: NAV_ICONS.leads, label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: NAV_ICONS.jobs,  label: 'Jobs' },
+      { page: 'team',      icon: NAV_ICONS.team,  label: 'Team' },
+      { page: 'more',      icon: NAV_ICONS.more,  label: 'More' },
     ],
     sales: [
-      { page: 'dashboard', icon: '🏠', label: 'Home' },
-      { page: 'leads',     icon: '👤', label: 'Leads',    badge: 'leadsNavBadge' },
-      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
-      { page: 'more',      icon: '☰',  label: 'More' },
+      { page: 'dashboard', icon: NAV_ICONS.home,     label: 'Home' },
+      { page: 'leads',     icon: NAV_ICONS.leads,    label: 'Leads',    badge: 'leadsNavBadge' },
+      { page: 'jobs',      icon: NAV_ICONS.jobs,     label: 'Jobs' },
+      { page: 'schedule',  icon: NAV_ICONS.schedule, label: 'Schedule' },
+      { page: 'more',      icon: NAV_ICONS.more,     label: 'More' },
     ],
     field: [
-      { page: 'dashboard', icon: '🏠', label: 'Home' },
-      { page: 'jobs',      icon: '🔨', label: 'Jobs' },
-      { page: 'schedule',  icon: '🗓️', label: 'Schedule' },
-      { page: 'more',      icon: '☰',  label: 'More' },
+      { page: 'dashboard', icon: NAV_ICONS.home,     label: 'Home' },
+      { page: 'jobs',      icon: NAV_ICONS.jobs,     label: 'Jobs' },
+      { page: 'schedule',  icon: NAV_ICONS.schedule, label: 'Schedule' },
+      { page: 'more',      icon: NAV_ICONS.more,     label: 'More' },
     ],
   };
 
@@ -257,7 +268,7 @@ async function loadTodayStrip() {
       events.push(...DEMO.todaySchedule);
     }
     if (!events.length) {
-      el.innerHTML = '<div class="cal-evt-empty">📭 Nothing scheduled today</div>';
+      el.innerHTML = '<div class="cal-evt-empty">Nothing scheduled today</div>';
       return;
     }
 
@@ -283,7 +294,7 @@ async function loadTodayStrip() {
         </div>`;
     }).join('');
   } catch (_) {
-    el.innerHTML = '<div class="cal-evt-empty">📭 No schedule data available</div>';
+    el.innerHTML = '<div class="cal-evt-empty">No schedule data available</div>';
   }
 }
 
@@ -332,17 +343,17 @@ function renderDashPills(urgentCount, approvalCount, role) {
   const pills = [];
   if (role === 'field') {
     // Field: just show a quick link to their jobs
-    pills.push(`<button class="dash-pill blue" onclick="navigate('field')">📋 Log Today's Update</button>`);
+    pills.push(`<button class="dash-pill blue" onclick="navigate('field')">Log Today's Update</button>`);
     el.innerHTML = pills.join('');
     return;
   }
   if (urgentCount > 0) {
-    pills.push(`<button class="dash-pill red" onclick="toggleNotifPanel()">🔥 ${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
+    pills.push(`<button class="dash-pill red" onclick="toggleNotifPanel()">${urgentCount} Alert${urgentCount > 1 ? 's' : ''} Need Attention</button>`);
   } else {
-    pills.push(`<div class="dash-pill green" style="cursor:default">✅ No urgent alerts</div>`);
+    pills.push(`<div class="dash-pill green" style="cursor:default">No urgent alerts</div>`);
   }
   if (approvalCount > 0) {
-    pills.push(`<button class="dash-pill gold" onclick="navigate('approvals')">✅ ${approvalCount} Pending Approval${approvalCount > 1 ? 's' : ''}</button>`);
+    pills.push(`<button class="dash-pill gold" onclick="navigate('approvals')">${approvalCount} Pending Approval${approvalCount > 1 ? 's' : ''}</button>`);
   }
   el.innerHTML = pills.join('');
 }
@@ -397,8 +408,8 @@ function toast(msg, dur = 2200, type = '') {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove('show'), dur);
 }
-function toastSuccess(msg) { toast('✅ ' + msg, 2500, 'success'); }
-function toastError(msg)   { toast('⚠️ ' + msg, 3500, 'error'); }
+function toastSuccess(msg) { toast(msg, 2500, 'success'); }
+function toastError(msg)   { toast(msg, 3500, 'error'); }
 function toastInfo(msg)    { toast(msg, 2200); }
 
 /* ─── SKELETON LOADER ───────────────────────────────────────────── */
