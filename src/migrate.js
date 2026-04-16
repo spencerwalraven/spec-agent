@@ -595,8 +595,19 @@ async function migrate() {
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tier_luxury TEXT`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS selected_tier VARCHAR(50)`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimate_link TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_link TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS contract_link TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS kickoff_link TEXT`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMPTZ`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_rating INTEGER`);
+  // Site visit fields (for filled proposal template)
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS work_areas TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS client_budget VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS lot_size VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS soil_conditions VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS access_issues TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS existing_conditions TEXT`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS client_preferences TEXT`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS calendar_event_id VARCHAR(255)`);
   console.log('✅ jobs: tier columns + review tracking + calendar event ID');
 
