@@ -651,6 +651,64 @@ async function migrate() {
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS kickoff_status VARCHAR(50)`);
   console.log('✅ jobs: proposal view tracking + estimate/kickoff status columns');
 
+  // ── QUICKBOOKS SYNC HARDENING ──
+  // Track sync status on every invoice for visibility + recovery
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qb_invoice_id VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qb_sync_status VARCHAR(30) DEFAULT 'pending'`); // pending | synced | failed | stale
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qb_synced_at TIMESTAMPTZ`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qb_sync_error TEXT`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qb_sync_attempts INTEGER DEFAULT 0`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(12,2)`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(12,2) DEFAULT 0`);
+  await safeAlter(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS stripe_payment_link VARCHAR(500)`);
+
+  // QB customer sync on clients
+  await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS qb_customer_id VARCHAR(100)`);
+  await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS qb_synced_at TIMESTAMPTZ`);
+
+  // Sync audit log — every QB operation logged
+  await query(`
+    CREATE TABLE IF NOT EXISTS qb_sync_log (
+      id              SERIAL PRIMARY KEY,
+      company_id      INTEGER NOT NULL DEFAULT 1,
+      entity_type     VARCHAR(50),   -- invoice | customer | payment | time_activity
+      entity_id       INTEGER,        -- our internal id
+      qb_entity_id    VARCHAR(100),   -- QB's id
+      operation       VARCHAR(50),    -- create | update | fetch | webhook_received
+      direction       VARCHAR(20),    -- to_qb | from_qb
+      status          VARCHAR(20),    -- success | failed | retry
+      error_message   TEXT,
+      payload         JSONB,
+      created_at      TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_qb_log_company ON qb_sync_log(company_id);
+    CREATE INDEX IF NOT EXISTS idx_qb_log_entity ON qb_sync_log(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_qb_log_created ON qb_sync_log(created_at DESC);
+  `);
+  console.log('✅ qb_sync_log table');
+
+  // Webhook idempotency — dedupe incoming QB events
+  await query(`
+    CREATE TABLE IF NOT EXISTS qb_webhook_events (
+      event_id        VARCHAR(200) PRIMARY KEY,
+      company_id      INTEGER NOT NULL DEFAULT 1,
+      realm_id        VARCHAR(50),
+      entity_name     VARCHAR(50),
+      qb_entity_id    VARCHAR(100),
+      operation       VARCHAR(20),
+      received_at     TIMESTAMPTZ DEFAULT NOW(),
+      processed_at    TIMESTAMPTZ,
+      status          VARCHAR(20) DEFAULT 'pending'
+    );
+    CREATE INDEX IF NOT EXISTS idx_qb_events_received ON qb_webhook_events(received_at DESC);
+  `);
+  console.log('✅ qb_webhook_events table');
+
+  // QB settings: default tax rate, chart of accounts map
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS qb_tax_rate DECIMAL(5,3) DEFAULT 0`);
+  await safeAlter(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS qb_auto_sync BOOLEAN DEFAULT TRUE`);
+  console.log('✅ settings: QB tax rate + auto-sync flag');
+
   // ── Clients: referral count ──
   await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0`);
   console.log('✅ clients: referral_count');

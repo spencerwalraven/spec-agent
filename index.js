@@ -164,20 +164,23 @@ app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, re
     const payload = JSON.parse(body.toString());
     const notifications = payload.eventNotifications || [];
 
+    const qbSync = require('./src/tools/quickbooks-sync');
+
     for (const notification of notifications) {
       const entities = notification.dataChangeEvent?.entities || [];
       for (const entity of entities) {
-        if (entity.name === 'Payment' && (entity.operation === 'Create' || entity.operation === 'Update')) {
-          handleQBPayment(notification.realmId, entity.id).catch(e =>
-            logger.error('QB', `Payment handler failed: ${e.message}`)
-          );
-        }
-        // Also process invoice updates (status changes, amount changes in QB)
-        if (entity.name === 'Invoice' && entity.operation === 'Update') {
-          try {
-            const qb = require('./src/tools/quickbooks');
-            await qb.processWebhookEvent({ eventNotifications: [notification] });
-          } catch (e) { logger.warn('QB', `Invoice sync failed: ${e.message}`); }
+        // Build a unique event ID for idempotency — QB doesn't give us one, so compose
+        const eventId = `${notification.realmId}-${entity.name}-${entity.id}-${entity.operation}-${entity.lastUpdated || Date.now()}`;
+
+        // Handle payments, invoices, customers — all idempotent
+        if (['Payment', 'Invoice', 'Customer'].includes(entity.name)) {
+          qbSync.handleWebhookEvent({
+            eventId,
+            realmId: notification.realmId,
+            entityName: entity.name,
+            qbEntityId: entity.id,
+            operation: entity.operation,
+          }).catch(e => logger.error('QB', `Webhook handler ${entity.name} ${entity.operation} failed: ${e.message}`));
         }
       }
     }
@@ -3727,6 +3730,86 @@ let qb;
 try { qb = require('./src/tools/quickbooks'); } catch (_) {}
 
 // Check connection status
+// ─── QUICKBOOKS RELIABILITY ENDPOINTS ────────────────────────────────────────
+
+// GET /api/quickbooks/health — real connection test (hits /companyinfo)
+app.get('/api/quickbooks/health', requireAuth, async (req, res) => {
+  try {
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const result = await qbSync.healthCheck();
+    res.json(result);
+  } catch (e) { res.status(500).json({ ok: false, reason: e.message }); }
+});
+
+// POST /api/quickbooks/resync-invoice/:id — manually retry a failed invoice sync
+app.post('/api/quickbooks/resync-invoice/:id', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid invoice id' });
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const result = await qbSync.syncInvoice(id);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/quickbooks/resync-customer/:id — manually sync a client to QB
+app.post('/api/quickbooks/resync-customer/:id', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid client id' });
+    const { getOne } = require('./src/db');
+    const client = await getOne('SELECT * FROM clients WHERE id = $1 AND company_id = $2', [id, COMPANY_ID]);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const result = await qbSync.syncCustomer(client);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/quickbooks/sync-log — recent QB sync operations (audit trail)
+app.get('/api/quickbooks/sync-log', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const log = await qbSync.getSyncLog(limit);
+    res.json(log);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/quickbooks/failed-invoices — invoices that need manual attention
+app.get('/api/quickbooks/failed-invoices', requireAuth, async (req, res) => {
+  try {
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const failed = await qbSync.getInvoicesByStatus('failed');
+    res.json(failed);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/quickbooks/sync-all-pending — batch-retry all pending/failed invoices
+app.post('/api/quickbooks/sync-all-pending', requireAuth, async (req, res) => {
+  try {
+    const qbSync = require('./src/tools/quickbooks-sync');
+    const pending = await qbSync.getInvoicesByStatus('pending');
+    const failed  = await qbSync.getInvoicesByStatus('failed');
+    const toSync = [...pending, ...failed];
+    const results = { synced: 0, failed: 0, errors: [] };
+    for (const inv of toSync) {
+      try {
+        await qbSync.syncInvoice(inv.id);
+        results.synced++;
+      } catch (e) {
+        results.failed++;
+        results.errors.push({ id: inv.id, error: e.message });
+      }
+    }
+    res.json({ ok: true, total: toSync.length, ...results });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/quickbooks/status', async (req, res) => {
   try {
     if (!qb) return res.json({ connected: false, error: 'QuickBooks module not loaded' });
