@@ -1426,7 +1426,7 @@ async function convertLead() {
     btn.style.background = 'rgba(34,197,94,.25)';
     btn.style.color = 'var(--green)';
 
-    toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6h7l-5.5 4 2 7L12 15l-6.5 4 2-7L2 8h7z"/></svg> ${name} marked as Converted!`, 3000);
+    toast(`${name} marked as Converted!`, 3000);
 
     // Re-render list behind modal
     renderLeads();
@@ -2386,7 +2386,7 @@ async function saveSiteVisitAndEstimate(jobRow) {
   try {
     const res = await fetch(`/api/jobs/${jobRow}/regenerate-estimate`, { method: 'POST' });
     if (!res.ok) throw new Error('Estimate generation failed');
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg> Estimate generating — the AI is crunching numbers. Check back in 1-2 minutes!', 5000);
+    toast('Estimate generating — the AI is crunching numbers. Check back in 1-2 minutes!', 5000);
   } catch (e) {
     toast('× ' + e.message, 3000);
   }
@@ -2410,7 +2410,7 @@ async function syncJobToCalendar() {
     const res  = await fetch(`/api/jobs/${_currentJobRow}/sync-calendar`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${data.created} event${data.created !== 1 ? 's' : ''} synced to Google Calendar!`);
+    toast(`${data.created} event${data.created !== 1 ? 's' : ''} synced to Google Calendar!`);
   } catch (err) {
     toast(`× ${err.message}`, 3000);
   }
@@ -2424,7 +2424,7 @@ async function sendKickoffSchedule() {
     const res  = await fetch(`/api/jobs/${_currentJobRow}/kickoff-schedule`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Kickoff scheduling email sent! Dates offered: ${(data.datesOffered||[]).join(', ')}`);
+    toast(`Kickoff scheduling email sent! Dates offered: ${(data.datesOffered||[]).join(', ')}`);
     closeModal('jobModal');
   } catch (err) {
     toast(`× ${err.message}`, 3000);
@@ -2437,7 +2437,7 @@ async function sendDailyBriefing() {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
     await fetch('/api/briefing/send', { method: 'POST' });
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Briefing sent to owner email!');
+    toast('Briefing sent to owner email!');
   } catch (err) {
     toast(`× ${err.message}`, 3000);
   } finally {
@@ -3345,7 +3345,7 @@ async function launchCampaign(row, btn) {
     btn.classList.add('sent');
     btn.textContent = '✓ Sent';
     btn.disabled = true;
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> Campaign launched!');
+    toast('Campaign launched!');
   } catch(e) {
     btn.textContent = 'Launch';
     toastError('Launch failed');
@@ -3512,7 +3512,7 @@ async function flagItem(idx, e) {
 
   allApprovals.splice(idx, 1);
   renderApprovals();
-  toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> ${item.label} flagged — marked "Needs Revision"`);
+  toast(`${item.label} flagged — marked "Needs Revision"`);
   const badge = document.getElementById('dashApprovalBadge');
   const desc  = document.getElementById('dashApprovalDesc');
   if (allApprovals.length === 0) {
@@ -4091,7 +4091,7 @@ async function triggerAgent(type) {
   // Visual feedback
   const btns = document.querySelectorAll('.trigger-btn');
   btns.forEach(b => { if (b.getAttribute('onclick')?.includes(type)) b.classList.add('running'); });
-  toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><line x1="12" y1="3" x2="12" y2="1"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg> Firing ${type} on row ${rowNumber}…`, 2000);
+  toast(`Firing ${type} on row ${rowNumber}…`, 2000);
 
   try {
     const res = await fetch('/webhook/trigger', {
@@ -4370,7 +4370,7 @@ async function submitFieldIssue(row, e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Owner alerted via text + email`);
+    toast(`Owner alerted via text + email`);
     issueEl.value = '';
     _severityMap[row] = null;
     document.querySelectorAll(`#sev-chips-${row} .severity-chip`).forEach(c => c.classList.remove('active-sev'));
@@ -4391,7 +4391,7 @@ async function saveActualCost(phaseRow, value) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ actualCost: parseFloat(value) || 0 }),
     });
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Actual cost saved');
+    toast('Actual cost saved');
   } catch (err) {
     toast(`× Could not save cost: ${err.message}`, 3000);
   }
@@ -4439,7 +4439,7 @@ async function uploadPhoto(row, e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    toast(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo uploaded!`);
+    toast(`Photo uploaded!`);
     // Hide preview
     document.getElementById(`photo-preview-${row}`).style.display = 'none';
     input.value = '';
@@ -4595,7 +4595,7 @@ async function syncAllToCalendar() {
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   try {
     await fetch('/api/calendar/sync', { method: 'POST' });
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendar sync started — events will appear in Google Calendar shortly!');
+    toast('Calendar sync started — events will appear in Google Calendar shortly!');
     setTimeout(loadSchedule, 3000);
   } catch (err) {
     toast(`× Sync failed: ${err.message}`, 3000);
@@ -5358,7 +5358,7 @@ async function saveGoals() {
     });
     if (!res.ok) throw new Error((await res.json()).error);
     await loadGoals();
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Goals saved!');
+    toast('Goals saved!');
     closeModal('goalsModal');
     loadAnalytics();
   } catch (e) {
@@ -5837,7 +5837,7 @@ async function uploadPhotoModal() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
-    toast('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo uploaded — visible on client portal');
+    toast('Photo uploaded — visible on client portal');
     document.getElementById('photoPreviewWrap').style.display = 'none';
     document.getElementById('photoFileInput').value = '';
     photoFileData = null;
