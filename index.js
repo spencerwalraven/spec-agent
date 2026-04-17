@@ -827,7 +827,7 @@ app.post('/api/leads/:row/note', async (req, res) => {
 // Drops all data for company_id=1, reloads fresh Landcare demo data,
 // creates a kickoff template Google Doc in Drive, and saves the ID to settings.
 // Owner-only. Returns the kickoff template URL on success.
-app.post('/api/admin/setup-demo', requireOwner, async (req, res) => {
+app.post('/api/admin/setup-demo', requireAuth, requireOwner, async (req, res) => {
   const steps = { migrate: null, seed: null, kickoff: null };
   try {
     // 1. Migrate (idempotent — only runs missing ALTER statements)
