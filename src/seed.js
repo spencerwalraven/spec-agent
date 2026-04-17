@@ -260,29 +260,149 @@ async function seed() {
   `);
   console.log('✅ Job Phases (8 for landscape)');
 
+  // ── Job Phases (Front Yard Curb Appeal — JOB-002, all complete) ─────────
+  await query(`
+    INSERT INTO job_phases (job_id, phase_number, name, description, assigned_to,
+      status, estimated_cost, actual_cost, start_date, end_date, completed_at)
+    VALUES
+      (${curbJob.id}, 1, 'Removal & Site Prep',   'Remove overgrown boxwoods and weeping cherry, haul away debris.', 'Marcus Reed', 'completed', 800,  750,  NOW() - INTERVAL '40 days', NOW() - INTERVAL '38 days', NOW() - INTERVAL '38 days'),
+      (${curbJob.id}, 2, 'Walkway Install',        'New 45ft natural stone walkway with border edging.',              'Marcus Reed', 'completed', 3200, 3050, NOW() - INTERVAL '37 days', NOW() - INTERVAL '32 days', NOW() - INTERVAL '32 days'),
+      (${curbJob.id}, 3, 'Foundation Plantings',   'Install mixed foundation shrubs, perennials, and ornamental grasses.', 'Kevin Pruitt', 'completed', 2200, 2100, NOW() - INTERVAL '30 days', NOW() - INTERVAL '26 days', NOW() - INTERVAL '26 days'),
+      (${curbJob.id}, 4, 'Landscape Lighting',     'Install low-voltage path lights and accent uplights.',            'Elite Electric', 'completed', 1500, 1450, NOW() - INTERVAL '24 days', NOW() - INTERVAL '21 days', NOW() - INTERVAL '21 days'),
+      (${curbJob.id}, 5, 'Mulch & Cleanup',        'Top-dress all beds with premium hardwood mulch, final cleanup.',  'Danny Velasco',  'completed', 600,  580,  NOW() - INTERVAL '20 days', NOW() - INTERVAL '18 days', NOW() - INTERVAL '18 days'),
+      (${curbJob.id}, 6, 'Client Walkthrough',     'Final walkthrough with Angela, plant care handoff, punch list.',  'Tim Blake',      'completed', 300,  300,  NOW() - INTERVAL '12 days', NOW() - INTERVAL '11 days', NOW() - INTERVAL '11 days')
+  `);
+  console.log('✅ Job Phases (6 for curb appeal — all complete)');
+
+  // ── Job Phases (Retaining Wall — JOB-003, all pending, proposal stage) ─
+  await query(`
+    INSERT INTO job_phases (job_id, phase_number, name, description, assigned_to,
+      status, estimated_cost, actual_cost, start_date, end_date, completed_at)
+    VALUES
+      (${wallJob.id}, 1, 'Site Assessment & Survey', 'Confirm grade, mark utilities via 811, finalize wall height plan.', '', 'pending', 400,  NULL, NULL, NULL, NULL),
+      (${wallJob.id}, 2, 'Excavation',                'Dig base trench 80 linear ft x 18" deep.',                           '', 'pending', 1200, NULL, NULL, NULL, NULL),
+      (${wallJob.id}, 3, 'Base & Drainage',           'Compact base, install French drain system with geotextile fabric.',  '', 'pending', 2400, NULL, NULL, NULL, NULL),
+      (${wallJob.id}, 4, 'Wall Construction',         'Set Allan Block segmental wall 3.5ft high x 80ft long.',             '', 'pending', 2800, NULL, NULL, NULL, NULL),
+      (${wallJob.id}, 5, 'Backfill & Grade',          'Backfill with gravel, regrade catchment area, seed swale.',          '', 'pending', 1000, NULL, NULL, NULL, NULL),
+      (${wallJob.id}, 6, 'Cleanup & Walkthrough',     'Haul away debris, walk final with Jason, 1-year warranty handoff.',  '', 'pending', 600,  NULL, NULL, NULL, NULL)
+  `);
+  console.log('✅ Job Phases (6 for retaining wall — all pending)');
+
+  // ── Reviews (Angela Foster left 5-star after JOB-002 completion) ───────
+  await query(`
+    UPDATE jobs SET
+      review_requested = true,
+      review_requested_at = NOW() - INTERVAL '8 days',
+      review_rating = 5
+    WHERE id = ${curbJob.id}
+  `).catch(() => {});
+  console.log('✅ Review left on JOB-002 (5 stars from Angela)');
+
+  // ── Proposal view counts (Hendersons viewed theirs 3x, Wright 1x) ──────
+  await query(`
+    UPDATE jobs SET proposal_views = 3, proposal_first_viewed_at = NOW() - INTERVAL '17 days', proposal_last_viewed_at = NOW() - INTERVAL '12 days' WHERE id = ${landscapeJob.id};
+    UPDATE jobs SET proposal_views = 1, proposal_first_viewed_at = NOW() - INTERVAL '2 days',  proposal_last_viewed_at = NOW() - INTERVAL '2 days'  WHERE id = ${wallJob.id};
+  `).catch(() => {});
+  console.log('✅ Proposal view counts (Hendersons 3x, Wright 1x)');
+
+  // ── Change orders (Japanese maple swap on JOB-001, matches email threads) ─
+  await query(`
+    INSERT INTO change_orders (company_id, job_id, title, description, amount, status, created_at)
+    VALUES
+      (1, ${landscapeJob.id},
+       'Japanese Maple substitution',
+       'Replace one Green Giant arborvitae in hedge line with a 6ft specimen Japanese maple near pergola corner. Client request from Linda — wants a focal point visible from kitchen window.',
+       180.00, 'pending', NOW() - INTERVAL '18 hours')
+  `).catch(e => console.warn('Change orders skipped:', e.message));
+  console.log('✅ Change Order (Japanese maple $180 — pending owner approval)');
+
+  // ── Team commission rates ─────────────────────────────────────────────
+  await query(`
+    UPDATE team SET commission_pct = 5 WHERE company_id = 1 AND role LIKE '%Crew Lead%';
+    UPDATE team SET commission_pct = 0 WHERE company_id = 1 AND role LIKE '%Owner%';
+  `).catch(() => {});
+  console.log('✅ Team commission rates (5% for crew leads)');
+
+  // ── Equipment maintenance state (realistic mix: overdue / due soon / ok) ─
+  await query(`
+    UPDATE equipment SET
+      engine_hours = 842, next_service_hours = 800,
+      last_service_at = NOW() - INTERVAL '90 days'
+    WHERE company_id = 1 AND name LIKE '%Mini Excavator%';
+
+    UPDATE equipment SET
+      odometer_miles = 47500, next_service_miles = 50000,
+      last_service_at = NOW() - INTERVAL '60 days'
+    WHERE company_id = 1 AND name LIKE '%Crew Truck #1%';
+
+    UPDATE equipment SET
+      engine_hours = 380, next_service_hours = 500,
+      last_service_at = NOW() - INTERVAL '45 days'
+    WHERE company_id = 1 AND name LIKE '%Plate Compactor%';
+  `).catch(() => {});
+  console.log('✅ Equipment maintenance state (1 overdue, 1 due soon, 1 OK)');
+
+  // ── Photos on JOB-001 + JOB-002 for the customer portal gallery ────────
+  await query(`
+    INSERT INTO photos (company_id, job_id, photo_type, url, caption, uploaded_by, created_at)
+    VALUES
+      (1, ${landscapeJob.id}, 'before',   'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80', 'Before — overgrown backyard with dead maple',                     'Marcus Reed',    NOW() - INTERVAL '10 days'),
+      (1, ${landscapeJob.id}, 'progress', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',    'After site prep — graded and ready',                              'Marcus Reed',    NOW() - INTERVAL '8 days'),
+      (1, ${landscapeJob.id}, 'progress', 'https://images.unsplash.com/photo-1560523159-4a9692d222f9?w=800&q=80',    '6-zone smart controller + drip lines installed',                  'A1 Irrigation',  NOW() - INTERVAL '3 days'),
+      (1, ${landscapeJob.id}, 'progress', 'https://images.unsplash.com/photo-1558449028-b53a39d100fc?w=800&q=80',    'Belgard Lafitt pavers going in — day 1 of 4',                     'Marcus Reed',    NOW() - INTERVAL '2 days'),
+      (1, ${curbJob.id},       'before',   'https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?w=800&q=80',  'Before — overgrown boxwoods and tired walkway',                   'Tim Blake',      NOW() - INTERVAL '40 days'),
+      (1, ${curbJob.id},       'after',    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80',  'Finished front yard — stone walkway + full foundation plantings', 'Tim Blake',      NOW() - INTERVAL '12 days'),
+      (1, ${curbJob.id},       'progress', 'https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=800&q=80',  'Landscape lighting at dusk',                                      'Elite Electric', NOW() - INTERVAL '18 days')
+  `).catch(e => console.warn('Photos skipped:', e.message));
+  console.log('✅ Photos (4 on JOB-001, 3 on JOB-002 — with real image URLs)');
+
   // ── Invoices ─────────────────────────────────────────────────────────────
   await query(`
     INSERT INTO invoices (company_id, job_id, invoice_type, amount,
-      status, sent_at, paid_at, due_date)
+      status, sent_at, paid_at, paid_amount, due_date, stripe_payment_link,
+      qb_sync_status, qb_synced_at)
     VALUES
       (1, ${landscapeJob.id}, 'deposit', 7440.00,
-       'paid', NOW() - INTERVAL '17 days', NOW() - INTERVAL '16 days', NOW() - INTERVAL '10 days'),
+       'paid', NOW() - INTERVAL '17 days', NOW() - INTERVAL '16 days', 7440.00,
+       NOW() - INTERVAL '10 days',
+       'https://checkout.stripe.com/pay/demo-hen-dep',
+       'synced', NOW() - INTERVAL '16 days'),
 
       (1, ${curbJob.id}, 'deposit', 3660.00,
-       'paid', NOW() - INTERVAL '47 days', NOW() - INTERVAL '46 days', NOW() - INTERVAL '40 days'),
+       'paid', NOW() - INTERVAL '47 days', NOW() - INTERVAL '46 days', 3660.00,
+       NOW() - INTERVAL '40 days',
+       'https://checkout.stripe.com/pay/demo-foster-dep',
+       'synced', NOW() - INTERVAL '46 days'),
 
       (1, ${curbJob.id}, 'final', 8540.00,
-       'paid', NOW() - INTERVAL '11 days', NOW() - INTERVAL '9 days', NOW() - INTERVAL '3 days'),
+       'paid', NOW() - INTERVAL '11 days', NOW() - INTERVAL '9 days', 8540.00,
+       NOW() - INTERVAL '3 days',
+       'https://checkout.stripe.com/pay/demo-foster-final',
+       'synced', NOW() - INTERVAL '9 days'),
 
       (1, ${wallJob.id}, 'deposit', 2520.00,
-       'pending', NULL, NULL, NOW() + INTERVAL '14 days')
+       'sent', NOW() - INTERVAL '1 day', NULL, NULL,
+       NOW() + INTERVAL '14 days',
+       'https://checkout.stripe.com/pay/demo-wright-dep',
+       'pending', NULL),
+
+      -- Mid-project progress invoice on JOB-001 (active demo moment)
+      (1, ${landscapeJob.id}, 'progress', 9920.00,
+       'sent', NOW() - INTERVAL '2 days', NULL, NULL,
+       NOW() + INTERVAL '5 days',
+       'https://checkout.stripe.com/pay/demo-hen-prog',
+       'synced', NOW() - INTERVAL '2 days')
   `);
-  console.log('✅ Invoices (4)');
+  console.log('✅ Invoices (5 — 3 paid, 2 outstanding with Stripe links + QB sync status)');
 
   // ── Tasks ────────────────────────────────────────────────────────────────
   await query(`
     INSERT INTO tasks (company_id, title, description, priority, status, due_date, assigned_to)
     VALUES
+      (1, 'Approve Japanese maple change order ($180)',
+       'Change order drafted by AI 3 hours ago. Henderson job — review in approval queue and send to client.',
+       'urgent', 'open', NOW() + INTERVAL '1 hour', 'Tim Blake'),
+
       (1, 'Call Jennifer Caldwell — hot lead',
        'Score 95 — new build, full landscape, $35k budget. Call today.',
        'urgent', 'open', NOW() + INTERVAL '2 hours', 'Tim Blake'),
@@ -436,23 +556,32 @@ async function seed() {
   console.log('✅ Conversations (10 emails + 5 SMS — shows AI in action)');
 
   // ── Activity Log (powers dashboard "Recent Activity") ────────────────────
+  // Recent timestamps (min/hours ago) so the feed feels ALIVE during a demo,
+  // plus older entries for historical context.
   await query(`
     INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id, created_at)
     VALUES
-      (1, 'LeadAgent',     'new_lead_outreach', 'Sent personalized email to Jennifer Caldwell (score 95)',  'lead', ${leadMap['Jennifer Caldwell']}, NOW() - INTERVAL '6 hours'),
-      (1, 'ClientAgent',   'weekly_update',     'Sent Week 2 update to Bill & Linda Henderson — JOB-001',   'job',  ${landscapeJob.id}, NOW() - INTERVAL '2 days'),
-      (1, 'PricingAgent',  'estimate_ready',    'Generated estimate for JOB-003 Retaining Wall — 3 tiers',  'job',  ${wallJob.id}, NOW() - INTERVAL '3 days'),
-      (1, 'JobAgent',      'proposal_sent',     'Sent proposal to Jason Wright after owner approval',        'job',  ${wallJob.id}, NOW() - INTERVAL '3 days'),
-      (1, 'LeadAgent',     'nurture_step',      'Sent Day-5 follow-up to Rachel Dunn (outdoor kitchen lead)','lead', ${leadMap['Rachel Dunn']}, NOW() - INTERVAL '5 days'),
-      (1, 'PaymentAgent',  'invoice_reminder',  'Reminded Jason Wright — deposit due in 14 days',           'job',  ${wallJob.id}, NOW() - INTERVAL '1 day'),
-      (1, 'SmartOrch',     'daily_scan',        'Daily scan complete — 6 actions queued, 0 escalations',     'system', NULL, NOW() - INTERVAL '4 hours'),
-      (1, 'LeadAgent',     'referral_detected', 'Tom Brennan came from Hendersons referral — linked automatically', 'lead', ${leadMap['Tom Brennan']}, NOW() - INTERVAL '2 days'),
-      (1, 'ChangeOrder',   'change_order_draft','Drafted change order: Japanese maple swap on JOB-001 (+$180)', 'job', ${landscapeJob.id}, NOW() - INTERVAL '18 hours'),
-      (1, 'MarketingAgent','campaign_sent',     'Spring Cleanup campaign sent to 42 past clients — 11 opens, 3 replies', 'system', NULL, NOW() - INTERVAL '3 days'),
-      (1, 'ClientAgent',   'review_request',    'Requested Google review from Angela Foster (JOB-002 completed)', 'job', ${curbJob.id}, NOW() - INTERVAL '8 days'),
-      (1, 'WelcomeAgent',  'kickoff_sent',      'Kickoff plan sent to Bill & Linda Henderson — JOB-001',    'job',  ${landscapeJob.id}, NOW() - INTERVAL '17 days')
+      -- Last 60 minutes (makes the feed look active during demo)
+      (1, 'LeadAgent',     'new_lead_outreach', 'Sent personalized email to Jennifer Caldwell (score 95) — awaiting reply', 'lead', ${leadMap['Jennifer Caldwell']}, NOW() - INTERVAL '3 minutes'),
+      (1, 'SmartOrch',     'daily_scan',        'Morning scan complete — 4 leads scored, 2 follow-ups queued, 0 escalations', 'system', NULL, NOW() - INTERVAL '18 minutes'),
+      (1, 'PricingAgent',  'learning_loop',     'Updated pricing model: paver patios running 8% over estimate — nudged rate +5%', 'system', NULL, NOW() - INTERVAL '42 minutes'),
+      (1, 'ClientAgent',   'weekly_update',     'Drafted Week 3 progress update for Bill & Linda Henderson (in approval queue)', 'job', ${landscapeJob.id}, NOW() - INTERVAL '1 hour'),
+
+      -- Last 24 hours
+      (1, 'ChangeOrder',   'change_order_draft','Drafted change order: Japanese maple swap on JOB-001 (+$180) — awaiting owner approval', 'job', ${landscapeJob.id}, NOW() - INTERVAL '3 hours'),
+      (1, 'PaymentAgent',  'invoice_reminder',  'Reminded Jason Wright — deposit due in 14 days ($2,520)', 'job',  ${wallJob.id}, NOW() - INTERVAL '5 hours'),
+      (1, 'LeadAgent',     'new_lead_outreach', 'Responded to Jennifer Caldwell reply — confirmed Thursday 10am site visit', 'lead', ${leadMap['Jennifer Caldwell']}, NOW() - INTERVAL '6 hours'),
+      (1, 'LeadAgent',     'referral_detected', 'Tom Brennan came from Hendersons referral — auto-linked + confirmed', 'lead', ${leadMap['Tom Brennan']}, NOW() - INTERVAL '9 hours'),
+
+      -- Last 7 days
+      (1, 'JobAgent',      'proposal_sent',     'Sent proposal to Jason Wright after owner approval (3-tier retaining wall)', 'job',  ${wallJob.id}, NOW() - INTERVAL '3 days'),
+      (1, 'PricingAgent',  'estimate_ready',    'Generated estimate for JOB-003 Retaining Wall — 3 tiers ($6.2k/$8.4k/$12.5k)', 'job', ${wallJob.id}, NOW() - INTERVAL '3 days'),
+      (1, 'MarketingAgent','campaign_sent',     'Spring Cleanup campaign sent to 42 past clients — 11 opens, 3 replies, 1 booked', 'system', NULL, NOW() - INTERVAL '3 days'),
+      (1, 'LeadAgent',     'nurture_step',      'Sent Day-5 follow-up to Rachel Dunn (outdoor kitchen lead, $80k potential)', 'lead', ${leadMap['Rachel Dunn']}, NOW() - INTERVAL '5 days'),
+      (1, 'ClientAgent',   'review_request',    'Requested Google review from Angela Foster (JOB-002 completed) — 5 stars received', 'job', ${curbJob.id}, NOW() - INTERVAL '8 days'),
+      (1, 'WelcomeAgent',  'kickoff_sent',      'Kickoff plan sent to Bill & Linda Henderson — JOB-001', 'job',  ${landscapeJob.id}, NOW() - INTERVAL '17 days')
   `);
-  console.log('✅ Activity Log (12 entries — powers AI activity feed)');
+  console.log('✅ Activity Log (14 entries — live feed with 3-min, 18-min, 42-min, 1-hour timestamps)');
 
   // ── Job Materials (for JOB-001 inventory) ───────────────────────────────
   await query(`
