@@ -4555,7 +4555,8 @@ scheduleSgcReminder(loadSgcSettings());
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
 // IMPORTANT: /api/*, /webhook/*, /admin/*, /ping routes must fall through to
-// their actual handlers. Only serve index.html for SPA paths.
+// their actual handlers (some are registered further down in this file).
+// Only serve index.html for SPA paths.
 app.get('*', (req, res, next) => {
   const p = req.path;
   if (p.startsWith('/api/')     ||
@@ -4564,9 +4565,6 @@ app.get('*', (req, res, next) => {
       p === '/ping') return next();
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-// API 404 handler — returns JSON (not HTML) for unknown API paths
-app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found: ' + req.path }));
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function relativeTime(str) {
