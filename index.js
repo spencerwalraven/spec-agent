@@ -409,6 +409,49 @@ app.get('/api/activity-stream', (req, res) => {
   if (addSseClient) addSseClient(res);
 });
 
+// ─── API: RECENT AGENT ACTIVITY (seeds dashboard feed on load) ───────────────
+// Returns the last N entries from activity_log formatted as SSE-style events so
+// the dashboard feed has content immediately — no waiting for a live fire.
+app.get('/api/agents/recent-activity', async (req, res) => {
+  try {
+    const { getAll } = require('./src/db');
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const rows = await getAll(
+      `SELECT id, agent, action, detail, entity_type, entity_id, created_at
+         FROM activity_log
+        WHERE company_id = 1
+        ORDER BY created_at DESC
+        LIMIT $1`, [limit]
+    );
+    const colors = { info:'blue', success:'green', warn:'amber', error:'red', agent:'purple' };
+    const levelFor = (action='') => {
+      const a = action.toLowerCase();
+      if (a.includes('error') || a.includes('fail')) return 'error';
+      if (a.includes('warn'))   return 'warn';
+      if (a.includes('sent') || a.includes('complete') || a.includes('approved') || a.includes('paid')) return 'success';
+      if (a.includes('draft') || a.includes('learning') || a.includes('scan')) return 'agent';
+      return 'info';
+    };
+    const events = rows.map(r => {
+      const level = levelFor(r.action);
+      return {
+        id:      r.id,
+        ts:      r.created_at,
+        level,
+        agent:   r.agent || 'Agent',
+        message: r.detail || r.action || '',
+        color:   colors[level] || 'blue',
+        entityType: r.entity_type,
+        entityId:   r.entity_id,
+      };
+    });
+    res.json(events);
+  } catch (e) {
+    console.error('recent-activity:', e.message);
+    res.json([]);
+  }
+});
+
 // ─── WEBHOOK ROUTER (agent triggers) ─────────────────────────────────────────
 if (webhookRouter) app.use('/webhook', webhookRouter);
 

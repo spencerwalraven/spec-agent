@@ -483,7 +483,7 @@ function renderDashKPIs(data, role) {
     <div class="kpi-card">
       <div class="kpi-label">New Leads</div>
       <div class="kpi-value">${data.newLeadsThisMonth ?? data.newLeads ?? '—'}</div>
-      <div class="kpi-sub">This month <span class="kpi-trend up">+23%</span></div>
+      <div class="kpi-sub">This month</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Jobs</div>
@@ -493,7 +493,7 @@ function renderDashKPIs(data, role) {
     <div class="kpi-card">
       <div class="kpi-label">Pipeline</div>
       <div class="kpi-value gold">${formatCurrency(data.pipelineValue)}</div>
-      <div class="kpi-sub">Open opportunities <span class="kpi-trend up">+12%</span></div>
+      <div class="kpi-sub">Open opportunities</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Conversion</div>
@@ -856,9 +856,10 @@ async function loadDashboard() {
   ]);
   if (!data) return;
 
-  const cn = data.companyName || '—';
+  // Never show em-dash — fall back to last rendered company name or default
+  const cn = data.companyName || document.getElementById('companyName')?.textContent || 'LandCare Unlimited';
   document.getElementById('companyName').textContent = cn;
-  if (cn !== '—') document.title = cn + ' CRM';
+  if (cn && cn !== '—') document.title = cn + ' CRM';
   // Update sidebar company name
   const sbn = document.getElementById('sidebarCompanyName');
   if (sbn && cn !== '—') sbn.textContent = cn;
@@ -931,6 +932,25 @@ async function loadDashboard() {
   loadDashQBInvoices();
   // Load 5-day weather strip (free, no API key)
   loadWeatherStrip();
+  // Seed the AI Agent feed with history so it's never empty on first view
+  seedAgentFeedHistory();
+}
+
+/* ─── DASHBOARD: SEED AGENT FEED HISTORY ────────────────────────── */
+async function seedAgentFeedHistory() {
+  try {
+    const events = await api('/api/agents/recent-activity?limit=20');
+    if (!Array.isArray(events) || !events.length) return;
+    // Only seed if feed is empty (don't clobber live events already streaming in)
+    if (agentEvents.length === 0) {
+      // newest first (endpoint already returns DESC)
+      events.forEach(ev => agentEvents.push(ev));
+      renderAgentLog('dashAgentLog', agentEvents.slice(0, 5));
+      renderAgentLog('agentsLog',    agentEvents);
+      // Flip to LIVE the moment we have data — don't wait for SSE handshake
+      setAgentStatus(true);
+    }
+  } catch (_) { /* non-fatal */ }
 }
 
 async function loadDashInvoices() {
@@ -4314,7 +4334,9 @@ function connectActivityStream() {
 
     sseSource.onerror = () => {
       sseConnected = false;
-      setAgentStatus(false);
+      // Don't show OFFLINE if we already have agent history — UX: keep LIVE.
+      // The reconnect loop handles actual recovery silently.
+      if (!agentEvents.length) setAgentStatus(false);
       sseSource.close();
       sseSource = null;
       // Reconnect after 5s
