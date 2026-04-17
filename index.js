@@ -3862,14 +3862,21 @@ async function validateSheetSchema() {
 app.get('/api/recurring', requireAuth, async (req, res) => {
   try {
     const { query: dbQ } = require('./src/db');
-    const result = await dbQ('SELECT * FROM recurring_jobs WHERE company_id = $1 ORDER BY next_run ASC', [COMPANY_ID]);
+    const result = await dbQ(`
+      SELECT r.*, c.name AS client_name_lookup
+      FROM recurring_jobs r
+      LEFT JOIN clients c ON r.client_id = c.id
+      WHERE r.company_id = $1 ORDER BY r.next_run ASC
+    `, [COMPANY_ID]);
     const items = result.rows.map(r => ({
       row: r.id, id: r.id,
-      clientName: r.title || '',
+      clientId: r.client_id || null,
+      clientName: r.client_name_lookup || r.title || '',
+      title: r.title || '',
       serviceType: r.service || '',
       frequency: r.frequency || '',
       nextDate: r.next_run ? new Date(r.next_run).toLocaleDateString() : '',
-      price: r.estimated_value || '',
+      price: r.estimated_value ? '$' + Number(r.estimated_value).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '/visit' : '',
       notes: r.template_notes || '',
       status: r.status || 'Active',
       lastRun: r.last_run ? new Date(r.last_run).toLocaleDateString() : ''
@@ -3888,6 +3895,17 @@ app.post('/api/recurring', requireAuth, async (req, res) => {
       `INSERT INTO recurring_jobs (company_id, title, service, frequency, next_run, estimated_value, template_notes, status) VALUES ($1,$2,$3,$4,$5,$6,$7,'active')`,
       [COMPANY_ID, clientName, serviceType, frequency, nextDate || null, parseFloat(price) || null, notes || '']
     );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/recurring/:row — remove a recurring service
+app.delete('/api/recurring/:row', requireAuth, async (req, res) => {
+  try {
+    const { query: dbQ } = require('./src/db');
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    await dbQ('DELETE FROM recurring_jobs WHERE id = $1 AND company_id = $2', [id, COMPANY_ID]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

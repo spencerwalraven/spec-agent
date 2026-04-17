@@ -2733,12 +2733,39 @@ async function loadClientJobs(clientId) {
   el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Loading…</div>';
 
   try {
-    const jobs = await api('/api/clients/' + clientId + '/jobs');
+    // Fetch jobs + recurring services for this client in parallel
+    const [jobs, allRecurring] = await Promise.all([
+      api('/api/clients/' + clientId + '/jobs'),
+      api('/api/recurring').catch(() => []),
+    ]);
+    // Match recurring services by client_id when available, fallback to name match
+    const clientRecurring = (allRecurring || []).filter(r =>
+      (r.clientId && String(r.clientId) === String(clientId)) ||
+      (r.clientName && _openClientName && r.clientName.toLowerCase() === _openClientName.toLowerCase())
+    );
+
+    // Build the recurring section (shown at top — most business-critical context)
+    const recurringHtml = clientRecurring.length ? `
+      <div class="modal-section-label" style="margin-top:0;margin-bottom:8px;color:var(--gold)">Recurring Services (${clientRecurring.length})</div>
+      ${clientRecurring.map(r => `
+        <div style="background:var(--card);border:1px solid rgba(45,122,30,0.2);border-left:3px solid var(--gold);border-radius:var(--r);padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:14px;color:var(--text)">${r.serviceType || r.title}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">${r.frequency}${r.nextDate ? ' · Next: ' + r.nextDate : ''}${r.price ? ' · ' + r.price : ''}</div>
+            </div>
+            <button onclick="navigate('recurring')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer">Manage</button>
+          </div>
+        </div>
+      `).join('')}
+      <div style="margin:12px 0 18px;height:1px;background:var(--border)"></div>
+    ` : '';
+
     if (!jobs || !jobs.length) {
-      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No jobs yet for this client</div>';
+      el.innerHTML = recurringHtml + '<div style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No one-time jobs yet for this client</div>';
       return;
     }
-    el.innerHTML = jobs.map(j => {
+    el.innerHTML = recurringHtml + jobs.map(j => {
       const val = j.estimatedValue || j.totalJobValue || 0;
       const status = JOB_STATUS_LABELS[j.status] || j.status || '';
       const phases = (j.phases || []);
@@ -5996,11 +6023,24 @@ function renderRecurringList() {
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:12px">
-          <button onclick="runRecurringJob(${r.row}, '${r.clientName.replace(/'/g,"&#39;")}')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);cursor:pointer">▸ Run Now</button>
+          <button onclick="runRecurringJob(${r.row}, '${r.clientName.replace(/'/g,"&#39;")}')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);cursor:pointer">Run Now</button>
+          <button onclick="deleteRecurring(${r.row}, '${r.clientName.replace(/'/g,"&#39;")}')" style="padding:9px 14px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);color:var(--red);cursor:pointer">Delete</button>
         </div>
       </div>
     `;
   }).join('');
+}
+
+async function deleteRecurring(row, clientName) {
+  if (!confirm(`Delete recurring service for ${clientName}? This stops auto-scheduling future jobs.`)) return;
+  try {
+    const res = await fetch(`/api/recurring/${row}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
+    toast(`Recurring service for ${clientName} removed`);
+    await loadRecurring();
+  } catch (e) {
+    toast('Could not delete: ' + e.message, 3000);
+  }
 }
 
 function openAddRecurringModal() {
