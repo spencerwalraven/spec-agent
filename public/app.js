@@ -5346,12 +5346,15 @@ function renderEquipment() {
       const icon = EQ_ICONS[eq.category] || '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
       const assignedInfo = eq.assignedJob ? ` · ${eq.assignedJob}${eq.assignedTo ? ' / ' + eq.assignedTo : ''}` : '';
       const eqRow = eq._row;
-      const availBtn = eq.status === 'Available'
+      // Status comparison MUST be case-insensitive — service returns 'available'/'in-use' (lowercase)
+      const statusLower = (eq.status || '').toLowerCase().replace(/[_-]/g, '').replace(/ /g, '');
+      const availBtn = statusLower === 'available'
         ? `<button class="eq-action-btn" data-eq-row="${eqRow}" onclick="event.stopPropagation();promptAssignEquipment(this)">Assign to Job</button>`
-        : eq.status === 'In Use'
+        : (statusLower === 'inuse')
         ? `<button class="eq-action-btn" data-eq-row="${eqRow}" onclick="event.stopPropagation();releaseEquipment(this)">Release</button>`
         : '';
-      const valDisplay = eq.value ? `<div style="margin-left:auto;font-size:12px;font-weight:700;color:var(--text3)">${eq.value}</div>` : '';
+      const valueStr = eq.purchaseCost ? '$' + Number(eq.purchaseCost).toLocaleString('en-US', {maximumFractionDigits:0}) : (eq.value || '');
+      const valDisplay = valueStr ? `<div style="margin-left:auto;font-size:12px;font-weight:700;color:var(--text3)">${valueStr}</div>` : '';
       return `
         <div class="eq-card" id="eq-card-${eqRow}" data-eq-row="${eqRow}" onclick="toggleEqCard(${eqRow})">
           <div class="eq-row">
@@ -5391,15 +5394,21 @@ function openAddEquipment() {
 }
 
 function openEditEquipment(row) {
-  const eq = _allEquipment.find(e => e._row === row);
-  if (!eq) return;
+  const eq = _allEquipment.find(e => e._row === row || e.id === row);
+  if (!eq) { toast('Equipment not found — refresh page'); return; }
   document.getElementById('eqModalTitle').textContent = 'Edit Equipment';
   document.getElementById('eqName').value      = eq.name || '';
   document.getElementById('eqCategory').value  = eq.category || 'Other';
-  document.getElementById('eqMakeModel').value = eq.makeModel || '';
-  document.getElementById('eqStatus').value    = eq.status || 'Available';
-  document.getElementById('eqValue').value     = eq.value || '';
+  // Backend uses serial_number not makeModel — keep the old field for compat
+  document.getElementById('eqMakeModel').value = eq.makeModel || eq.serialNumber || '';
+  // Status: normalize to UI options (Available / In Use / Maintenance / Retired)
+  const rawStatus = (eq.status || 'available').toLowerCase().replace(/[_-]/g, ' ');
+  const statusMap = { 'available': 'Available', 'in use': 'In Use', 'maintenance': 'Maintenance', 'retired': 'Retired' };
+  document.getElementById('eqStatus').value    = statusMap[rawStatus] || 'Available';
+  // Backend uses purchase_cost not value
+  document.getElementById('eqValue').value     = eq.purchaseCost ? String(eq.purchaseCost) : (eq.value || '');
   document.getElementById('eqNotes').value     = eq.notes || '';
+  // CRITICAL: set the row so Save knows to PUT (update), not POST (create duplicate)
   document.getElementById('eqEditRow').value   = row;
   document.getElementById('eqDeleteBtn').style.display = 'inline-flex';
   openModal('equipmentModal');
@@ -5407,15 +5416,21 @@ function openEditEquipment(row) {
 
 async function saveEquipment() {
   const name = document.getElementById('eqName').value.trim();
-  if (!name) { toast('! Name is required'); return; }
+  if (!name) { toast('Name is required'); return; }
   const editRow = document.getElementById('eqEditRow').value;
+  // Map UI field names → backend column names
+  const uiStatus = document.getElementById('eqStatus').value;
+  const dbStatus = uiStatus.toLowerCase().replace(/ /g, '-'); // "In Use" → "in-use"
+  const valueRaw = document.getElementById('eqValue').value.trim().replace(/[^0-9.]/g, '');
   const body = {
     name,
-    category:  document.getElementById('eqCategory').value,
-    makeModel: document.getElementById('eqMakeModel').value.trim(),
-    status:    document.getElementById('eqStatus').value,
-    value:     document.getElementById('eqValue').value.trim(),
-    notes:     document.getElementById('eqNotes').value.trim(),
+    category:      document.getElementById('eqCategory').value,
+    serialNumber:  document.getElementById('eqMakeModel').value.trim(),
+    makeModel:     document.getElementById('eqMakeModel').value.trim(), // keep both for compat
+    status:        dbStatus,
+    purchaseCost:  valueRaw ? parseFloat(valueRaw) : null,
+    value:         valueRaw ? parseFloat(valueRaw) : null,
+    notes:         document.getElementById('eqNotes').value.trim(),
   };
   try {
     let res;
@@ -5424,12 +5439,15 @@ async function saveEquipment() {
     } else {
       res = await fetch('/api/equipment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     }
-    if (!res.ok) throw new Error('Save failed');
-    toast(editRow ? '✓ Equipment updated' : '✓ Equipment added');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Save failed');
+    }
+    toast(editRow ? 'Equipment updated' : 'Equipment added');
     closeModal('equipmentModal');
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not save — check connection'); }
+  } catch (e) { toast('Could not save: ' + e.message, 3000); }
 }
 
 async function deleteEquipment() {
@@ -5446,21 +5464,42 @@ async function deleteEquipment() {
 
 async function promptAssignEquipment(btn) {
   const row = parseInt(btn.dataset.eqRow, 10);
-  const eq = _allEquipment.find(e => e._row === row);
-  if (!eq) return;
-  const jobId = prompt(`Assign "${eq.name}" to which Job ID? (e.g. JOB-001)`);
-  if (!jobId) return;
-  const assignedTo = prompt('Assigned to which person? (optional)') || '';
+  const eq = _allEquipment.find(e => e._row === row || e.id === row);
+  if (!eq) { toast('Equipment not found'); return; }
+
+  // Fetch active jobs so the user picks from a list (no more typing "JOB-001" in a prompt)
+  const jobs = await api('/api/jobs').catch(() => []);
+  const activeJobs = (jobs || []).filter(j => {
+    const s = (j.status || '').toLowerCase();
+    return s === 'active' || s === 'in_progress' || s === 'in-progress' || s === 'planning' || s === 'pending';
+  });
+
+  if (!activeJobs.length) { toast('No active jobs to assign to'); return; }
+
+  // Build a one-line dropdown-in-prompt via numbered list (lightweight, no new modal needed)
+  const choices = activeJobs.map((j, i) => `${i + 1}. ${j.jobRef || j.jobId || 'Job'} — ${j.clientName || 'Client'} (${j.service || j.title || ''})`).join('\n');
+  const pick = prompt(`Assign "${eq.name}" to which job?\n\n${choices}\n\nEnter number (1-${activeJobs.length}):`);
+  if (!pick) return;
+  const idx = parseInt(pick, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= activeJobs.length) { toast('Invalid selection'); return; }
+  const chosenJob = activeJobs[idx];
+  const jobRef = chosenJob.jobRef || chosenJob.jobId || '';
+
+  const assignedTo = prompt('Assigned to which person? (leave blank if unassigned)', '') || '';
+
   try {
     const res = await fetch(`/api/equipment/${row}/assign`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ jobId: jobId.trim().toUpperCase(), assignedTo }),
+      body: JSON.stringify({ jobId: jobRef, assignedTo }),
     });
-    if (!res.ok) throw new Error();
-    toast(`✓ Assigned to ${jobId}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Assign failed');
+    }
+    toast(`"${eq.name}" assigned to ${jobRef}`);
     _eqLoaded = false;
     loadEquipment();
-  } catch { toast('! Could not assign'); }
+  } catch (e) { toast('Could not assign: ' + e.message, 3000); }
 }
 
 async function releaseEquipment(btn) {

@@ -3547,19 +3547,23 @@ app.post('/api/equipment', async (req, res) => {
 });
 
 // PUT /api/equipment/:row — update equipment item
-app.put('/api/equipment/:row', async (req, res) => {
+app.put('/api/equipment/:row', requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.row, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid equipment id' });
     // Map camelCase → snake_case for DB
     const data = {};
-    if (req.body.name       !== undefined) data.name        = req.body.name;
-    if (req.body.category   !== undefined) data.category    = req.body.category;
-    if (req.body.makeModel  !== undefined) data.serial_number = req.body.makeModel;
-    if (req.body.status     !== undefined) data.status      = req.body.status;
-    if (req.body.assignedTo !== undefined) data.assigned_to = req.body.assignedTo;
-    if (req.body.assignedJob !== undefined) data.assigned_job = req.body.assignedJob;
-    if (req.body.notes      !== undefined) data.notes       = req.body.notes;
-    if (req.body.condition  !== undefined) data.condition   = req.body.condition;
+    if (req.body.name           !== undefined) data.name          = req.body.name;
+    if (req.body.category       !== undefined) data.category      = req.body.category;
+    if (req.body.serialNumber   !== undefined) data.serial_number = req.body.serialNumber;
+    if (req.body.makeModel      !== undefined) data.serial_number = req.body.makeModel; // legacy alias
+    if (req.body.status         !== undefined) data.status        = req.body.status;
+    if (req.body.assignedTo     !== undefined) data.assigned_to   = req.body.assignedTo;
+    if (req.body.assignedJob    !== undefined) data.assigned_job  = req.body.assignedJob;
+    if (req.body.notes          !== undefined) data.notes         = req.body.notes;
+    if (req.body.condition      !== undefined) data.condition     = req.body.condition;
+    if (req.body.purchaseCost   !== undefined) data.purchase_cost = req.body.purchaseCost;
+    if (req.body.value          !== undefined) data.purchase_cost = req.body.value;      // legacy alias
     await dbEquipment.updateEquipment(id, data);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
