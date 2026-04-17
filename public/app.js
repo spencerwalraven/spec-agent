@@ -3710,36 +3710,108 @@ function renderApprovals() {
       <div class="empty">
         <div class="empty-icon">✓</div>
         <div class="empty-title">All clear!</div>
-        <div class="empty-sub">No documents waiting for approval</div>
+        <div class="empty-sub">Nothing is waiting for your approval</div>
       </div>`;
     return;
   }
 
-  const typeIcons = { proposal: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', contract: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>', template: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>' };
-  const typeColors = { proposal: 'badge-gold', contract: 'badge-blue', template: 'badge-gray' };
-
+  // Split: emails render differently from doc approvals — owner needs to SEE
+  // what the AI wrote before clicking Approve.
   el.innerHTML = allApprovals.map((item, idx) => {
-    const icon  = typeIcons[item.type]  || '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-    const badge = typeColors[item.type] || 'badge-gray';
-    const val   = item.jobValue ? `<span style="color:var(--gold);font-weight:800">${item.jobValue}</span>` : '';
-    return `
-      <div class="approval-card" id="apCard-${idx}">
-        <div class="approval-card-header">
-          <span class="badge ${badge}">${icon} ${item.label || item.type}</span>
-          ${item.jobId ? `<span style="font-size:11px;color:var(--text3)">${item.jobId}</span>` : ''}
-        </div>
-        <div class="approval-client">${item.clientName || '—'}</div>
-        <div class="approval-sub">${item.serviceType || '—'} ${val ? '· ' + val : ''}</div>
-        <div class="approval-actions">
-          ${item.docLink
-            ? `<a class="btn btn-secondary" href="${item.docLink}" target="_blank" style="flex:1;text-align:center"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View Doc</a>`
-            : `<button class="btn btn-secondary" disabled style="flex:1;opacity:.4">No Link</button>`
-          }
-          <button class="btn btn-green" style="flex:1" onclick="approveItem(${idx}, event)">✓ Approve</button>
-          <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Flag</button>
-        </div>
-      </div>`;
+    return item.type === 'email'
+      ? renderEmailApprovalCard(item, idx)
+      : renderDocApprovalCard(item, idx);
   }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderEmailApprovalCard(item, idx) {
+  const agent = escapeHtml(item.agentName || 'AI Agent');
+  const to    = escapeHtml(item.clientName || item.recipient || '—');
+  const subj  = escapeHtml(item.subject || '(no subject)');
+  const body  = escapeHtml(item.body || '').replace(/\n/g, '<br>');
+  const when  = item.createdAt ? `drafted ${relTime(item.createdAt)}` : 'drafted just now';
+  const jobTag = item.jobId ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">· ${escapeHtml(item.jobId)}</span>` : '';
+  return `
+    <div class="approval-card approval-email" id="apCard-${idx}" style="border-left:3px solid var(--gold)">
+      <div class="approval-card-header" style="justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge badge-gold"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> AI DRAFT EMAIL</span>
+          <span style="font-size:11px;color:var(--text3);font-weight:600">${agent}</span>
+          ${jobTag}
+        </div>
+        <span style="font-size:11px;color:var(--text3)">${escapeHtml(when)}</span>
+      </div>
+
+      <div style="margin:10px 0 4px;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">To</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${to}</div>
+
+      <div style="margin:10px 0 4px;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Subject</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text)">${subj}</div>
+
+      <div style="margin:10px 0 4px;font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Draft Body</div>
+      <div id="apBody-${idx}" style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:var(--text);white-space:pre-wrap;word-wrap:break-word;max-height:260px;overflow-y:auto">${body}</div>
+      <textarea id="apEdit-${idx}" style="display:none;width:100%;min-height:180px;margin-top:6px;padding:12px 14px;border:1px solid var(--gold);border-radius:10px;font:inherit;font-size:13px;line-height:1.55;background:var(--card);color:var(--text);resize:vertical">${escapeHtml(item.body || '')}</textarea>
+
+      <div class="approval-actions" style="margin-top:12px">
+        <button class="btn btn-secondary" style="flex:1" onclick="toggleEmailEdit(${idx}, event)" id="apEditBtn-${idx}">✏ Edit</button>
+        <button class="btn btn-green" style="flex:2" onclick="approveItem(${idx}, event)">✓ Approve &amp; Send</button>
+        <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)">✕ Reject</button>
+      </div>
+    </div>`;
+}
+
+function renderDocApprovalCard(item, idx) {
+  const typeIcons = { proposal: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', contract: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' };
+  const typeColors = { proposal: 'badge-gold', contract: 'badge-blue' };
+  const icon  = typeIcons[item.type]  || '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  const badge = typeColors[item.type] || 'badge-gray';
+  const val   = item.jobValue ? `<span style="color:var(--gold);font-weight:800">${formatCurrency(item.jobValue)}</span>` : '';
+  return `
+    <div class="approval-card" id="apCard-${idx}">
+      <div class="approval-card-header">
+        <span class="badge ${badge}">${icon} ${escapeHtml(item.label || item.type)}</span>
+        ${item.jobId ? `<span style="font-size:11px;color:var(--text3)">${escapeHtml(item.jobId)}</span>` : ''}
+      </div>
+      <div class="approval-client">${escapeHtml(item.clientName || '—')}</div>
+      <div class="approval-sub">${escapeHtml(item.serviceType || '—')} ${val ? '· ' + val : ''}</div>
+      <div class="approval-actions">
+        ${item.docLink
+          ? `<a class="btn btn-secondary" href="${escapeHtml(item.docLink)}" target="_blank" style="flex:1;text-align:center">View Doc</a>`
+          : `<button class="btn btn-secondary" disabled style="flex:1;opacity:.4">No Link</button>`
+        }
+        <button class="btn btn-green" style="flex:1" onclick="approveItem(${idx}, event)">✓ Approve</button>
+        <button class="btn btn-danger" style="flex:1" onclick="flagItem(${idx}, event)">Reject</button>
+      </div>
+    </div>`;
+}
+
+function toggleEmailEdit(idx, e) {
+  e?.stopPropagation();
+  const view = document.getElementById('apBody-' + idx);
+  const edit = document.getElementById('apEdit-' + idx);
+  const btn  = document.getElementById('apEditBtn-' + idx);
+  if (!view || !edit) return;
+  const editing = edit.style.display !== 'none';
+  if (editing) {
+    // Save edit into item body so approve uses updated text
+    const item = allApprovals[idx];
+    if (item) item.body = edit.value;
+    view.innerHTML = escapeHtml(edit.value).replace(/\n/g, '<br>');
+    edit.style.display = 'none';
+    view.style.display = 'block';
+    if (btn) btn.textContent = '✏ Edit';
+  } else {
+    view.style.display = 'none';
+    edit.style.display = 'block';
+    edit.focus();
+    if (btn) btn.textContent = '✓ Done Editing';
+  }
 }
 
 async function approveItem(idx, e) {
@@ -3747,18 +3819,33 @@ async function approveItem(idx, e) {
   const item = allApprovals[idx];
   if (!item) return;
   const btn = e?.currentTarget;
+  const origLabel = btn?.textContent || '✓ Approve';
   if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  // Pull any inline edits the owner made before approving
+  if (item.type === 'email') {
+    const edit = document.getElementById('apEdit-' + idx);
+    if (edit && edit.style.display !== 'none' && edit.value) item.body = edit.value;
+  }
+
+  // Route to the correct endpoint by type
+  const endpoint = item.type === 'email'
+    ? `/api/approvals/${item.approvalId || item._row}/send`
+    : `/api/jobs/${item._row}/approve`;
+  const payload = item.type === 'email'
+    ? { body: item.body, subject: item.subject }
+    : { type: item.type };
 
   if (!usingDemo) {
     try {
-      const res = await fetch(`/api/jobs/${item._row}/approve`, {
+      const res = await fetch(endpoint, {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ type: item.type }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Failed');
     } catch {
       toast('! Could not approve — try again');
-      if (btn) { btn.textContent = '✓ Approve'; btn.disabled = false; }
+      if (btn) { btn.textContent = origLabel; btn.disabled = false; }
       return;
     }
   }
@@ -3766,7 +3853,8 @@ async function approveItem(idx, e) {
   // Remove from list and re-render
   allApprovals.splice(idx, 1);
   renderApprovals();
-  toast(`✓ ${item.label} approved — sending now`);
+  const toastMsg = item.type === 'email' ? `✓ Email sent to ${item.clientName || 'client'}` : `✓ ${item.label} approved — sending now`;
+  toast(toastMsg);
   // Update dashboard badge
   const badge = document.getElementById('dashApprovalBadge');
   const desc  = document.getElementById('dashApprovalDesc');
@@ -3785,16 +3873,21 @@ async function flagItem(idx, e) {
   const btn = e?.currentTarget;
   if (btn) { btn.textContent = '…'; btn.disabled = true; }
 
+  const flagEndpoint = item.type === 'email'
+    ? `/api/approvals/${item.approvalId || item._row}/reject`
+    : `/api/jobs/${item._row}/flag`;
+  const flagPayload = item.type === 'email' ? {} : { type: item.type };
+
   if (!usingDemo) {
     try {
-      const res = await fetch(`/api/jobs/${item._row}/flag`, {
+      const res = await fetch(flagEndpoint, {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ type: item.type }),
+        body: JSON.stringify(flagPayload),
       });
       if (!res.ok) throw new Error('Failed');
     } catch {
-      toast('! Could not flag — try again');
-      if (btn) { btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Flag'; btn.disabled = false; }
+      toast('! Could not reject — try again');
+      if (btn) { btn.textContent = item.type === 'email' ? '✕ Reject' : 'Flag'; btn.disabled = false; }
       return;
     }
   }
@@ -3817,7 +3910,21 @@ let allConversations = [], filteredConversations = [];
 
 async function loadConversations() {
   const el = document.getElementById('convList');
-  allConversations = await api('/api/conversations') || [];
+  // Load conversations + pending approvals in parallel so the list can
+  // show an "AI DRAFT" badge next to any thread that's awaiting approval.
+  const [convs, pend] = await Promise.all([
+    api('/api/conversations'),
+    api('/api/approvals').catch(() => []),
+  ]);
+  allConversations = convs || [];
+  // Build a set of threadIds that have a pending AI draft waiting
+  const pendingThreadIds = new Set(
+    (pend || []).filter(p => p.type === 'email' && p.threadId).map(p => p.threadId)
+  );
+  // Attach pending flag to each conversation for render
+  allConversations.forEach(c => {
+    c._hasPendingDraft = pendingThreadIds.has(c.threadId);
+  });
   filteredConversations = allConversations;
   renderConversations();
 }
@@ -3850,24 +3957,28 @@ function renderConversations() {
   el.innerHTML = filteredConversations.map((c, i) => {
     const ini = (c.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const isJob = c.source === 'job';
-    const sourceLabel = isJob ? `${c.jobId || 'Job'}` : 'Lead';
-    const sourceBg = isJob ? 'rgba(45,122,30,0.08)' : 'rgba(37,99,235,0.08)';
+    const sourceLabel = isJob ? `${c.jobId || 'JOB'}` : 'NEW LEAD';
+    const sourceBg = isJob ? 'rgba(45,122,30,0.12)' : 'rgba(37,99,235,0.14)';
     const sourceColor = isJob ? 'var(--gold)' : 'var(--blue)';
     const time = c.lastContact ? relTime(c.lastContact) : '';
     const statusBadge = c.status
-      ? `<span class="badge ${statusColor(c.status, c.source)}" style="font-size:9px">${c.status}</span>`
+      ? `<span class="badge ${statusColor(c.status, c.source)}" style="font-size:9px">${escapeHtml(c.status)}</span>`
+      : '';
+    // AI DRAFT badge: this thread has an outbound reply waiting owner approval
+    const draftBadge = c._hasPendingDraft
+      ? `<span style="background:rgba(212,165,90,0.18);color:var(--gold);font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.4px;border:1px solid rgba(212,165,90,0.35)">✎ AI DRAFT</span>`
       : '';
     const jobClick = isJob && c._row ? ` onclick="event.stopPropagation();closeModal('threadModal');navigate('jobs');setTimeout(()=>{const idx=allJobs.findIndex(j=>(j._row||j.id)===${c._row});if(idx>=0)showJobDetail(idx)},200)"` : '';
     return `
       <div class="conv-item" onclick="openThread(${i})">
         <div class="conv-avatar">${ini}</div>
         <div class="conv-body">
-          <div class="conv-name">${c.name || 'Unknown'}</div>
-          <div class="conv-meta">${c.project || c.email || ''} ${statusBadge}</div>
+          <div class="conv-name">${escapeHtml(c.name || 'Unknown')} ${draftBadge}</div>
+          <div class="conv-meta">${escapeHtml(c.project || c.email || '')} ${statusBadge}</div>
         </div>
         <div class="conv-right">
           <div class="conv-time">${time}</div>
-          <div class="conv-source" style="background:${sourceBg};color:${sourceColor};padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;cursor:${isJob?'pointer':'default'}"${jobClick}>${sourceLabel}</div>
+          <div class="conv-source" style="background:${sourceBg};color:${sourceColor};padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.3px;cursor:${isJob?'pointer':'default'}"${jobClick}>${sourceLabel}</div>
         </div>
       </div>`;
   }).join('');

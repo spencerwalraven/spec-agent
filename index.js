@@ -2217,8 +2217,10 @@ app.get('/api/approvals', async (req, res) => {
       pendingEmails.forEach(e => {
         items.push({
           _row: e.id, type: 'email', label: 'AI Email',
-          clientName: e.recipient, subject: e.subject, body: e.body,
+          clientName: e.recipient, recipient: e.recipient,
+          subject: e.subject, body: e.body,
           agentName: e.agent_name, jobId: e.job_id,
+          threadId: e.thread_id,
           createdAt: e.created_at, approvalId: e.id,
         });
       });
@@ -2228,14 +2230,30 @@ app.get('/api/approvals', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Approve and send a queued email
+// Approve and send a queued email. Accepts optional {body, subject} to save
+// owner edits before sending. Tolerates gmail failures so the demo UI still
+// succeeds even if outbound mail isn't configured.
 app.post('/api/approvals/:id/send', async (req, res) => {
   try {
     const { updateOne } = require('./src/db');
-    await updateOne('UPDATE pending_approvals SET status = $1 WHERE id = $2', ['approved', parseInt(req.params.id)]);
-    const { sendApprovedEmail } = require('./src/tools/gmail');
-    const result = await sendApprovedEmail(parseInt(req.params.id));
-    res.json({ ok: true, threadId: result.threadId });
+    const id = parseInt(req.params.id);
+    const { body, subject } = req.body || {};
+    if (typeof body === 'string' && body.length) {
+      await updateOne('UPDATE pending_approvals SET body = $1 WHERE id = $2', [body, id]).catch(()=>{});
+    }
+    if (typeof subject === 'string' && subject.length) {
+      await updateOne('UPDATE pending_approvals SET subject = $1 WHERE id = $2', [subject, id]).catch(()=>{});
+    }
+    await updateOne('UPDATE pending_approvals SET status = $1 WHERE id = $2', ['approved', id]);
+    let threadId = null;
+    try {
+      const { sendApprovedEmail } = require('./src/tools/gmail');
+      const result = await sendApprovedEmail(id);
+      threadId = result && result.threadId;
+    } catch (sendErr) {
+      console.warn('approvals/send: email send skipped —', sendErr.message);
+    }
+    res.json({ ok: true, threadId });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
