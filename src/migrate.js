@@ -625,6 +625,30 @@ async function migrate() {
   await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS referral_client_id INTEGER`);
   console.log('✅ leads: referral_client_id');
 
+  // ── Operations platform v2 features ──
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS engine_hours DECIMAL(10,2) DEFAULT 0`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS odometer_miles INTEGER DEFAULT 0`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS last_service_at TIMESTAMPTZ`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS next_service_hours DECIMAL(10,2)`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS next_service_miles INTEGER`);
+  await safeAlter(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS next_service_date DATE`);
+  console.log('✅ equipment maintenance columns');
+
+  // Commission rates per team member (in addition to hourly_rate)
+  await safeAlter(`ALTER TABLE team ADD COLUMN IF NOT EXISTS commission_pct DECIMAL(5,2) DEFAULT 0`);
+  console.log('✅ team: commission_pct');
+
+  // Referral auto-reward tracking
+  await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS referral_reward_sent BOOLEAN DEFAULT FALSE`);
+  await safeAlter(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS referral_reward_amount DECIMAL(10,2)`);
+  console.log('✅ leads: referral reward fields');
+
+  // Proposal view tracking
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_views INTEGER DEFAULT 0`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_first_viewed_at TIMESTAMPTZ`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_last_viewed_at TIMESTAMPTZ`);
+  console.log('✅ jobs: proposal view tracking columns');
+
   // ── Clients: referral count ──
   await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0`);
   console.log('✅ clients: referral_count');

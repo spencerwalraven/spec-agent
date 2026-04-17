@@ -306,6 +306,8 @@ async function loadTodayStrip() {
     if (!events.length && DEMO.todaySchedule) {
       events.push(...DEMO.todaySchedule);
     }
+    // Cache for route optimizer
+    _todayEvents = events;
     if (!events.length) {
       el.innerHTML = '<div class="cal-evt-empty">Nothing scheduled today</div>';
       return;
@@ -338,6 +340,127 @@ async function loadTodayStrip() {
   } catch (_) {
     el.innerHTML = '<div class="cal-evt-empty">No schedule data available</div>';
   }
+}
+
+/* ─── WEATHER WIDGET ────────────────────────────────────────────── */
+async function loadWeatherStrip() {
+  const el = document.getElementById('weatherStrip');
+  const locEl = document.getElementById('weatherLocation');
+  if (!el) return;
+
+  // SVG icon helpers (color coded for the badge)
+  const ICONS = {
+    'sun':       '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>',
+    'cloud-sun': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M5.22 5.22l1.42 1.42"/><path d="M20 12h2"/><path d="M15.97 9.27a5 5 0 0 0-5.47 0 5 5 0 0 0-7.5 4.26A5 5 0 0 0 8 18h10a4 4 0 0 0 0-8c-.55 0-1 .1-1.48.26-.46-.7-1.08-1.27-1.55-1.52z"/></svg>',
+    'cloud':     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>',
+    'rain':      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 13v8"/><path d="M8 13v8"/><path d="M12 15v8"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg>',
+    'snow':      '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01"/><path d="M8 20h.01"/><path d="M12 18h.01"/><path d="M12 22h.01"/><path d="M16 16h.01"/><path d="M16 20h.01"/></svg>',
+    'storm':     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/><polyline points="13 11 9 17 15 17 11 23"/></svg>',
+  };
+
+  try {
+    const res  = await fetch('/api/weather');
+    const data = await res.json();
+    if (!data.ok || !data.days?.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">' + (data.reason || 'No weather data') + '</div>';
+      return;
+    }
+
+    if (locEl) locEl.textContent = data.location ? data.location.split(',').slice(0, 2).join(',') : '';
+
+    el.innerHTML = data.days.map((d, i) => {
+      const date = new Date(d.date + 'T12:00:00');
+      const dayLabel = i === 0 ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' });
+      const warn = d.badForWork;
+      return `
+        <div style="flex:1;min-width:76px;text-align:center;padding:10px 6px;background:${warn ? 'rgba(239,68,68,0.06)' : 'var(--card)'};border:1px solid ${warn ? 'rgba(239,68,68,0.25)' : 'var(--border)'};border-radius:10px">
+          <div style="font-size:11px;font-weight:700;color:${warn ? 'var(--red)' : 'var(--text2)'};margin-bottom:4px">${dayLabel}${warn ? ' ⚠' : ''}</div>
+          <div style="display:flex;justify-content:center;margin-bottom:4px">${ICONS[d.icon] || ICONS.cloud}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${d.high}°<span style="font-weight:400;color:var(--text3);font-size:11px"> / ${d.low}°</span></div>
+          ${d.precip > 20 ? '<div style="font-size:10px;color:var(--blue);margin-top:2px;font-weight:600">' + d.precip + '% rain</div>' : ''}
+        </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">Weather unavailable</div>';
+  }
+}
+
+/* ─── ROUTE OPTIMIZATION ────────────────────────────────────────── */
+let _todayEvents = [];
+
+async function optimizeTodayRoute() {
+  const btn = document.getElementById('optimizeRouteBtn');
+  const summary = document.getElementById('routeOptimizedSummary');
+  const el = document.getElementById('todayEvents');
+  if (!el) return;
+
+  // Use the currently loaded events (from loadTodayStrip)
+  const events = _todayEvents && _todayEvents.length ? _todayEvents : [];
+  if (events.length < 2) {
+    toast('Need at least 2 stops with addresses to optimize');
+    return;
+  }
+
+  const companyAddress = (window._companySettings && window._companySettings.address) || '';
+
+  if (btn) { btn.textContent = 'Optimizing…'; btn.disabled = true; }
+
+  try {
+    const res = await fetch('/api/schedule/optimize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events, startAddress: companyAddress }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Optimize failed');
+
+    // Re-render the today strip in optimized order
+    _todayEvents = data.events;
+    renderTodayEvents(data.events);
+
+    // Show summary box
+    if (summary) {
+      summary.style.display = 'block';
+      summary.innerHTML = data.savedMiles > 0
+        ? `<strong>Route optimized!</strong> ${data.message} · ${data.totalMiles} mi total (was ${data.originalMiles} mi)`
+        : `<strong>Route already near-optimal.</strong> ${data.totalMiles} mi total.`;
+    }
+
+    toast(data.savedMiles > 0 ? `Saved ${data.savedMinutes} min of driving` : 'Already optimal');
+  } catch (e) {
+    toast('Could not optimize: ' + e.message, 3000);
+  } finally {
+    if (btn) { btn.textContent = 'Optimize Route'; btn.disabled = false; }
+  }
+}
+
+function renderTodayEvents(events) {
+  const el = document.getElementById('todayEvents');
+  if (!el) return;
+  const GC_COLORS = {
+    '1':'#e53935','2':'#43a047','3':'#7986cb','4':'#e91e63',
+    '5':'#f4511e','6':'#f6bf26','7':'#039be5','8':'#616161',
+    '9':'#3f51b5','10':'#0b8043','11':'#d50000',
+  };
+  const SOURCE_COLORS = { lead: '#0b8043', job: '#e53935', calendar: '#039be5' };
+  el.innerHTML = events.slice(0, 6).map((e, idx) => {
+    const d = new Date(e.start);
+    const allDay  = !e.start.includes('T');
+    const timeStr = allDay ? 'All Day' : d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const color   = SOURCE_COLORS[e.source] || GC_COLORS[e.color] || '#039be5';
+    const title   = e.title || 'Untitled';
+    const tag     = e.source === 'lead' ? 'Consult' : e.source === 'job' ? 'Job Start' : '';
+    const onclick = e.link ? 'window.open(this.dataset.link,\'_blank\')' : 'navigate(\'schedule\')';
+    const stopBadge = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(45,122,30,0.12);color:var(--gold);font-size:10px;font-weight:800;margin-right:6px">${idx+1}</span>`;
+    return `
+      <div class="cal-evt" onclick="${onclick}" data-link="${e.link || ''}" style="cursor:pointer">
+        <div class="cal-evt-time">${stopBadge}${timeStr}</div>
+        <div class="cal-evt-bar" style="background:${color}"></div>
+        <div class="cal-evt-title">${title}</div>
+        ${tag ? '<div class="cal-evt-tag">' + tag + '</div>' : ''}
+      </div>`;
+  }).join('');
 }
 
 /* ─── DASHBOARD RENDERERS ───────────────────────────────────────── */
@@ -806,6 +929,8 @@ async function loadDashboard() {
   // Load recurring services + QB invoices for dashboard
   loadDashRecurring();
   loadDashQBInvoices();
+  // Load 5-day weather strip (free, no API key)
+  loadWeatherStrip();
 }
 
 async function loadDashInvoices() {

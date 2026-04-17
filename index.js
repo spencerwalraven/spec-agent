@@ -1554,17 +1554,364 @@ app.post('/api/marketing/:row/launch', async (req, res) => {
 });
 
 // ─── API: REVIEW REQUESTS ────────────────────────────────────────────────────
-app.post('/api/jobs/:id/request-review', async (req, res) => {
+// Marks review as requested AND actually fires the SMS with a Google review link.
+// Falls back to email if no phone number on file.
+app.post('/api/jobs/:id/request-review', requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-    const { updateOne } = require('./src/db');
+
+    // Get job + client + settings
+    const { getOne, updateOne, query: dbQ } = require('./src/db');
+    const job = await getOne(
+      `SELECT j.*, c.name AS client_name, c.email AS client_email, c.phone AS client_phone
+       FROM jobs j LEFT JOIN clients c ON j.client_id = c.id
+       WHERE j.id = $1 AND j.company_id = $2`,
+      [id, COMPANY_ID]
+    );
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const settings    = await dbSettings.readSettings();
+    const companyName = settings.companyName || 'Our Team';
+    const reviewLink  = settings.googleReviewLink || '';
+    const firstName   = (job.client_name || 'there').split(' ')[0];
+
+    if (!reviewLink) {
+      return res.status(400).json({ error: 'Google Review Link not set in Settings' });
+    }
+
+    const smsMsg = `Hey ${firstName}! Thanks for choosing ${companyName} for your ${job.service || 'project'}. If we did a great job, would you mind leaving us a quick Google review? It really helps. ${reviewLink}`;
+
+    let channel = null;
+    let result  = null;
+
+    // Prefer SMS (90%+ open rate)
+    if (job.client_phone) {
+      try {
+        const sms = require('./src/tools/sms');
+        await sms.sendSms(job.client_phone, smsMsg);
+        // Log to conversations
+        await dbQ(
+          `INSERT INTO conversations (company_id, client_id, contact_name, contact_phone, direction, channel, body, status) VALUES ($1,$2,$3,$4,'outbound','sms',$5,'sent')`,
+          [COMPANY_ID, job.client_id, job.client_name, job.client_phone, smsMsg]
+        ).catch(() => {});
+        channel = 'sms';
+        result  = 'SMS sent to ' + job.client_phone;
+      } catch (smsErr) {
+        logger.warn('ReviewRequest', `SMS failed: ${smsErr.message}`);
+      }
+    }
+
+    // Fallback to email
+    if (!channel && job.client_email) {
+      try {
+        const { sendEmail } = require('./src/tools/gmail');
+        await sendEmail({
+          to: job.client_email,
+          subject: `Would you leave us a Google review?`,
+          body: smsMsg,
+          html: `<p>Hey ${firstName},</p><p>Thanks for choosing ${companyName} for your ${job.service || 'project'}. If we did a great job, would you mind leaving us a quick Google review? It really helps small businesses like ours.</p><p><a href="${reviewLink}" style="background:#2D7A1E;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;margin-top:10px">Leave a Review</a></p><p>Thanks again!<br>— ${settings.ownerName || companyName}</p>`,
+        });
+        channel = 'email';
+        result  = 'Email sent to ' + job.client_email;
+      } catch (emailErr) {
+        logger.warn('ReviewRequest', `Email failed: ${emailErr.message}`);
+      }
+    }
+
+    if (!channel) {
+      return res.status(400).json({ error: 'No phone or email on file for this client' });
+    }
+
+    // Mark review as requested
     await updateOne(
       `UPDATE jobs SET review_requested = true, review_requested_at = NOW() WHERE id = $1 AND company_id = $2`,
-      [id, 1]
+      [id, COMPANY_ID]
     );
-    res.json({ success: true });
+
+    // Log activity
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id) VALUES ($1,'ClientAgent','review_request',$2,'job',$3)`,
+      [COMPANY_ID, `Review request ${channel} sent to ${job.client_name}`, id]
+    ).catch(() => {});
+
+    res.json({ success: true, channel, message: result });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── API: TEXT-TO-PAY ────────────────────────────────────────────────────────
+// Sends a payment link via SMS for a given invoice. Uses existing Stripe +
+// Twilio. Client taps link → Apple/Google Pay → done.
+app.post('/api/invoices/:id/text-to-pay', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const { getOne, query: dbQ } = require('./src/db');
+    const inv = await getOne(
+      `SELECT i.*, c.name AS client_name, c.phone AS client_phone, j.job_ref
+       FROM invoices i
+       LEFT JOIN jobs j ON i.job_id = j.id
+       LEFT JOIN clients c ON j.client_id = c.id
+       WHERE i.id = $1 AND i.company_id = $2`,
+      [id, COMPANY_ID]
+    );
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+    if (!inv.client_phone) return res.status(400).json({ error: 'No phone number on file for this client' });
+
+    const settings   = await dbSettings.readSettings();
+    const companyName = settings.companyName || 'Us';
+    const firstName  = (inv.client_name || 'there').split(' ')[0];
+    const amount     = inv.amount ? '$' + Number(inv.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+    const invoiceType = (inv.invoice_type || 'invoice').toLowerCase();
+
+    // Build payment link — prefer Stripe if available
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : (process.env.APP_URL || 'https://your-app.railway.app');
+    const payUrl = inv.stripe_payment_link || `${baseUrl}/pay?invoice=${id}`;
+
+    const msg = `Hi ${firstName} — your ${invoiceType} from ${companyName}${amount ? ' for ' + amount : ''} is ready. Pay securely here: ${payUrl}${inv.job_ref ? ' (' + inv.job_ref + ')' : ''}`;
+
+    const sms = require('./src/tools/sms');
+    await sms.sendSms(inv.client_phone, msg);
+
+    // Log conversation + activity
+    await dbQ(
+      `INSERT INTO conversations (company_id, contact_name, contact_phone, direction, channel, body, status) VALUES ($1,$2,$3,'outbound','sms',$4,'sent')`,
+      [COMPANY_ID, inv.client_name, inv.client_phone, msg]
+    ).catch(() => {});
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id) VALUES ($1,'PaymentAgent','text_to_pay',$2,'invoice',$3)`,
+      [COMPANY_ID, `Text-to-pay link sent to ${inv.client_name} (${amount})`, id]
+    ).catch(() => {});
+
+    // Mark invoice as sent if not already
+    if (inv.status === 'draft' || !inv.sent_at) {
+      await dbQ(`UPDATE invoices SET status = 'sent', sent_at = NOW() WHERE id = $1`, [id]).catch(() => {});
+    }
+
+    res.json({ success: true, phone: inv.client_phone, amount, payUrl });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── COMMISSION TRACKING ─────────────────────────────────────────────────────
+// GET /api/team/:id/commissions — returns commission owed per job completed
+app.get('/api/team/:id/commissions', requireAuth, async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.id);
+    if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid id' });
+
+    const { getOne, getAll } = require('./src/db');
+    const member = await getOne('SELECT * FROM team WHERE id = $1 AND company_id = $2', [teamId, COMPANY_ID]);
+    if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+    const commissionPct = parseFloat(member.commission_pct) || 0;
+
+    // Find all jobs where this team member has a completed phase
+    const phases = await getAll(
+      `SELECT jp.*, j.id AS job_id, j.job_ref, j.title, j.estimated_value, j.actual_value, j.status AS job_status
+       FROM job_phases jp
+       LEFT JOIN jobs j ON jp.job_id = j.id
+       WHERE jp.assigned_to = $1 AND j.company_id = $2 AND jp.status = 'completed'
+       ORDER BY jp.completed_at DESC`,
+      [member.name, COMPANY_ID]
+    );
+
+    // Group by job
+    const byJob = {};
+    phases.forEach(p => {
+      if (!byJob[p.job_id]) {
+        byJob[p.job_id] = {
+          jobId: p.job_id, jobRef: p.job_ref, jobTitle: p.title,
+          jobValue: parseFloat(p.actual_value || p.estimated_value) || 0,
+          jobStatus: p.job_status,
+          phasesCompleted: 0, phaseValue: 0,
+        };
+      }
+      byJob[p.job_id].phasesCompleted++;
+      byJob[p.job_id].phaseValue += parseFloat(p.estimated_cost) || 0;
+    });
+
+    // Calculate commission: commission_pct of the phase value (or job value if per-job commission)
+    const commissions = Object.values(byJob).map(j => ({
+      ...j,
+      commissionAmount: Math.round((j.phaseValue * commissionPct / 100) * 100) / 100,
+    }));
+
+    const totalOwed = commissions.reduce((sum, c) => sum + c.commissionAmount, 0);
+
+    res.json({
+      memberName: member.name, commissionPct,
+      totalOwed: Math.round(totalOwed * 100) / 100,
+      jobCount: commissions.length,
+      jobs: commissions,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── EQUIPMENT MAINTENANCE ───────────────────────────────────────────────────
+// GET /api/equipment/maintenance-alerts — returns equipment needing service soon
+app.get('/api/equipment/maintenance-alerts', requireAuth, async (req, res) => {
+  try {
+    const { getAll } = require('./src/db');
+    const rows = await getAll(
+      `SELECT * FROM equipment WHERE company_id = $1 ORDER BY name`,
+      [COMPANY_ID]
+    );
+    const alerts = rows.map(e => {
+      const hoursOver  = e.next_service_hours && e.engine_hours >= e.next_service_hours;
+      const milesOver  = e.next_service_miles && e.odometer_miles >= e.next_service_miles;
+      const dateOver   = e.next_service_date && new Date(e.next_service_date) <= new Date();
+      const hoursClose = e.next_service_hours && e.engine_hours >= e.next_service_hours * 0.9;
+      const milesClose = e.next_service_miles && e.odometer_miles >= e.next_service_miles * 0.9;
+      const needsService = hoursOver || milesOver || dateOver;
+      const upcomingService = !needsService && (hoursClose || milesClose);
+      return {
+        id: e.id, name: e.name, type: e.type,
+        engineHours: e.engine_hours, odometerMiles: e.odometer_miles,
+        nextServiceHours: e.next_service_hours, nextServiceMiles: e.next_service_miles,
+        nextServiceDate: e.next_service_date,
+        lastServiceAt: e.last_service_at,
+        status: needsService ? 'overdue' : upcomingService ? 'due-soon' : 'ok',
+        message: hoursOver ? `${e.engine_hours}hrs — service overdue`
+               : milesOver ? `${e.odometer_miles}mi — service overdue`
+               : dateOver ? `Service date ${new Date(e.next_service_date).toLocaleDateString()} passed`
+               : hoursClose ? `${e.next_service_hours - e.engine_hours}hrs until service`
+               : milesClose ? `${e.next_service_miles - e.odometer_miles}mi until service`
+               : '',
+      };
+    });
+    const overdue    = alerts.filter(a => a.status === 'overdue');
+    const dueSoon    = alerts.filter(a => a.status === 'due-soon');
+    res.json({ alerts, overdue, dueSoon, totalCount: alerts.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/equipment/:id/log-service — record that service was done
+app.post('/api/equipment/:id/log-service', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { nextServiceHours, nextServiceMiles, nextServiceDate } = req.body;
+    const { query: dbQ } = require('./src/db');
+    await dbQ(
+      `UPDATE equipment SET last_service_at = NOW(),
+         next_service_hours = $1, next_service_miles = $2, next_service_date = $3,
+         updated_at = NOW()
+       WHERE id = $4 AND company_id = $5`,
+      [nextServiceHours || null, nextServiceMiles || null, nextServiceDate || null, id, COMPANY_ID]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── REFERRAL AUTO-REWARDS ───────────────────────────────────────────────────
+// Called when a lead's deposit is marked paid.
+// Checks: did this lead come from a referral? If yes, and reward not sent,
+// auto-send thank-you + credit code to the referring client.
+async function checkAndSendReferralReward(leadOrJobId, entityType = 'lead') {
+  try {
+    const { getOne, query: dbQ } = require('./src/db');
+    const settings = await dbSettings.readSettings();
+    const companyName = settings.companyName || 'Our Team';
+    const rewardAmount = parseFloat(process.env.REFERRAL_REWARD_AMOUNT || 200);
+
+    // Look up the lead (or via job → lead relation — keep simple: direct lead)
+    const lead = entityType === 'lead'
+      ? await getOne('SELECT * FROM leads WHERE id = $1 AND company_id = $2', [leadOrJobId, COMPANY_ID])
+      : await getOne(
+          `SELECT l.* FROM leads l
+           INNER JOIN jobs j ON j.lead_id = l.id
+           WHERE j.id = $1 AND l.company_id = $2`,
+          [leadOrJobId, COMPANY_ID]
+        ).catch(() => null);
+
+    if (!lead || !lead.referral_client_id || lead.referral_reward_sent) return;
+
+    // Look up the referring client
+    const referrer = await getOne(
+      'SELECT * FROM clients WHERE id = $1 AND company_id = $2',
+      [lead.referral_client_id, COMPANY_ID]
+    );
+    if (!referrer) return;
+
+    const firstName = (referrer.name || 'there').split(' ')[0];
+    const msg = `Hi ${firstName} — thanks for referring ${lead.name} to ${companyName}! As a thank-you, we're crediting your account with $${rewardAmount} toward your next service. No code needed — we'll apply it automatically. You're the best!`;
+
+    // Try SMS first, email fallback
+    if (referrer.phone) {
+      try {
+        const sms = require('./src/tools/sms');
+        await sms.sendSms(referrer.phone, msg);
+      } catch (_) {
+        if (referrer.email) {
+          const { sendEmail } = require('./src/tools/gmail');
+          await sendEmail({ to: referrer.email, subject: `Thank you for the referral — $${rewardAmount} credit`, body: msg }).catch(() => {});
+        }
+      }
+    } else if (referrer.email) {
+      const { sendEmail } = require('./src/tools/gmail');
+      await sendEmail({ to: referrer.email, subject: `Thank you for the referral — $${rewardAmount} credit`, body: msg }).catch(() => {});
+    }
+
+    // Mark reward as sent
+    await dbQ(
+      `UPDATE leads SET referral_reward_sent = true, referral_reward_amount = $1 WHERE id = $2`,
+      [rewardAmount, lead.id]
+    );
+
+    // Log activity
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id) VALUES ($1,'MarketingAgent','referral_reward',$2,'client',$3)`,
+      [COMPANY_ID, `Sent $${rewardAmount} referral reward to ${referrer.name} (referred ${lead.name})`, referrer.id]
+    ).catch(() => {});
+
+    logger.success('ReferralReward', `Sent $${rewardAmount} credit to ${referrer.name}`);
+  } catch (e) {
+    logger.warn('ReferralReward', `Skipped: ${e.message}`);
+  }
+}
+
+// POST /api/referral/check/:leadId — manually trigger referral reward check
+app.post('/api/referral/check/:leadId', requireAuth, async (req, res) => {
+  await checkAndSendReferralReward(parseInt(req.params.leadId), 'lead');
+  res.json({ ok: true });
+});
+
+// ─── PROPOSAL VIEW TRACKING ──────────────────────────────────────────────────
+// GET /proposal-view/:jobId — tracking pixel wrapper. Client visits Google Doc,
+// but we redirect them through this URL first to count the open.
+app.get('/proposal-view/:jobId', async (req, res) => {
+  try {
+    const id = parseInt(req.params.jobId);
+    if (isNaN(id)) return res.redirect('/');
+
+    const { getOne, query: dbQ } = require('./src/db');
+    const job = await getOne('SELECT proposal_link FROM jobs WHERE id = $1 AND company_id = $2', [id, COMPANY_ID]);
+
+    // Increment view counter
+    await dbQ(
+      `UPDATE jobs SET
+         proposal_views = COALESCE(proposal_views, 0) + 1,
+         proposal_first_viewed_at = COALESCE(proposal_first_viewed_at, NOW()),
+         proposal_last_viewed_at = NOW()
+       WHERE id = $1`,
+      [id]
+    ).catch(() => {});
+
+    // Log activity so the owner sees it on the feed
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id) VALUES ($1,'JobAgent','proposal_viewed','Client viewed proposal','job',$2)`,
+      [COMPANY_ID, id]
+    ).catch(() => {});
+
+    // Redirect to the actual Google Doc
+    if (job?.proposal_link) return res.redirect(job.proposal_link);
+    res.redirect('/');
+  } catch (e) {
+    res.redirect('/');
+  }
 });
 
 // ─── API: CHECKLISTS ─────────────────────────────────────────────────────────
@@ -2922,6 +3269,162 @@ app.get('/api/schedule/today', async (req, res) => {
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
     res.json(events);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── WEATHER FORECAST ───────────────────────────────────────────────────────
+// Returns a 5-day forecast for the company's primary address.
+// Uses Open-Meteo (free, no API key required). Graceful fallback if offline.
+app.get('/api/weather', async (req, res) => {
+  try {
+    const s = await dbSettings.readSettings();
+    const address = (req.query.address || s.address || '').trim();
+    if (!address) return res.json({ ok: false, reason: 'No company address set in Settings' });
+
+    // Geocode (shares cache with route optimizer)
+    const coords = await geocodeAddress(address);
+    if (!coords) return res.json({ ok: false, reason: 'Could not geocode address' });
+
+    // Open-Meteo: free, no API key
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=5`;
+    const apiRes = await fetch(url);
+    if (!apiRes.ok) return res.json({ ok: false, reason: 'Weather API unavailable' });
+    const data = await apiRes.json();
+
+    // WMO weather code → label + emoji-free icon name
+    const codeMap = {
+      0: ['Clear', 'sun'], 1: ['Mostly clear', 'sun'], 2: ['Partly cloudy', 'cloud-sun'], 3: ['Overcast', 'cloud'],
+      45: ['Fog', 'cloud'], 48: ['Fog', 'cloud'],
+      51: ['Drizzle', 'rain'], 53: ['Drizzle', 'rain'], 55: ['Drizzle', 'rain'],
+      61: ['Rain', 'rain'], 63: ['Rain', 'rain'], 65: ['Heavy rain', 'rain'],
+      71: ['Snow', 'snow'], 73: ['Snow', 'snow'], 75: ['Heavy snow', 'snow'],
+      80: ['Showers', 'rain'], 81: ['Showers', 'rain'], 82: ['Heavy showers', 'rain'],
+      95: ['Thunderstorm', 'storm'], 96: ['Thunderstorm', 'storm'], 99: ['Thunderstorm', 'storm'],
+    };
+
+    const days = (data.daily?.time || []).map((date, i) => {
+      const code = data.daily.weather_code[i];
+      const [label, icon] = codeMap[code] || ['Unknown', 'cloud'];
+      const high = Math.round(data.daily.temperature_2m_max[i]);
+      const low  = Math.round(data.daily.temperature_2m_min[i]);
+      const precip = data.daily.precipitation_probability_max[i] ?? 0;
+      const wind = Math.round(data.daily.wind_speed_10m_max[i] || 0);
+      const badForWork = code >= 61 || wind > 25; // rain/storm/snow or high wind
+      return { date, label, icon, high, low, precip, wind, badForWork };
+    });
+
+    res.json({ ok: true, location: address, days });
+  } catch (e) { res.json({ ok: false, reason: e.message }); }
+});
+
+// ─── ROUTE OPTIMIZATION ─────────────────────────────────────────────────────
+// Greedy nearest-neighbor TSP using Google Maps Geocoding cache + Haversine.
+// POST /api/schedule/optimize  { events: [{title,location,start,...}] }
+// Returns events re-sequenced for minimum total drive distance.
+// Also returns total miles and estimated drive time saved vs naive time-order.
+const _geocodeCache = new Map();
+
+async function geocodeAddress(address) {
+  if (!address || !address.trim()) return null;
+  const key = address.trim().toLowerCase();
+  if (_geocodeCache.has(key)) return _geocodeCache.get(key);
+
+  // Use OpenStreetMap Nominatim (free, no key required) with graceful fallback
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+      { headers: { 'User-Agent': 'SPEC-Agent-CRM/1.0' } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return null;
+    const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    _geocodeCache.set(key, coords);
+    return coords;
+  } catch (_) {
+    return null;
+  }
+}
+
+function haversineMiles(a, b) {
+  if (!a || !b) return 9999;
+  const R = 3958.8; // Earth radius in miles
+  const toRad = d => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+app.post('/api/schedule/optimize', requireAuth, async (req, res) => {
+  try {
+    const { events, startAddress } = req.body || {};
+    if (!Array.isArray(events) || events.length < 2) {
+      return res.json({ events: events || [], totalMiles: 0, savedMiles: 0, note: 'Not enough stops to optimize' });
+    }
+
+    // Geocode everything (origin + all event locations)
+    const origin = await geocodeAddress(startAddress || '');
+    const geocoded = await Promise.all(events.map(async (e) => ({
+      ...e,
+      coords: e.location ? await geocodeAddress(e.location) : null,
+    })));
+
+    // Compute miles for the ORIGINAL sequence (as delivered — sorted by time)
+    const sequenceMiles = (seq) => {
+      let total = 0;
+      let prev = origin;
+      for (const ev of seq) {
+        if (ev.coords && prev) total += haversineMiles(prev, ev.coords);
+        prev = ev.coords || prev;
+      }
+      return total;
+    };
+    const originalMiles = sequenceMiles(geocoded);
+
+    // Greedy nearest-neighbor starting from origin (or first event if no origin)
+    const unvisited = geocoded.filter(e => e.coords); // skip events without addresses
+    const unplaceable = geocoded.filter(e => !e.coords);
+    const optimized = [];
+    let cursor = origin || (unvisited[0] && unvisited[0].coords);
+
+    while (unvisited.length) {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < unvisited.length; i++) {
+        const d = haversineMiles(cursor, unvisited[i].coords);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      const next = unvisited.splice(bestIdx, 1)[0];
+      optimized.push(next);
+      cursor = next.coords;
+    }
+
+    // Append events we couldn't geocode at the end (preserve original time order)
+    optimized.push(...unplaceable);
+
+    const optimizedMiles = sequenceMiles(optimized);
+    const savedMiles     = Math.max(0, originalMiles - optimizedMiles);
+    // Estimate: 30 mph average urban/suburban = 2 min per mile
+    const savedMinutes   = Math.round(savedMiles * 2);
+
+    // Strip internal coords before returning
+    const cleaned = optimized.map(({ coords, ...rest }) => rest);
+    res.json({
+      events: cleaned,
+      totalMiles: Math.round(optimizedMiles * 10) / 10,
+      originalMiles: Math.round(originalMiles * 10) / 10,
+      savedMiles: Math.round(savedMiles * 10) / 10,
+      savedMinutes,
+      skippedCount: unplaceable.length,
+      message: savedMiles > 0
+        ? `Saved ~${Math.round(savedMiles * 10) / 10} miles and ~${savedMinutes} min of driving`
+        : 'Current sequence is already near-optimal',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── API: INVENTORY / JOB MATERIALS ──────────────────────────────────────────
