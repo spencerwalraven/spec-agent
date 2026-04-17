@@ -2698,8 +2698,13 @@ async function triggerDocGen(eventType, rowNumber) {
       return;
     }
 
-    // AI agent path (no template configured) — poll for the link every 5 sec
-    toastSuccess('AI agent working — doc will appear in ~60 seconds');
+    // AI agent path — template either not configured OR template permission issue.
+    // Surface the reason so Spencer knows to share the template publicly.
+    if (data.templateReason && /File not found|not accessible|permission/i.test(data.templateReason)) {
+      toastError('Template Drive permissions issue — share the template "Anyone with link". Falling back to AI for now.', 6000);
+    } else {
+      toastSuccess('AI agent working — doc will appear in ~60 seconds');
+    }
     if (btn) btn.textContent = 'Working…';
     pollForDocLink(savedRow, docType, btn, 0);
   } catch (err) {
