@@ -189,8 +189,10 @@ app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, re
   }
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// 25MB limit — photos are uploaded as base64, easily 2-5MB per phone photo.
+// Default is 100kb which rejects real-world photo uploads with a 413 HTML error.
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: false, limit: '25mb' }));
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 const COOKIE_NAME = 'spec_auth';
@@ -937,20 +939,57 @@ app.post('/api/admin/setup-demo', requireAuth, requireOwner, async (req, res) =>
       return res.status(500).json({ ok: false, steps, error: 'Seed failed: ' + sErr.message });
     }
 
-    // 3. Kickoff template — only if not already in settings
+    // 3. Templates — verify each template ID is accessible by Railway's Google auth.
+    // If ANY fail a copy-test (e.g. SPEC Sheets templates in someone else's Drive),
+    // auto-create a server-owned replica so the template system works reliably.
     try {
-      const settings = await dbSettings.readSettings();
-      if (settings.kickoffTemplateId) {
-        steps.kickoff = 'already-configured: ' + settings.kickoffTemplateId;
+      const settings   = await dbSettings.readSettings();
+      const { createAllTemplates } = require('./scripts/create-all-templates');
+
+      // Test template accessibility by trying a cheap metadata read
+      const { google } = require('googleapis');
+      const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
+      auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+      const drive = google.drive({ version: 'v3', auth });
+
+      const testAccess = async (id) => {
+        if (!id) return false;
+        try { await drive.files.get({ fileId: id, fields: 'id' }); return true; }
+        catch (_) { return false; }
+      };
+
+      const accessibility = {
+        proposal: await testAccess(settings.proposalTemplateId),
+        estimate: await testAccess(settings.estimateTemplateId),
+        contract: await testAccess(settings.contractTemplateId),
+        kickoff:  await testAccess(settings.kickoffTemplateId),
+      };
+
+      const missing = Object.entries(accessibility).filter(([_, ok]) => !ok).map(([type]) => type);
+
+      if (missing.length === 0) {
+        steps.kickoff = 'all-templates-accessible';
       } else {
-        const { createKickoffTemplate } = require('./scripts/create-kickoff-template');
-        const result = await createKickoffTemplate();
-        if (result?.docId) {
-          await dbSettings.writeSettings({ ...settings, kickoffTemplateId: result.docId });
-          steps.kickoff = 'created: ' + result.docUrl;
-        } else {
-          steps.kickoff = 'no-id-returned';
+        // Create fresh server-owned templates for any that aren't accessible
+        const created = {};
+        for (const type of missing) {
+          try {
+            const r = await createAllTemplates(type);
+            if (r[type]?.docId) created[type] = r[type].docId;
+          } catch (e) {
+            console.warn(`Could not create ${type} template:`, e.message);
+          }
         }
+
+        // Update settings with the new IDs
+        const updates = { ...settings };
+        if (created.proposal) updates.proposalTemplateId = created.proposal;
+        if (created.estimate) updates.estimateTemplateId = created.estimate;
+        if (created.contract) updates.contractTemplateId = created.contract;
+        if (created.kickoff)  updates.kickoffTemplateId  = created.kickoff;
+        await dbSettings.writeSettings(updates);
+
+        steps.kickoff = `created ${Object.keys(created).length} of ${missing.length} missing templates: ` + Object.keys(created).join(', ');
       }
     } catch (kErr) {
       steps.kickoff = 'failed: ' + kErr.message;
