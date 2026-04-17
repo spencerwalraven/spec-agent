@@ -822,6 +822,59 @@ app.post('/api/leads/:row/note', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── ADMIN: One-click demo setup (runs seed + creates kickoff template) ──────
+// POST /api/admin/setup-demo
+// Drops all data for company_id=1, reloads fresh Landcare demo data,
+// creates a kickoff template Google Doc in Drive, and saves the ID to settings.
+// Owner-only. Returns the kickoff template URL on success.
+app.post('/api/admin/setup-demo', requireOwner, async (req, res) => {
+  const steps = { migrate: null, seed: null, kickoff: null };
+  try {
+    // 1. Migrate (idempotent — only runs missing ALTER statements)
+    try {
+      const { execSync } = require('child_process');
+      execSync('node src/migrate.js', { stdio: 'pipe', timeout: 60_000 });
+      steps.migrate = 'ok';
+    } catch (mErr) {
+      steps.migrate = 'skipped: ' + (mErr.message || '').slice(0, 200);
+    }
+
+    // 2. Seed (drops + reloads company_id=1 data)
+    try {
+      const { seed } = require('./src/seed');
+      await seed();
+      steps.seed = 'ok';
+    } catch (sErr) {
+      steps.seed = 'failed: ' + sErr.message;
+      return res.status(500).json({ ok: false, steps, error: 'Seed failed: ' + sErr.message });
+    }
+
+    // 3. Kickoff template — only if not already in settings
+    try {
+      const settings = await dbSettings.readSettings();
+      if (settings.kickoffTemplateId) {
+        steps.kickoff = 'already-configured: ' + settings.kickoffTemplateId;
+      } else {
+        const { createKickoffTemplate } = require('./scripts/create-kickoff-template');
+        const result = await createKickoffTemplate();
+        if (result?.docId) {
+          await dbSettings.writeSettings({ ...settings, kickoffTemplateId: result.docId });
+          steps.kickoff = 'created: ' + result.docUrl;
+        } else {
+          steps.kickoff = 'no-id-returned';
+        }
+      }
+    } catch (kErr) {
+      steps.kickoff = 'failed: ' + kErr.message;
+      // Non-fatal — seed is done, demo will still work
+    }
+
+    res.json({ ok: true, steps, message: 'Demo setup complete. Refresh the page to see the data.' });
+  } catch (e) {
+    res.status(500).json({ ok: false, steps, error: e.message });
+  }
+});
+
 // Generic lead field update (used by referral source dropdown, etc.)
 app.post('/api/leads/:row', requireAuth, async (req, res) => {
   try {

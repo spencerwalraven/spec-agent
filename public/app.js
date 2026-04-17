@@ -3909,6 +3909,39 @@ async function loadSettings() {
   }
 }
 
+async function runSetupDemo() {
+  const btn    = document.getElementById('btnSetupDemo');
+  const status = document.getElementById('setupDemoStatus');
+  if (!confirm('This will wipe all current company data and reload the LandCare Unlimited demo dataset.\n\nRun this before the LCU demo? Takes about 30 seconds.')) return;
+
+  if (btn)    { btn.textContent = 'Setting up demo…'; btn.disabled = true; }
+  if (status) { status.style.display = 'block'; status.innerHTML = '<span style="color:var(--text2)">Running migrations…</span>'; }
+
+  try {
+    const res  = await fetch('/api/admin/setup-demo', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Setup failed');
+
+    // Show per-step results
+    const steps = data.steps || {};
+    status.innerHTML = `
+      <div style="font-weight:700;color:var(--green);margin-bottom:6px">Demo setup complete!</div>
+      <div style="font-family:monospace;font-size:11px;line-height:1.7">
+        <div>1. Migrations: <strong>${steps.migrate || 'n/a'}</strong></div>
+        <div>2. Seed data: <strong>${steps.seed || 'n/a'}</strong></div>
+        <div>3. Kickoff template: <strong>${(steps.kickoff || 'n/a').substring(0, 100)}</strong></div>
+      </div>
+      <div style="margin-top:10px;color:var(--text2)">Reloading in 3 seconds so you see the fresh data…</div>
+    `;
+    if (btn) btn.textContent = 'Done — reloading…';
+    setTimeout(() => window.location.reload(), 3000);
+  } catch (e) {
+    status.innerHTML = `<div style="color:var(--red);font-weight:700">Failed:</div><div style="margin-top:4px">${e.message}</div>`;
+    if (btn) { btn.textContent = 'Set Up Demo (LandCare Unlimited)'; btn.disabled = false; }
+  }
+}
+
 async function saveSettings() {
   const get = id => document.getElementById(id)?.value || '';
 

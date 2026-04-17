@@ -510,10 +510,17 @@ async function seed() {
   console.log('✅ Recurring Services (3 active)');
 
   console.log('\n🎉 Seed complete! Database loaded with Landcare Unlimited demo data.');
-  await pool.end();
 }
 
-seed().catch(err => {
-  console.error('❌ Seed failed:', err.message);
-  process.exit(1);
-});
+// Export for programmatic use (e.g. admin setup endpoint)
+module.exports = { seed };
+
+// When run directly from CLI, execute + close pool
+if (require.main === module) {
+  seed()
+    .then(() => pool.end())
+    .catch(err => {
+      console.error('❌ Seed failed:', err.message);
+      process.exit(1);
+    });
+}

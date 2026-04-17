@@ -296,9 +296,17 @@ async function main() {
   console.log('');
   console.log('NEXT: Paste that Doc ID into Settings → Kickoff Template ID.');
   console.log('═══════════════════════════════════════════════════════════════');
+
+  return { docId, docUrl: `https://docs.google.com/document/d/${docId}/edit` };
 }
 
-main().catch(err => {
-  console.error('Failed:', err.message);
-  process.exit(1);
-});
+// Export for reuse in the admin endpoint (so it can run without CLI)
+module.exports = { createKickoffTemplate: main };
+
+// When run directly from CLI, also execute
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Failed:', err.message);
+    process.exit(1);
+  });
+}
