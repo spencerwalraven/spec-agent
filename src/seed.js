@@ -19,6 +19,9 @@ async function seed() {
   await query(`DELETE FROM time_clock         WHERE company_id = 1`);
   await query(`DELETE FROM tasks              WHERE company_id = 1`);
   await query(`DELETE FROM activity_log       WHERE company_id = 1`);
+  // Must delete change_orders + photos BEFORE jobs (FK constraint)
+  await query(`DELETE FROM change_orders      WHERE company_id = 1`).catch(() => {});
+  await query(`DELETE FROM photos             WHERE company_id = 1`).catch(() => {});
   await query(`DELETE FROM invoices           WHERE company_id = 1`);
   await query(`DELETE FROM job_phases         WHERE job_id IN (SELECT id FROM jobs WHERE company_id = 1)`);
   await query(`DELETE FROM jobs               WHERE company_id = 1`);
