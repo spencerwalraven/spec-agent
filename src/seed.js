@@ -35,14 +35,14 @@ async function seed() {
       target_margin, contingency_pct, default_labor_rate,
       website, license_number,
       proposal_template_id, estimate_template_id, contract_template_id)
-    VALUES (1, 'Landcare Unlimited', '(614) 555-0210', 'info@landcareunlimited.com',
-      '4280 Riverside Dr, Columbus, OH 43221', 'Coach Harris',
+    VALUES (1, 'LandCare Unlimited', '(623) 555-0210', 'info@landcareunlimited.com',
+      '1300 S Litchfield Rd, Goodyear, AZ 85338', 'Tim Blake',
       'https://calendly.com/landcare-unlimited/estimate',
       'https://g.page/r/landcareunlimited/review',
-      'Coach Harris | Landcare Unlimited | (614) 555-0210 | landcareunlimited.com',
+      'Tim Blake | LandCare Unlimited | (623) 555-0210 | landcareunlimited.com',
       'friendly and professional',
       28, 10, 42,
-      'landcareunlimited.com', 'OH-LIC-48291',
+      'landcareunlimited.com', 'AZ-ROC-348291',
       '1nx2fcw8W_BWXUMnAlmGS8Kqd-nvnemh_yPAEhi_TiXM',
       '1fei6alaqm2K_zIc8Q2LGoTWm7E89stRmZLPeBfxTf30',
       '1KpDGnrF1DZZewF1iDkLNFEBi_7VjFCJMGMm9I2gHLjk')
@@ -53,12 +53,12 @@ async function seed() {
   const teamRows = await query(`
     INSERT INTO team (company_id, name, role, email, phone, status, trade, hourly_rate, employee_type)
     VALUES
-      (1, 'Coach Harris',    'Owner / Estimator', 'coach@landcareunlimited.com',  '(614) 555-0210', 'active', 'General',      65.00, 'w2'),
-      (1, 'Marcus Reed',     'Crew Lead',         'marcus@landcareunlimited.com', '(614) 555-0347', 'active', 'Hardscape',    38.00, 'w2'),
-      (1, 'Kevin Pruitt',    'Crew Lead',         'kevin@landcareunlimited.com',  '(614) 555-0518', 'active', 'Softscape',    36.00, 'w2'),
-      (1, 'Danny Velasco',   'Crew Member',       'danny@landcareunlimited.com',  '(614) 555-0629', 'active', 'General',      26.00, 'w2'),
-      (1, 'A1 Irrigation',   'Irrigation Sub',    'dispatch@a1irrigation.com',    '(614) 555-0780', 'active', 'Irrigation',   NULL,  'sub'),
-      (1, 'Elite Electric',  'Electrical Sub',    'jobs@eliteelectric.com',       '(614) 555-0891', 'active', 'Electrical',   NULL,  'sub')
+      (1, 'Tim Blake',    'Owner / Estimator', 'tim@landcareunlimited.com',    '(623) 555-0210', 'active', 'General',      65.00, 'w2'),
+      (1, 'Marcus Reed',     'Crew Lead',         'marcus@landcareunlimited.com', '(623) 555-0347', 'active', 'Hardscape',    38.00, 'w2'),
+      (1, 'Kevin Pruitt',    'Crew Lead',         'kevin@landcareunlimited.com',  '(623) 555-0518', 'active', 'Softscape',    36.00, 'w2'),
+      (1, 'Danny Velasco',   'Crew Member',       'danny@landcareunlimited.com',  '(623) 555-0629', 'active', 'General',      26.00, 'w2'),
+      (1, 'A1 Irrigation',   'Irrigation Sub',    'dispatch@a1irrigation.com',    '(623) 555-0780', 'active', 'Irrigation',   NULL,  'sub'),
+      (1, 'Elite Electric',  'Electrical Sub',    'jobs@eliteelectric.com',       '(623) 555-0891', 'active', 'Electrical',   NULL,  'sub')
     RETURNING id, name
   `);
   const [coach, marcus, kevin, danny, a1irrig, eliteElec] = teamRows.rows;
@@ -69,44 +69,44 @@ async function seed() {
     INSERT INTO leads (company_id, name, email, phone, service, message, address, source,
       score, score_label, status, notes, ai_summary, outreach_sent, created_at)
     VALUES
-      (1, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(614) 555-1184',
+      (1, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(623) 555-1184',
        'Full Landscape Design', 'We just built a new home and the yard is completely bare — need everything: patio, plants, irrigation, sod. Budget around $35k.',
-       '2190 Windfield Dr, Dublin, OH 43017', 'Google', 95, 'Hot', 'new',
+       '2190 Windfield Dr, Litchfield Park, AZ 85340', 'Google', 95, 'Hot', 'new',
        'Brand new construction. Full scope. Very motivated.',
        'Dream client — new build, blank canvas, strong budget, ready to move.',
        true, NOW() - INTERVAL '6 hours'),
 
-      (1, 'Tom Brennan', 'tbrennan@yahoo.com', '(614) 555-2051',
+      (1, 'Tom Brennan', 'tbrennan@yahoo.com', '(623) 555-2051',
        'Patio & Fire Pit', 'Want a paver patio with a built-in fire pit. About 500 sq ft. Hoping to get it done before summer.',
-       '891 Clearwater Ln, Westerville, OH 43081', 'Referral', 82, 'Hot', 'contacted',
+       '891 Clearwater Ln, Avondale, AZ 85392', 'Referral', 82, 'Hot', 'contacted',
        'Referred by the Hendersons (past client). Called him back same day.',
        'Strong referral lead. Clear scope, realistic budget, urgent timeline.',
        true, NOW() - INTERVAL '2 days'),
 
-      (1, 'Maria Gonzalez', 'maria.g@outlook.com', '(614) 555-3392',
+      (1, 'Maria Gonzalez', 'maria.g@outlook.com', '(623) 555-3392',
        'Retaining Wall', 'We have erosion on the hillside in our backyard. Need a retaining wall — probably 60 feet long.',
-       '4405 Hilltop Rd, Gahanna, OH 43230', 'Facebook Ad', 68, 'Warm', 'contacted',
+       '4405 Hilltop Rd, Buckeye, AZ 85326', 'Facebook Ad', 68, 'Warm', 'contacted',
        'Sent estimate request form. Budget unclear.',
        'Functional need (erosion). Motivated but may be price-sensitive.',
        true, NOW() - INTERVAL '4 days'),
 
-      (1, 'Steve Kim', 'skim@protonmail.com', '(614) 555-4410',
+      (1, 'Steve Kim', 'skim@protonmail.com', '(623) 555-4410',
        'Lawn Renovation', 'Our lawn is mostly weeds at this point. Want to start fresh — kill it all and re-sod.',
-       '330 Brookside Ave, Worthington, OH 43085', 'Google', 55, 'Warm', 'new',
+       '330 Brookside Ave, Surprise, AZ 85378', 'Google', 55, 'Warm', 'new',
        NULL,
        'Straightforward lawn renovation. Moderate budget likely.',
        false, NOW() - INTERVAL '1 day'),
 
-      (1, 'Rachel Dunn', 'rdunn@hotmail.com', '(614) 555-5528',
+      (1, 'Rachel Dunn', 'rdunn@hotmail.com', '(623) 555-5528',
        'Outdoor Kitchen', 'Looking at an outdoor kitchen with a pergola. Not sure what it costs.',
-       '7722 Stone Creek Ct, Powell, OH 43065', 'Instagram', 72, 'Warm', 'contacted',
+       '7722 Stone Creek Ct, Goodyear, AZ 85395', 'Instagram', 72, 'Warm', 'contacted',
        'Very early stage — still researching. Sent pricing guide.',
        'Aspirational project. Needs education on costs. Could be high-value.',
        true, NOW() - INTERVAL '5 days'),
 
-      (1, 'David Park', 'dpark@aol.com', '(614) 555-6602',
+      (1, 'David Park', 'dpark@aol.com', '(623) 555-6602',
        'Spring Cleanup', 'Just need spring cleanup, mulch, and some pruning.',
-       '112 Elm St, Upper Arlington, OH 43221', 'Repeat', 40, 'Cold', 'lost',
+       '112 Elm St, Goodyear, AZ 85338', 'Repeat', 40, 'Cold', 'lost',
        'Went with a cheaper company.',
        NULL, true, NOW() - INTERVAL '20 days')
     RETURNING id, name
@@ -118,22 +118,22 @@ async function seed() {
     INSERT INTO clients (company_id, name, email, phone, address, source,
       total_revenue, job_count, communication_style, decision_factors, key_concerns, preferred_contact)
     VALUES
-      (1, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(614) 555-7701',
-       '1955 Stonebridge Rd, Dublin, OH 43017', 'Referral', 24800, 2,
+      (1, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(623) 555-7701',
+       '1955 Stonebridge Rd, Litchfield Park, AZ 85340', 'Referral', 24800, 2,
        'Prefers phone calls. Both involved in decisions.',
        'Quality materials and professional finish.',
        'Want it done before their daughter''s outdoor wedding in August.',
        'phone'),
 
-      (1, 'Angela Foster', 'angela.foster@gmail.com', '(614) 555-8812',
-       '6340 Ravine Blvd, Westerville, OH 43081', 'Google', 12200, 1,
+      (1, 'Angela Foster', 'angela.foster@gmail.com', '(623) 555-8812',
+       '6340 Ravine Blvd, Avondale, AZ 85392', 'Google', 12200, 1,
        'Email communicator. Likes to see design mockups.',
        'Curb appeal and property value.',
        'Keeping mature trees healthy during construction.',
        'email'),
 
-      (1, 'Jason Wright', 'jwright@wrightfamily.com', '(614) 555-9923',
-       '503 Maple Ridge Dr, Gahanna, OH 43230', 'HomeAdvisor', 8400, 1,
+      (1, 'Jason Wright', 'jwright@wrightfamily.com', '(623) 555-9923',
+       '503 Maple Ridge Dr, Buckeye, AZ 85326', 'HomeAdvisor', 8400, 1,
        'Text only. Very responsive but brief.',
        'Speed and reliability.',
        'Drainage issues in backyard need to be solved.',
@@ -155,7 +155,7 @@ async function seed() {
     VALUES
       (1, ${hendersons.id}, 'JOB-001', 'Full Backyard Landscape', 'Full Landscape Design',
        'Complete backyard transformation — 800 sq ft paver patio with fire pit, irrigation system, privacy hedge, perennial beds, and sod lawn.',
-       '1955 Stonebridge Rd, Dublin, OH 43017',
+       '1955 Stonebridge Rd, Litchfield Park, AZ 85340',
        'active', 24800, NULL, 9200, 8600, 7440, true,
        'Signed', 'Signed',
        NOW() - INTERVAL '10 days', NOW() + INTERVAL '20 days',
@@ -173,7 +173,7 @@ async function seed() {
 
       (1, ${angela.id}, 'JOB-002', 'Front Yard Curb Appeal', 'Landscape Design',
        'New front walkway with natural stone, foundation plantings, landscape lighting, and mulch beds.',
-       '6340 Ravine Blvd, Westerville, OH 43081',
+       '6340 Ravine Blvd, Avondale, AZ 85392',
        'completed', 12200, 12200, 4100, 5200, 3660, true,
        'Signed', 'Signed',
        NOW() - INTERVAL '40 days', NOW() - INTERVAL '10 days',
@@ -191,7 +191,7 @@ async function seed() {
 
       (1, ${jason.id}, 'JOB-003', 'Backyard Drainage & Retaining Wall', 'Retaining Wall',
        '80 linear ft retaining wall with French drain system to solve chronic backyard flooding.',
-       '503 Maple Ridge Dr, Gahanna, OH 43230',
+       '503 Maple Ridge Dr, Buckeye, AZ 85326',
        'proposal', 8400, NULL, NULL, NULL, 2520, false,
        'Sent', '',
        NULL, NULL,
@@ -209,7 +209,7 @@ async function seed() {
 
       (1, ${hendersons.id}, 'JOB-004', 'Outdoor Kitchen & Pergola', 'Outdoor Living',
        'Outdoor kitchen with built-in grill, mini fridge, and 14x12 cedar pergola. Adjacent to JOB-001 patio.',
-       '1955 Stonebridge Rd, Dublin, OH 43017',
+       '1955 Stonebridge Rd, Litchfield Park, AZ 85340',
        'pending', 18500, NULL, NULL, NULL, NULL, false,
        '', '',
        NULL, NULL,
@@ -255,7 +255,7 @@ async function seed() {
        NOW() + INTERVAL '14 days', NOW() + INTERVAL '18 days', NULL),
 
       (${landscapeJob.id}, 8, 'Cleanup & Client Walkthrough', 'Final cleanup, system testing, plant care walkthrough with client.',
-       'Coach Harris', 'pending', 600, NULL,
+       'Tim Blake', 'pending', 600, NULL,
        NOW() + INTERVAL '19 days', NOW() + INTERVAL '20 days', NULL)
   `);
   console.log('✅ Job Phases (8 for landscape)');
@@ -285,7 +285,7 @@ async function seed() {
     VALUES
       (1, 'Call Jennifer Caldwell — hot lead',
        'Score 95 — new build, full landscape, $35k budget. Call today.',
-       'urgent', 'open', NOW() + INTERVAL '2 hours', 'Coach Harris'),
+       'urgent', 'open', NOW() + INTERVAL '2 hours', 'Tim Blake'),
 
       (1, 'Order arborvitae for JOB-001',
        '12 Green Giant arborvitae (6-7 ft). Check stock at Kurtz Brothers and Mill Creek.',
@@ -293,11 +293,11 @@ async function seed() {
 
       (1, 'Follow up on JOB-003 proposal',
        'Jason said he needs to discuss retaining wall proposal with wife. Follow up Friday.',
-       'high', 'open', NOW() + INTERVAL '1 day', 'Coach Harris'),
+       'high', 'open', NOW() + INTERVAL '1 day', 'Tim Blake'),
 
       (1, 'Schedule lighting sub for JOB-001',
        'Need Elite Electric for low-voltage landscape lighting install in 2 weeks.',
-       'medium', 'open', NOW() + INTERVAL '5 days', 'Coach Harris')
+       'medium', 'open', NOW() + INTERVAL '5 days', 'Tim Blake')
   `);
   console.log('✅ Tasks (4)');
 
@@ -343,92 +343,92 @@ async function seed() {
       thread_id, direction, channel, subject, body, status, sent_at, created_at)
     VALUES
       -- Jennifer Caldwell (hot lead) — AI outreach, she replied
-      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(614) 555-1184',
+      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(623) 555-1184',
        'THREAD-JC-001', 'outbound', 'email',
        'Your new home deserves a stunning landscape, Jennifer',
-       'Hey Jennifer — Coach here from Landcare Unlimited. Saw your form come through about the new build on Windfield Dr. Full landscape packages are our specialty. I''d love to do a free site visit this week — how''s Thursday at 10am work? I can bring design examples of similar-sized projects we''ve done nearby.',
+       'Hey Jennifer — Tim here from LandCare Unlimited. Saw your form come through about the new build on Windfield Dr. Full landscape packages are our specialty. I''d love to do a free site visit this week — how''s Thursday at 10am work? I can bring design examples of similar-sized projects we''ve done nearby.',
        'sent', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours'),
 
-      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(614) 555-1184',
+      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(623) 555-1184',
        'THREAD-JC-001', 'inbound', 'email',
        'Re: Your new home deserves a stunning landscape, Jennifer',
-       'Hi Coach — thanks for the fast reply! Thursday at 10am works. Should I have anything ready? My husband and I are home. Address is 2190 Windfield Dr, Dublin. Also — do you do financing?',
+       'Hi Tim — thanks for the fast reply! Thursday at 10am works. Should I have anything ready? My husband and I are home. Address is 2190 Windfield Dr, Litchfield Park. Also — do you do financing?',
        'received', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '3 hours'),
 
-      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(614) 555-1184',
+      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', 'jcaldwell@gmail.com', '(623) 555-1184',
        'THREAD-JC-001', 'outbound', 'email',
        'Re: Your new home deserves a stunning landscape, Jennifer',
        'Perfect — see you Thursday at 10! No prep needed. And yes, we partner with Hearth for financing — I''ll bring a quick overview. Looking forward to meeting you both.',
        'sent', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours'),
 
       -- Tom Brennan (referral lead) — AI confirmed the referral
-      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', 'tbrennan@yahoo.com', '(614) 555-2051',
+      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', 'tbrennan@yahoo.com', '(623) 555-2051',
        'THREAD-TB-001', 'outbound', 'email',
-       'Thanks for the referral — Patio + Fire Pit at your Westerville home',
-       'Tom — great to connect! The Hendersons spoke highly of you. A 500 sq ft paver patio with built-in fire pit is one of our favorite projects. Budget range for that scope typically lands between $15k–$22k depending on paver choice and features. I can swing by Friday afternoon to look at the site and sketch some options. Work for you?',
+       'Thanks for the referral — Patio + Fire Pit at your Avondale home',
+       'Tom — Tim here. Great to connect! The Hendersons spoke highly of you. A 500 sq ft paver patio with built-in fire pit is one of our favorite projects. Budget range for that scope typically lands between $15k–$22k depending on paver choice and features. I can swing by Friday afternoon to look at the site and sketch some options. Work for you?',
        'sent', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
 
-      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', 'tbrennan@yahoo.com', '(614) 555-2051',
+      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', 'tbrennan@yahoo.com', '(623) 555-2051',
        'THREAD-TB-001', 'inbound', 'email',
        'Re: Thanks for the referral',
        'Friday 3pm works. Do you take Venmo for deposits?',
        'received', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
 
       -- Rachel Dunn (aspirational lead)
-      (1, ${leadMap['Rachel Dunn']}, NULL, 'Rachel Dunn', 'rdunn@hotmail.com', '(614) 555-5528',
+      (1, ${leadMap['Rachel Dunn']}, NULL, 'Rachel Dunn', 'rdunn@hotmail.com', '(623) 555-5528',
        'THREAD-RD-001', 'outbound', 'email',
        'Outdoor kitchen pricing guide — no pressure',
-       'Hey Rachel — thanks for reaching out about the outdoor kitchen + pergola idea. Since you mentioned you''re still in research mode, I put together a quick pricing guide so you know what to expect. Ranges run from $25k (basic grill island) to $80k+ (full kitchen w/ pergola, lighting, hardscape). No pressure — reach back out whenever you''re ready to walk the site.',
+       'Hey Rachel — Tim here. Thanks for reaching out about the outdoor kitchen + pergola idea. Since you mentioned you''re still in research mode, I put together a quick pricing guide so you know what to expect. Ranges run from $25k (basic grill island) to $80k+ (full kitchen w/ pergola, lighting, hardscape). No pressure — reach back out whenever you''re ready to walk the site.',
        'sent', NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days'),
 
       -- Bill Henderson (active client, JOB-001) — mid-job update
-      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(614) 555-7701',
+      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(623) 555-7701',
        'THREAD-HEN-001', 'outbound', 'email',
        'Weekly Update — JOB-001 Backyard Landscape',
        'Hey Bill and Linda — quick update on your project. Week 2 wrap-up: irrigation install is complete (A1 tested all 6 zones yesterday), excavation and grading done, pavers started today. We''re on schedule and under budget on materials. Photos attached. Next week: patio complete, fire pit build, hedge install starts. Let me know if you have questions!',
        'sent', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
 
-      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(614) 555-7701',
+      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(623) 555-7701',
        'THREAD-HEN-001', 'inbound', 'email',
        'Re: Weekly Update',
-       'Coach — we are LOVING watching this come together. Marcus and his crew are fantastic. Question on the hedge — can we swap one of the arborvitae spots for a Japanese maple? Linda wants a focal point near the pergola corner.',
+       'Tim — we are LOVING watching this come together. Marcus and his crew are fantastic. Question on the hedge — can we swap one of the arborvitae spots for a Japanese maple? Linda wants a focal point near the pergola corner.',
        'received', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
 
-      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(614) 555-7701',
+      (1, NULL, ${hendersons.id}, 'Bill & Linda Henderson', 'bhenderson@gmail.com', '(623) 555-7701',
        'THREAD-HEN-001', 'outbound', 'email',
        'Re: Weekly Update',
        'Absolutely doable. A Japanese maple in that corner will look stunning as a focal point. It''s a slight upcharge (~$180 for a 6ft specimen vs. the arborvitae it replaces). I''ll draft a quick change order for your approval — should be in your inbox later today.',
        'sent', NOW() - INTERVAL '18 hours', NOW() - INTERVAL '18 hours'),
 
       -- Jason Wright (JOB-003, proposal pending)
-      (1, NULL, ${jason.id}, 'Jason Wright', 'jwright@wrightfamily.com', '(614) 555-9923',
+      (1, NULL, ${jason.id}, 'Jason Wright', 'jwright@wrightfamily.com', '(623) 555-9923',
        'THREAD-JW-001', 'outbound', 'email',
        'Your Retaining Wall Proposal — Ready to Review',
        'Jason — your proposal for the retaining wall and drainage solution is attached. Three tiers inside: Budget ($6,200), Standard ($8,400), and Premium ($12,500). My recommendation is Standard — gives you the engineered drainage you need without overbuilding. Call or text if you want to walk through it together.',
        'sent', NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
 
       -- SMS conversations
-      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', NULL, '+16145551184',
+      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', NULL, '+16235551184',
        NULL, 'outbound', 'sms', NULL,
-       'Hey Jennifer — this is Coach from Landcare Unlimited. Got your email, reply coming shortly. Wanted you to have my cell. Text me anytime.',
+       'Hey Jennifer — this is Tim from LandCare Unlimited. Got your email, reply coming shortly. Wanted you to have my cell. Text me anytime.',
        'sent', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '5 hours'),
 
-      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', NULL, '+16145551184',
+      (1, ${leadMap['Jennifer Caldwell']}, NULL, 'Jennifer Caldwell', NULL, '+16235551184',
        NULL, 'inbound', 'sms', NULL,
        'Thanks! See you Thursday.',
        'received', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours'),
 
-      (1, NULL, ${hendersons.id}, 'Bill Henderson', NULL, '+16145557701',
+      (1, NULL, ${hendersons.id}, 'Bill Henderson', NULL, '+16235557701',
        NULL, 'inbound', 'sms', NULL,
        'Quick q — is Marcus here today? Linda wants to point out where the fire pit should go',
        'received', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours'),
 
-      (1, NULL, ${hendersons.id}, 'Bill Henderson', NULL, '+16145557701',
+      (1, NULL, ${hendersons.id}, 'Bill Henderson', NULL, '+16235557701',
        NULL, 'outbound', 'sms', NULL,
        'Yep Marcus is on site until 4. Have Linda come find him anytime — he''s expecting you.',
        'sent', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours'),
 
-      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', NULL, '+16145552051',
+      (1, ${leadMap['Tom Brennan']}, NULL, 'Tom Brennan', NULL, '+16235552051',
        NULL, 'outbound', 'sms', NULL,
        'Confirming Friday 3pm site visit at 891 Clearwater. See you then!',
        'sent', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day')
