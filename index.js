@@ -1151,16 +1151,18 @@ app.post('/api/jobs/:row/generate-doc/:type', requireAuth, async (req, res) => {
     }
 
     // Try template-based generation first (fast — ~3 seconds)
+    let templateReason = '';
     try {
       const { generateFromTemplate } = require('./src/agents/template-doc-generator');
       const tpl = await generateFromTemplate(type, row);
       if (tpl.ok) {
         return res.json({ ok: true, mode: 'template', docUrl: tpl.docUrl, message: `${type} generated from template` });
       }
-      // Template not configured — fall through to AI
-      console.log(`[generate-doc] Template skipped for ${type}: ${tpl.reason}`);
+      templateReason = tpl.reason || 'unknown';
+      console.log(`[generate-doc] Template skipped for ${type}: ${templateReason}`);
     } catch (tplErr) {
-      console.error('[generate-doc] Template error:', tplErr.message);
+      templateReason = tplErr.message;
+      console.error('[generate-doc] Template error:', tplErr.message, tplErr.stack);
     }
 
     // Fall back to fire-and-forget AI agent (slower, ~60-90 seconds)
@@ -1175,7 +1177,7 @@ app.post('/api/jobs/:row/generate-doc/:type', requireAuth, async (req, res) => {
       console.error(`[generate-doc] AI agent ${type} failed:`, err.message)
     );
 
-    res.json({ ok: true, mode: 'ai', message: `${type} generating via AI — check back in 1-2 min` });
+    res.json({ ok: true, mode: 'ai', templateReason, message: `${type} generating via AI — check back in 1-2 min` });
   } catch (e) {
     console.error('[generate-doc] Error:', e.message);
     res.status(500).json({ error: e.message });
