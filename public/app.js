@@ -323,9 +323,12 @@ async function loadTodayStrip() {
                     : /kickoff|start/i.test(title)        ? 'Kickoff'
                     : /phase|install|demo/i.test(title)   ? 'Phase'
                     : '';
-      const onclick = e.link ? 'window.open(this.dataset.link,\'_blank\')' : '';
+      // Each event is clickable — opens calendar link if present, otherwise navigates to Schedule page
+      const onclick = e.link
+        ? 'window.open(this.dataset.link,\'_blank\')'
+        : 'navigate(\'schedule\')';
       return `
-        <div class="cal-evt" onclick="${onclick}" data-link="${e.link || ''}">
+        <div class="cal-evt" onclick="${onclick}" data-link="${e.link || ''}" style="cursor:pointer">
           <div class="cal-evt-time">${timeStr}</div>
           <div class="cal-evt-bar" style="background:${color}"></div>
           <div class="cal-evt-title">${title}</div>
@@ -3140,8 +3143,25 @@ function showTeamDetail(idx) {
         <a href="/sub/${encodeURIComponent(name)}" target="_blank" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;flex-shrink:0;text-decoration:none">Open ↗</a>
       </div>
     </div>
+    <div class="modal-section">
+      <button class="btn" style="width:100%;padding:12px;background:rgba(220,38,38,0.08);color:#DC2626;border:1px solid rgba(220,38,38,0.25);font-weight:700;cursor:pointer" onclick="deleteTeamMember(${memberId}, '${name.replace(/'/g, "\\'")}')">Remove from team</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">Soft delete — time clock history and job assignments are preserved.</div>
+    </div>
   `;
   openModal('teamModal');
+}
+
+async function deleteTeamMember(memberId, name) {
+  if (!confirm(`Remove ${name} from the team? They'll be marked inactive — their time clock history and job assignments stay intact.`)) return;
+  try {
+    const res = await fetch(`/api/team/${memberId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
+    toast(`${name} removed from team`);
+    closeModal('teamModal');
+    await loadTeam();
+  } catch (e) {
+    toast('Could not remove: ' + e.message, 3000);
+  }
 }
 
 async function saveTeamEdit(memberId) {
@@ -6016,8 +6036,9 @@ async function loadTasks() {
   if (list) list.innerHTML = '<div class="skel-item"><div class="skel-avatar skeleton"></div><div class="skel-lines"><div class="skel-line w60 skeleton"></div><div class="skel-line w40 skeleton"></div></div></div>'.repeat(3);
 
   try {
-    const res = await fetch('/api/tasks');
-    tasksData  = await res.json();
+    const res  = await fetch('/api/tasks');
+    const data = res.ok ? await res.json() : [];
+    tasksData  = Array.isArray(data) ? data : [];
     renderTasksList();
     updateDashTasksStrip();
     // Update summary line
@@ -6030,6 +6051,9 @@ async function loadTasks() {
     if (moreDesc) moreDesc.textContent = open ? `${open} open` : 'Action items';
   } catch(e) {
     if (list) list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text2)">Could not load tasks</div>';
+    // Always clear the dashboard strip so it doesn't stay stuck on "Loading..."
+    const strip = document.getElementById('dashTasksStrip');
+    if (strip) strip.innerHTML = '<div style="padding:8px 0;font-size:13px;color:var(--text3)">No tasks yet</div>';
   }
 }
 

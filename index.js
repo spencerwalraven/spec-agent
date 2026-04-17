@@ -3,6 +3,9 @@ const express = require('express');
 const path    = require('path');
 const { google } = require('googleapis');
 
+// Default company ID — multi-tenant foundation (1 = default single-tenant install)
+const COMPANY_ID = 1;
+
 // ─── DB SERVICES ─────────────────────────────────────────────────────────────
 const dbSettings = require('./src/services/settings');
 const dbLeads    = require('./src/services/leads');
@@ -819,6 +822,24 @@ app.post('/api/leads/:row/note', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Generic lead field update (used by referral source dropdown, etc.)
+app.post('/api/leads/:row', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.row);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid lead id' });
+    const { field, value } = req.body;
+    // Whitelist columns that can be updated this way
+    const allowed = new Set([
+      'name', 'email', 'phone', 'service', 'status', 'notes', 'score', 'score_label',
+      'source', 'assigned_to', 'referral_client_id', 'address', 'last_contact_at',
+    ]);
+    if (!allowed.has(field)) return res.status(400).json({ error: `Field "${field}" not updatable` });
+    const { query: dbQ } = require('./src/db');
+    await dbQ(`UPDATE leads SET ${field} = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`, [value, id, COMPANY_ID]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── API: UPDATE JOB STATUS ──────────────────────────────────────────────────
 app.post('/api/jobs/:row/status', async (req, res) => {
   try {
@@ -1303,6 +1324,18 @@ app.post('/api/team/:id/set-login', requireOwner, async (req, res) => {
       `UPDATE team SET login_username = $1, login_password_hash = $2, login_role = $3, updated_at = NOW() WHERE id = $4`,
       [username.toLowerCase(), hash, loginRole || 'field', id]
     );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE team member (soft delete: mark as inactive + 'fired' status so jobs/history still reference them)
+app.delete('/api/team/:id', requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+    const { query: dbQ } = require('./src/db');
+    // Soft delete: set status to 'inactive' and name suffix. Keep row to preserve FK integrity on time_clock/phases.
+    await dbQ(`UPDATE team SET status = 'inactive', updated_at = NOW() WHERE id = $1 AND company_id = $2`, [id, COMPANY_ID]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

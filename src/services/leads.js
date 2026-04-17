@@ -32,6 +32,8 @@ function formatLead(r) {
     emailThreadId: r.email_thread_id || '',
     serviceRequested: r.service || '',
     assignedTo:   r.assigned_to    || '',
+    referralClientId:   r.referral_client_id || null,
+    referral_client_id: r.referral_client_id || null,
     // Compatibility aliases (scheduler, analytics, agents use Sheets-era names via g())
     'First Name':               (r.name || '').split(' ')[0] || '',
     'Last Name':                (r.name || '').split(' ').slice(1).join(' ') || '',
