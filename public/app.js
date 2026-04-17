@@ -1538,11 +1538,13 @@ async function convertLead() {
   btn.disabled = true;
 
   try {
+    let convertResult = null;
     if (!usingDemo) {
       const res = await fetch(`/api/leads/${row}/convert`, {
         method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
       });
-      if (!res.ok) throw new Error('API error');
+      convertResult = await res.json();
+      if (!res.ok) throw new Error(convertResult.error || 'API error');
     }
 
     // Update local state
@@ -1554,13 +1556,30 @@ async function convertLead() {
     btn.style.background = 'rgba(34,197,94,.25)';
     btn.style.color = 'var(--green)';
 
-    toast(`${name} marked as Converted!`, 3000);
+    toast(convertResult?.message || `${name} converted to client!`, 3000);
 
     // Re-render list behind modal
     renderLeads();
 
-    // Close modal after a beat
-    setTimeout(() => closeModal('leadModal'), 1200);
+    // Refresh clients + jobs caches so the new records show up
+    delete loaded['clients']; delete loaded['jobs'];
+    try { allClients = await api('/api/clients') || allClients; } catch (_) {}
+    try { allJobs    = await api('/api/jobs')    || allJobs;    } catch (_) {}
+
+    // Close modal — if a client was created, offer to jump to it
+    setTimeout(() => {
+      closeModal('leadModal');
+      if (convertResult?.clientId) {
+        // Small delay, then navigate to the new client detail
+        setTimeout(() => {
+          navigate('clients');
+          const idx = allClients.findIndex(c => (c._row || c.id) === convertResult.clientId);
+          if (idx >= 0) {
+            setTimeout(() => showClientDetail(idx), 300);
+          }
+        }, 500);
+      }
+    }, 1200);
 
   } catch(e) {
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6h7l-5.5 4 2 7L12 15l-6.5 4 2-7L2 8h7z"/></svg> Mark as Converted';

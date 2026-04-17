@@ -804,11 +804,96 @@ app.post('/api/leads', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/leads/:row/convert', async (req, res) => {
+// POST /api/leads/:row/convert — promote a lead to client + initial job
+// This is the actual conversion flow: creates client with full info, creates
+// a job for the project they requested, links everything.
+app.post('/api/leads/:row/convert', requireAuth, async (req, res) => {
   try {
-    await dbLeads.updateLeadStatus(parseInt(req.params.row), 'Converted');
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    const leadId = parseInt(req.params.row);
+    if (isNaN(leadId)) return res.status(400).json({ error: 'Invalid lead id' });
+
+    const { getOne, query: dbQ } = require('./src/db');
+
+    // 1. Fetch the lead
+    const lead = await getOne('SELECT * FROM leads WHERE id = $1 AND company_id = $2', [leadId, COMPANY_ID]);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+    // 2. Check if already converted with a client attached
+    const existing = await getOne('SELECT id FROM clients WHERE lead_id = $1 AND company_id = $2', [leadId, COMPANY_ID]);
+    if (existing) {
+      // Already converted — return the existing client
+      await dbLeads.updateLeadStatus(leadId, 'Converted');
+      return res.json({ ok: true, clientId: existing.id, alreadyConverted: true });
+    }
+
+    // 3. Create the client record with all the lead info
+    const client = await dbClients.createClient({
+      lead_id: lead.id,
+      name:    lead.name || '',
+      email:   lead.email || '',
+      phone:   lead.phone || '',
+      address: lead.address || '',
+      source:  lead.source || '',
+    });
+
+    // 4. Create an initial job for the project they inquired about
+    let job = null;
+    try {
+      const jobRef = 'JOB-' + String(Date.now()).slice(-6);
+      const jobResult = await dbQ(
+        `INSERT INTO jobs (company_id, client_id, job_ref, title, service, description, address,
+           status, notes, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,NOW())
+         RETURNING *`,
+        [
+          COMPANY_ID,
+          client.id,
+          jobRef,
+          lead.service || 'New Project',
+          lead.service || '',
+          lead.message || lead.ai_summary || '',
+          lead.address || '',
+          lead.notes ? 'Converted from lead: ' + lead.notes : 'Converted from lead',
+        ]
+      );
+      job = jobResult.rows[0];
+    } catch (jobErr) {
+      console.warn('Job creation during convert failed (non-fatal):', jobErr.message);
+    }
+
+    // 5. Mark the lead as converted + record the timestamp
+    await dbQ(
+      `UPDATE leads SET status = 'Converted', converted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND company_id = $2`,
+      [leadId, COMPANY_ID]
+    );
+
+    // 6. Log activity so the feed shows it
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id)
+       VALUES ($1,'LeadAgent','lead_converted',$2,'client',$3)`,
+      [COMPANY_ID, `${lead.name} converted from lead → client${job ? ' + job ' + job.job_ref + ' created' : ''}`, client.id]
+    ).catch(() => {});
+
+    // 7. Fire referral auto-reward if this lead came from a referring client
+    // (fire-and-forget — don't block the response)
+    try {
+      const checkFn = checkAndSendReferralReward;
+      if (typeof checkFn === 'function') checkFn(leadId, 'lead').catch(() => {});
+    } catch (_) {}
+
+    res.json({
+      ok: true,
+      clientId: client.id,
+      clientName: client.name,
+      jobId: job ? job.id : null,
+      jobRef: job ? job.job_ref : null,
+      message: `${lead.name} converted to client${job ? ' + initial job created' : ''}`,
+    });
+  } catch (e) {
+    console.error('Lead convert error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/leads/:row/lost', async (req, res) => {
@@ -4469,7 +4554,19 @@ function scheduleSgcReminder(settings) {
 scheduleSgcReminder(loadSgcSettings());
 
 // ─── SERVE DASHBOARD ─────────────────────────────────────────────────────────
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// IMPORTANT: /api/*, /webhook/*, /admin/*, /ping routes must fall through to
+// their actual handlers. Only serve index.html for SPA paths.
+app.get('*', (req, res, next) => {
+  const p = req.path;
+  if (p.startsWith('/api/')     ||
+      p.startsWith('/webhook/') ||
+      p.startsWith('/admin/')   ||
+      p === '/ping') return next();
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API 404 handler — returns JSON (not HTML) for unknown API paths
+app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found: ' + req.path }));
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function relativeTime(str) {
