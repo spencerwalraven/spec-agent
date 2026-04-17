@@ -71,11 +71,19 @@ function formatJob(r) {
     clientPreferences:     r.client_preferences        || '',
     clientBudget:          r.client_budget             || '',
     selectedTier:          r.selected_tier             || '',
-    // Doc links
+    // Doc links + statuses
     estimateLink:          r.estimate_link             || '',
     proposalLink:          r.proposal_link             || '',
     contractLink:          r.contract_link             || '',
     kickoffLink:           r.kickoff_link              || '',
+    proposalStatus:        r.proposal_status           || '',
+    contractStatus:        r.contract_status           || '',
+    estimateStatus:        r.estimate_status           || '',
+    kickoffStatus:         r.kickoff_status            || '',
+    // Proposal view tracking
+    proposalViews:         r.proposal_views            || 0,
+    proposalFirstViewedAt: r.proposal_first_viewed_at  || null,
+    proposalLastViewedAt:  r.proposal_last_viewed_at   || null,
     // QB
     qbEstimateId:      r.qb_estimate_id || '',
     qbInvoiceId:       r.qb_invoice_id  || '',

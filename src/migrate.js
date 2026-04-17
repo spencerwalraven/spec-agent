@@ -647,7 +647,9 @@ async function migrate() {
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_views INTEGER DEFAULT 0`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_first_viewed_at TIMESTAMPTZ`);
   await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS proposal_last_viewed_at TIMESTAMPTZ`);
-  console.log('✅ jobs: proposal view tracking columns');
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS estimate_status VARCHAR(50)`);
+  await safeAlter(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS kickoff_status VARCHAR(50)`);
+  console.log('✅ jobs: proposal view tracking + estimate/kickoff status columns');
 
   // ── Clients: referral count ──
   await safeAlter(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0`);

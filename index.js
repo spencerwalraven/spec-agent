@@ -1136,6 +1136,52 @@ app.get('/api/invoices/outstanding', requireAuth, async (req, res) => {
 });
 
 // ─── API: APPROVE & SEND DOC TO CLIENT ────────────────────────────────────────
+// ─── SYNCHRONOUS DOC GENERATION ─────────────────────────────────────────────
+// POST /api/jobs/:row/generate-doc/:type  (type: proposal|estimate|contract|kickoff)
+// Runs template generation synchronously. Returns the link immediately so
+// the frontend doesn't need to poll for 90 seconds. Falls back to AI agent
+// (async) if template isn't configured.
+app.post('/api/jobs/:row/generate-doc/:type', requireAuth, async (req, res) => {
+  try {
+    const row = parseInt(req.params.row);
+    const type = req.params.type;
+    if (isNaN(row)) return res.status(400).json({ error: 'Invalid job row' });
+    if (!['proposal', 'estimate', 'contract', 'kickoff'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid doc type' });
+    }
+
+    // Try template-based generation first (fast — ~3 seconds)
+    try {
+      const { generateFromTemplate } = require('./src/agents/template-doc-generator');
+      const tpl = await generateFromTemplate(type, row);
+      if (tpl.ok) {
+        return res.json({ ok: true, mode: 'template', docUrl: tpl.docUrl, message: `${type} generated from template` });
+      }
+      // Template not configured — fall through to AI
+      console.log(`[generate-doc] Template skipped for ${type}: ${tpl.reason}`);
+    } catch (tplErr) {
+      console.error('[generate-doc] Template error:', tplErr.message);
+    }
+
+    // Fall back to fire-and-forget AI agent (slower, ~60-90 seconds)
+    const { route } = require('./src/agents/orchestrator');
+    const eventMap = {
+      proposal: 'generate_proposal',
+      estimate: 'estimate_ready',
+      contract: 'generate_contract',
+      kickoff:  'plan_project',
+    };
+    route(eventMap[type], { rowNumber: row }).catch(err =>
+      console.error(`[generate-doc] AI agent ${type} failed:`, err.message)
+    );
+
+    res.json({ ok: true, mode: 'ai', message: `${type} generating via AI — check back in 1-2 min` });
+  } catch (e) {
+    console.error('[generate-doc] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/jobs/:row/approve-send', requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.row);
@@ -1173,10 +1219,26 @@ app.post('/api/jobs/:row/approve-send', requireAuth, async (req, res) => {
         (docLink ? 'View your estimate: ' + docLink + '\n\n' : '') +
         'This includes a full breakdown of materials, labor, and timeline.\n\n' +
         (settings.emailSignature || companyName + '\n' + settings.phone);
+      await dbJobs.updateJobField(id, 'estimate_status', 'Sent').catch(() => {});
+    } else if (type === 'kickoff') {
+      subject = 'Your ' + (job.service || job.title) + ' Kickoff Plan from ' + companyName;
+      body = 'Hi ' + (client?.name || 'there') + ',\n\nYour kickoff plan is ready! This covers the timeline, your project team, what to expect each week, and what we need from you.\n\n' +
+        (docLink ? 'View your kickoff plan: ' + docLink + '\n\n' : '') +
+        'Take a look and reply with any questions. We\'re excited to get started.\n\n' +
+        (settings.emailSignature || companyName + '\n' + settings.phone);
+      await dbJobs.updateJobField(id, 'kickoff_status', 'Sent').catch(() => {});
     }
 
     const { sendEmail } = require('./src/tools/gmail');
     await sendEmail({ to: clientEmail, subject, body });
+
+    // Log activity so the owner sees the send confirmation in the feed
+    const { query: dbQ } = require('./src/db');
+    await dbQ(
+      `INSERT INTO activity_log (company_id, agent, action, detail, entity_type, entity_id) VALUES ($1,'OwnerAction','doc_approved_sent',$2,'job',$3)`,
+      [COMPANY_ID, `${type.charAt(0).toUpperCase()+type.slice(1)} approved and sent to ${clientEmail}`, id]
+    ).catch(() => {});
+
     res.json({ ok: true, message: type + ' sent to ' + clientEmail });
   } catch (e) {
     console.error('Approve & send error:', e.message);

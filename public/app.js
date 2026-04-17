@@ -2010,22 +2010,31 @@ async function showJobDetail(idx) {
 
     ${currentUser?.role !== 'field' ? '<div class="modal-section"><div class="modal-section-label">Documents</div>' +
       [{name:'Proposal',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',link:propLink,event:'generate_proposal',status:propStat,sendType:'proposal'},
-       {name:'Estimate',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',link:estLink,event:'estimate_ready',status:'',sendType:'estimate'},
+       {name:'Estimate',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',link:estLink,event:'estimate_ready',status:(j.estimateStatus||''),sendType:'estimate'},
        {name:'Contract',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',link:contLink,event:'generate_contract',status:contStat,sendType:'contract'},
-       {name:'Kickoff Doc',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',link:kickLink,event:'plan_project',status:'',sendType:''}
+       {name:'Kickoff Plan',icon:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',link:kickLink,event:'plan_project',status:(j.kickoffStatus||''),sendType:'kickoff'}
       ].map(d => {
         var btns = '';
+        var statusBadge = '';
+        var lowerStatus = (d.status || '').toLowerCase();
+
         if (d.link) {
-          btns += '<a class="doc-btn" href="'+d.link+'" target="_blank" style="font-size:11px">Open ↗</a>';
-          if (d.sendType && (!d.status || d.status.toLowerCase().includes('pending') || d.status.toLowerCase().includes('ready'))) {
-            btns += '<button class="doc-btn" style="color:#22C55E;cursor:pointer;font-size:11px;font-weight:700" onclick="approveAndSend(\''+d.sendType+'\','+_currentJobRow+')">Approve & Send ✓</button>';
-          } else if (d.status && d.status.toLowerCase().includes('sent')) {
-            btns += '<span style="color:var(--green);font-size:11px;font-weight:600">Sent ✓</span>';
+          // Always show Open link when a doc exists (uses tracking wrapper for proposals so we log views)
+          const trackedLink = d.sendType === 'proposal' ? ('/proposal-view/' + _currentJobRow) : d.link;
+          btns += '<a class="doc-btn" href="'+trackedLink+'" target="_blank" style="font-size:11px;color:var(--gold);font-weight:700;padding:6px 12px;border-radius:6px;background:rgba(45,122,30,0.06);border:1px solid rgba(45,122,30,0.2);text-decoration:none">Open ↗</a>';
+
+          if (lowerStatus.includes('sent')) {
+            statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green)">SENT</span>';
+          } else if (lowerStatus.includes('signed')) {
+            statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green)">SIGNED</span>';
+          } else if (lowerStatus.includes('pending') || lowerStatus === '' || lowerStatus.includes('ready')) {
+            statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(217,119,6,0.12);color:var(--yellow)">PENDING REVIEW</span>';
+            btns += '<button class="doc-btn" style="background:var(--green);color:#fff;cursor:pointer;font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:none" onclick="approveAndSend(\''+d.sendType+'\','+_currentJobRow+')">Approve & Send</button>';
           }
         } else {
-          btns = '<button class="doc-btn" style="color:var(--gold);cursor:pointer" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>';
+          btns = '<button class="doc-btn" style="color:var(--gold);cursor:pointer;font-size:11px;font-weight:700;padding:6px 14px;border-radius:6px;background:rgba(45,122,30,0.08);border:1px solid rgba(45,122,30,0.25)" onclick="triggerDocGen(\''+d.event+'\','+_currentJobRow+')">Generate</button>';
         }
-        return '<div class="doc-link"><div class="doc-icon">'+d.icon+'</div><div class="doc-name">'+d.name+'</div><div style="display:flex;gap:6px;align-items:center">'+btns+'</div></div>';
+        return '<div class="doc-link" style="padding:12px 14px;margin-bottom:6px;border:1px solid var(--border);border-radius:10px;background:var(--card);display:flex;align-items:center;gap:12px"><div class="doc-icon" style="color:var(--text2);flex-shrink:0">'+d.icon+'</div><div style="flex:1;min-width:0"><div class="doc-name" style="font-size:13px;font-weight:700;color:var(--text)">'+d.name+'</div>'+(statusBadge ? '<div style="margin-top:4px">'+statusBadge+'</div>' : '')+'</div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0">'+btns+'</div></div>';
       }).join('') + '</div>' : ''}
 
     <div class="modal-section">
@@ -2089,20 +2098,33 @@ async function showJobDetail(idx) {
 }
 
 async function approveAndSend(docType, jobRow) {
-  if (!confirm('Send this ' + docType + ' to the client? Make sure you\'ve reviewed the document first.')) return;
+  const typeLabel = docType.charAt(0).toUpperCase() + docType.slice(1);
+  if (!confirm(`Approve and send this ${typeLabel} to the client via email? They'll receive a link to view the document.`)) return;
+
+  // Direct fetch so we can inspect the body clearly
   try {
-    const res = await api('/api/jobs/' + jobRow + '/approve-send', {
+    const res = await fetch('/api/jobs/' + jobRow + '/approve-send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: docType }),
     });
-    toast('✓ ' + docType.charAt(0).toUpperCase() + docType.slice(1) + ' approved and sent to client!');
-    // Refresh job detail
+    const data = await res.json();
+
+    if (!res.ok) {
+      toastError(`Could not send: ${data.error || 'unknown error'}`);
+      return;
+    }
+
+    toastSuccess(`${typeLabel} sent to client — ${data.message || 'email delivered'}`);
+
+    // Refresh job detail so button switches to "Sent ✓"
     delete loaded['jobs'];
     allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
     const idx = allJobs.findIndex(j => (j._row || j.id) === jobRow);
     if (idx >= 0) showJobDetail(idx);
-  } catch (e) { toast('× ' + e.message); }
+  } catch (e) {
+    toastError('Network error — ' + e.message);
+  }
 }
 
 async function selectTier(jobRow, tier) {
@@ -2631,35 +2653,86 @@ async function changeJobStatus(dbStatus, btn, displayLabel) {
 }
 
 /* ─── GENERATE DOCUMENT ─────────────────────────────────────────── */
+/**
+ * Map orchestrator event names to the synchronous doc generator endpoint type.
+ */
+const _DOC_EVENT_TO_TYPE = {
+  generate_proposal: 'proposal',
+  estimate_ready:    'estimate',
+  generate_contract: 'contract',
+  plan_project:      'kickoff',
+};
+
 async function triggerDocGen(eventType, rowNumber) {
   if (usingDemo) { toastInfo('Documents will be generated by AI'); return; }
   const btn = event?.target;
   const savedRow = rowNumber || _currentJobRow;
-  btnLoading(btn, '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2H6v6l4 4-4 4v6h12v-6l-4-4 4-4V2z"/></svg> Starting…');
+  const docType  = _DOC_EVENT_TO_TYPE[eventType];
+
+  if (!docType) { toastError('Unknown doc type'); return; }
+
+  btnLoading(btn, 'Generating…');
+
   try {
-    const res = await fetch('/webhook/trigger', {
+    // Synchronous endpoint — returns the doc link immediately when template is configured.
+    // Falls back to async AI agent if no template is set.
+    const res = await fetch('/api/jobs/' + savedRow + '/generate-doc/' + docType, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal': '1' },
-      body: JSON.stringify({ type: eventType, rowNumber: savedRow }),
+      headers: { 'Content-Type': 'application/json' },
     });
-    if (res.ok) {
-      toastSuccess('Agent started — doc will appear in about a minute');
-      if (btn) btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2H6v6l4 4-4 4v6h12v-6l-4-4 4-4V2z"/></svg> Working…';
-      // Refresh jobs + reopen modal after 90s so the new doc link appears
-      setTimeout(async () => {
-        delete loaded['jobs'];
-        allJobs = [];
-        allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
-        if (savedRow) showJobDetail(allJobs.findIndex(j => (j.__row||j._row) === savedRow));
-      }, 90000);
-    } else {
-      toastError('Could not start agent — try again');
+    const data = await res.json();
+
+    if (!res.ok) {
+      toastError(data.error || 'Could not start generation');
       btnReset(btn);
+      return;
     }
-  } catch {
-    toastError('Network error — check your connection');
+
+    if (data.mode === 'template' && data.docUrl) {
+      // Template filled instantly — reload the modal so "Open ↗" + "Approve & Send" show
+      toastSuccess(docType.charAt(0).toUpperCase() + docType.slice(1) + ' ready — review and approve to send');
+      delete loaded['jobs'];
+      allJobs = await api('/api/jobs').catch(() => allJobs) || allJobs;
+      const idx = allJobs.findIndex(j => (j.__row||j._row) === savedRow);
+      if (idx >= 0) showJobDetail(idx);
+      return;
+    }
+
+    // AI agent path (no template configured) — poll for the link every 5 sec
+    toastSuccess('AI agent working — doc will appear in ~60 seconds');
+    if (btn) btn.textContent = 'Working…';
+    pollForDocLink(savedRow, docType, btn, 0);
+  } catch (err) {
+    toastError('Network error — ' + err.message);
     btnReset(btn);
   }
+}
+
+/** Poll the job endpoint every 5 sec for up to 90 sec waiting for the link. */
+async function pollForDocLink(jobRow, docType, btn, attempt) {
+  if (attempt >= 18) { // 18 × 5s = 90 sec max
+    toastError('Still working... refresh the job in a minute to see the doc');
+    btnReset(btn);
+    return;
+  }
+  await new Promise(r => setTimeout(r, 5000));
+
+  try {
+    delete loaded['jobs'];
+    const jobs = await api('/api/jobs').catch(() => null);
+    if (jobs) allJobs = jobs;
+    const job = allJobs.find(j => (j.__row || j._row) === jobRow);
+    const linkField = docType + 'Link'; // proposalLink, estimateLink, contractLink, kickoffLink
+    if (job && job[linkField]) {
+      // Got it!
+      toastSuccess(docType.charAt(0).toUpperCase() + docType.slice(1) + ' ready — review and approve to send');
+      const idx = allJobs.findIndex(j => (j.__row || j._row) === jobRow);
+      if (idx >= 0) showJobDetail(idx);
+      return;
+    }
+  } catch (_) {}
+
+  pollForDocLink(jobRow, docType, btn, attempt + 1);
 }
 
 /* ─── TOGGLE PHASE COMPLETE ─────────────────────────────────────── */
