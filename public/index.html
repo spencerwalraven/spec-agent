@@ -1111,16 +1111,8 @@
 
   <!-- SIDEBAR (Desktop only) -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-logo" style="flex-direction:column;align-items:flex-start;gap:6px;padding:16px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#1F5F1F,#2D7A1E);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(45,122,30,0.25)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8"/><path d="M12 8c-3-4-8-4-10 0"/><path d="M12 8c3-4 8-4 10 0"/><path d="M12 14c-2-2-5-2-7 0"/><path d="M12 14c2-2 5-2 7 0"/></svg>
-        </div>
-        <div>
-          <div style="font-size:15px;font-weight:800;letter-spacing:-0.3px;color:var(--text);line-height:1.1" id="sidebarCompanyName">LandCare</div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);line-height:1">Unlimited</div>
-        </div>
-      </div>
+    <div class="sidebar-logo" style="padding:16px 14px">
+      <img src="/assets/landcare-logo.png" alt="LandCare Unlimited" id="sidebarCompanyLogo" style="width:100%;max-width:200px;height:auto;display:block" />
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Main</div>
@@ -1151,7 +1143,7 @@
 
   <!-- TOP BAR -->
   <header class="top-bar">
-    <div class="logo sidebar-hide-desktop" style="display:flex;align-items:center;gap:8px;padding:0"><div style="width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,#1F5F1F,#2D7A1E);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8"/><path d="M12 8c-3-4-8-4-10 0"/><path d="M12 8c3-4 8-4 10 0"/></svg></div><span style="font-size:14px;font-weight:800;letter-spacing:-0.3px;color:var(--text)">LandCare</span></div>
+    <div class="logo sidebar-hide-desktop" style="padding:0"><img src="/assets/landcare-logo.png" alt="LandCare Unlimited" style="height:32px;width:auto;display:block" /></div>
     <div class="page-title" id="pageTitle">Dashboard</div>
     <div class="conn-dot" id="connDot" title="Checking connection…"></div>
     <button class="icon-btn refresh-btn" id="refreshBtn" onclick="refreshAll()" aria-label="Refresh">↻</button>
