@@ -28,6 +28,7 @@ async function seed() {
   await query(`DELETE FROM clients            WHERE company_id = 1`);
   await query(`DELETE FROM leads              WHERE company_id = 1`);
   await query(`DELETE FROM team               WHERE company_id = 1`);
+  await query(`DELETE FROM equipment          WHERE company_id = 1`).catch(() => {});
   await query(`DELETE FROM settings           WHERE company_id = 1`);
   console.log('🧹 Cleared existing demo data');
 
