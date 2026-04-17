@@ -2602,15 +2602,60 @@ app.get('/api/status/:jobId', async (req, res) => {
     const completePhases = mappedPhases.filter(p => p.status.toLowerCase().includes('complet')).length;
     const progressPct = totalPhases > 0 ? Math.round((completePhases / totalPhases) * 100) : 0;
 
+    // Next up: first non-completed phase
+    const nextPhase = mappedPhases.find(p => !p.status.toLowerCase().includes('complet'));
+
+    // Fetch outstanding invoices (public: only return basic info for payment)
+    const { query: dbQ } = require('./src/db');
+    const invResult = await dbQ(
+      `SELECT id, invoice_type, amount, status, due_date FROM invoices
+       WHERE job_id = $1 AND company_id = $2 AND status != 'paid'
+       ORDER BY created_at ASC`,
+      [job.id, COMPANY_ID]
+    );
+    const outstandingInvoices = invResult.rows.map(i => ({
+      id: i.id,
+      type: i.invoice_type,
+      amount: parseFloat(i.amount) || 0,
+      status: i.status,
+      dueDate: i.due_date,
+    }));
+
+    // Project team — owner + assigned crew from phases
+    const teamNames = [...new Set(mappedPhases.map(p => p.trade).filter(Boolean))];
+    const team = {
+      projectManager: settings.ownerName || 'Your Project Manager',
+      projectManagerPhone: settings.phone || '',
+      projectManagerEmail: settings.email || '',
+      crew: teamNames,
+    };
+
+    // Documents available to client
+    const documents = [];
+    if (job.proposalLink) documents.push({ type: 'proposal', name: 'Your Proposal', url: job.proposalLink, status: job.proposalStatus });
+    if (job.contractLink) documents.push({ type: 'contract', name: 'Your Contract', url: job.contractLink, status: job.contractStatus });
+    if (job.kickoffLink)  documents.push({ type: 'kickoff',  name: 'Kickoff Plan',   url: job.kickoffLink,  status: job.kickoffStatus });
+    if (job.estimateLink) documents.push({ type: 'estimate', name: 'Your Estimate',  url: job.estimateLink, status: job.estimateStatus });
+
     res.json({
-      company: { name: settings.companyName || 'Your Contractor', phone: settings.phone || '', email: settings.email || '' },
+      company: {
+        name:    settings.companyName || 'Your Contractor',
+        phone:   settings.phone || '',
+        email:   settings.email || '',
+        website: settings.website || '',
+      },
       job: {
         id: job.jobRef, clientName: job.clientName || '', projectType: job.service || 'Service Project',
         status: job.status, startDate: job.startDate, endDate: job.endDate,
+        value: job.jobValue || job.estimatedValue,
         lastUpdate: '', notes: job.notes || '', address: job.address || '',
       },
       phases: mappedPhases,
       progress: { total: totalPhases, complete: completePhases, pct: progressPct },
+      nextUp: nextPhase ? { name: nextPhase.name, trade: nextPhase.trade, start: nextPhase.start, status: nextPhase.status } : null,
+      team,
+      documents,
+      outstandingInvoices,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

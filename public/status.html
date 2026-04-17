@@ -315,7 +315,7 @@
 <body>
 
 <div id="root"><div class="loading"><div class="spinner"></div><div>Loading your project…</div></div></div>
-<div class="refresh-badge" id="refreshBadge" style="display:none">🔄 Auto-refreshing</div>
+<div class="refresh-badge" id="refreshBadge" style="display:none">Auto-refreshing</div>
 
 <!-- LIGHTBOX -->
 <div class="photo-lightbox" id="lightbox" onclick="closeLightbox()">
@@ -394,7 +394,7 @@
       <!-- LAST UPDATE -->
       ${job.lastUpdate ? `
         <div class="last-update-bar">
-          <span>✅</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           <span>Last updated ${job.lastUpdate}</span>
         </div>
       ` : ''}
@@ -459,6 +459,69 @@
         `).join('')}
       </div>` : ''}
 
+      <!-- OUTSTANDING INVOICES / PAY NOW -->
+      ${data.outstandingInvoices && data.outstandingInvoices.length ? `
+      <div class="card" style="background:linear-gradient(135deg,rgba(45,122,30,0.03),rgba(45,122,30,0.08));border:1px solid rgba(45,122,30,0.2)">
+        <div class="card-title" style="color:var(--gold)">Payment Due</div>
+        ${data.outstandingInvoices.map(inv => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:700;color:var(--text1);text-transform:capitalize">${inv.type} Payment</div>
+              ${inv.dueDate ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">Due ${fmtDate(inv.dueDate)}</div>` : ''}
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:20px;font-weight:800;color:var(--gold)">$${Number(inv.amount).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+            </div>
+          </div>
+        `).join('')}
+        <a href="/pay/${job.id}" style="display:block;margin-top:12px;background:var(--gold);color:#fff;text-align:center;padding:14px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none">Pay Now →</a>
+      </div>` : ''}
+
+      <!-- YOUR PROJECT TEAM -->
+      ${data.team ? `
+      <div class="card">
+        <div class="card-title">Your Project Team</div>
+        <div style="display:flex;align-items:center;gap:14px;padding:10px 0">
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0">${(data.team.projectManager || '').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:var(--text1)">${data.team.projectManager}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Project Manager · Your main contact</div>
+          </div>
+        </div>
+        ${data.team.crew.length ? `
+          <div style="font-size:12px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            Crew on this project: <strong style="color:var(--text2)">${data.team.crew.join(', ')}</strong>
+          </div>
+        ` : ''}
+      </div>` : ''}
+
+      <!-- NEXT UP -->
+      ${data.nextUp ? `
+      <div class="card">
+        <div class="card-title">What's Next</div>
+        <div style="padding:10px 0">
+          <div style="font-size:17px;font-weight:700;color:var(--text1);margin-bottom:4px">${data.nextUp.name}</div>
+          <div style="font-size:13px;color:var(--text2)">
+            ${data.nextUp.trade ? 'Assigned to <strong>' + data.nextUp.trade + '</strong>' : 'Crew TBD'}${data.nextUp.start ? ' · Starts ' + fmtDate(data.nextUp.start) : ''}
+          </div>
+        </div>
+      </div>` : ''}
+
+      <!-- DOCUMENTS -->
+      ${data.documents && data.documents.length ? `
+      <div class="card">
+        <div class="card-title">Your Documents</div>
+        ${data.documents.map(d => `
+          <a href="${d.url}" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit">
+            <div>
+              <div style="font-weight:700;color:var(--text1)">${d.name}</div>
+              ${d.status ? `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${d.status}</div>` : ''}
+            </div>
+            <span style="color:var(--gold);font-weight:700;font-size:13px">View →</span>
+          </a>
+        `).join('')}
+      </div>` : ''}
+
       <!-- PHOTO GALLERY (injected async) -->
       <div id="photoSection"></div>
 
@@ -468,8 +531,8 @@
         <div class="contact-name">${company.name}</div>
         <div class="contact-sub">Reach out anytime — we're happy to help.</div>
         <div class="contact-btns">
-          ${company.phone ? `<a class="contact-btn btn-call" href="tel:${company.phone}">📞 Call Us</a>` : ''}
-          ${company.email ? `<a class="contact-btn btn-email" href="mailto:${company.email}">✉️ Email</a>` : ''}
+          ${company.phone ? `<a class="contact-btn btn-call" href="tel:${company.phone}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call Us</a>` : ''}
+          ${company.email ? `<a class="contact-btn btn-email" href="mailto:${company.email}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Email</a>` : ''}
         </div>
       </div>
 
@@ -494,7 +557,7 @@
   function renderError(msg) {
     document.getElementById('root').innerHTML = `
       <div class="error-state">
-        <div class="error-icon">🔍</div>
+        <div class="error-icon"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
         <div class="error-title">Project not found</div>
         <div class="error-sub">${msg || 'We couldn\'t find a project with that ID. Please check the link and try again.'}</div>
       </div>
@@ -530,7 +593,7 @@
       if (!section || !photos?.length) return;
       section.innerHTML = `
         <div class="card">
-          <div class="card-title">📸 Job Site Photos</div>
+          <div class="card-title">Job Site Photos</div>
           <div class="photo-grid">
             ${photos.map(p => `
               <div>

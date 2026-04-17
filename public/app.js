@@ -5759,30 +5759,94 @@ async function loadAnalytics() {
 
   // ── LEAD SOURCES ──
   if (sourcesEl && sourcesData?.length) {
-    const maxLeads = Math.max(...sourcesData.map(s => s.leads || 0), 1);
+    // Marketing Attribution + ROI — estimate ad spend per source.
+    // Spencer can adjust these in settings post-demo; defaults work for the pitch.
+    const EST_AD_SPEND = {
+      'Google':       500,   // $/month
+      'Google Ads':   500,
+      'Facebook':     300,
+      'Facebook Ad':  300,
+      'Instagram':    300,
+      'HomeAdvisor':  200,
+      'Angi':         200,
+      'Nextdoor':     100,
+      'Yelp':         150,
+      'Repeat':       0,
+      'Referral':     0,     // free — word of mouth
+      'Organic':      0,
+      'Website':      0,
+    };
+
+    // Enrich sources with ROI calc
+    const enriched = sourcesData.map(s => {
+      const adSpend = EST_AD_SPEND[s.source] !== undefined ? EST_AD_SPEND[s.source] : 0;
+      const roi = adSpend > 0 && s.totalValue > 0 ? (s.totalValue / adSpend).toFixed(1) : null;
+      const cpl = adSpend > 0 && s.leads > 0 ? Math.round(adSpend / s.leads) : null;
+      return { ...s, adSpend, roi, cpl };
+    });
+
+    const totalRevenue = enriched.reduce((sum, s) => sum + (s.totalValue || 0), 0);
+    const totalSpend   = enriched.reduce((sum, s) => sum + (s.adSpend || 0), 0);
+    const totalROI     = totalSpend > 0 ? (totalRevenue / totalSpend).toFixed(1) : '∞';
+
+    const maxLeads = Math.max(...enriched.map(s => s.leads || 0), 1);
+
     sourcesEl.innerHTML = `
+      <!-- Top-line ROI summary -->
+      <div style="background:linear-gradient(135deg,var(--gold),#1F5F1F);color:#fff;border-radius:var(--r);padding:18px 22px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:0.85;margin-bottom:6px">Marketing Attribution</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:12px;opacity:0.85;margin-bottom:2px">Est. Ad Spend (this quarter)</div>
+            <div style="font-size:22px;font-weight:900">${fmt$(totalSpend)}</div>
+          </div>
+          <div style="font-size:20px;opacity:0.7">→</div>
+          <div>
+            <div style="font-size:12px;opacity:0.85;margin-bottom:2px">Revenue Generated</div>
+            <div style="font-size:22px;font-weight:900">${fmt$(totalRevenue)}</div>
+          </div>
+          <div style="font-size:20px;opacity:0.7">=</div>
+          <div>
+            <div style="font-size:12px;opacity:0.85;margin-bottom:2px">ROI</div>
+            <div style="font-size:28px;font-weight:900">${totalROI}x</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-source breakdown -->
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px">
-        ${sourcesData.map(s => {
+        ${enriched.map(s => {
           const color = _sourceColor(s.source);
           const pct   = Math.round(((s.leads || 0) / maxLeads) * 100);
+          const roiBadge = s.roi
+            ? `<span style="background:${s.roi >= 5 ? 'rgba(34,197,94,0.15)' : 'rgba(217,119,6,0.15)'};color:${s.roi >= 5 ? 'var(--green)' : 'var(--yellow)'};font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px">${s.roi}x ROI</span>`
+            : (s.adSpend === 0 ? `<span style="background:rgba(34,197,94,0.12);color:var(--green);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px">FREE</span>` : '');
           return `
             <div style="margin-bottom:16px">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
                 <span style="font-size:13px;font-weight:700;color:var(--text)">${s.source}</span>
-                <span style="font-size:13px;font-weight:800;color:${color}">${s.leads} lead${s.leads !== 1 ? 's' : ''}</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  ${roiBadge}
+                  <span style="font-size:13px;font-weight:800;color:${color}">${s.leads} lead${s.leads !== 1 ? 's' : ''}</span>
+                </div>
               </div>
               <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden">
                 <div style="height:100%;width:0%;background:${color};border-radius:999px;transition:width 1s ease" data-tw="${pct}%"></div>
               </div>
-              <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3)">
-                <span>${s.conversionRate}% close rate</span>
-                <span>${s.converted} converted</span>
-                ${s.totalValue > 0 ? `<span>${fmt$(s.totalValue)} revenue</span>` : ''}
-                ${s.avgJobValue > 0 ? `<span>Avg ${fmt$(s.avgJobValue)}/job</span>` : ''}
+              <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3);flex-wrap:wrap">
+                <span>${s.conversionRate}% close</span>
+                <span>${s.converted} won</span>
+                ${s.totalValue > 0 ? `<span>${fmt$(s.totalValue)} rev</span>` : ''}
+                ${s.adSpend > 0 ? `<span>${fmt$(s.adSpend)} spent</span>` : ''}
+                ${s.cpl !== null ? `<span>${fmt$(s.cpl)}/lead</span>` : ''}
+                ${s.avgJobValue > 0 ? `<span>${fmt$(s.avgJobValue)} avg job</span>` : ''}
               </div>
             </div>
           `;
         }).join('')}
+        <div style="font-size:11px;color:var(--text3);padding:8px 0 0;border-top:1px solid var(--border);margin-top:10px">
+          Ad spend estimates are adjustable. ROI = revenue from closed jobs ÷ ad spend.
+        </div>
       </div>
     `;
     _animateBars(sourcesEl);
