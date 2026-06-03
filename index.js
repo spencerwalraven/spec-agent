@@ -162,26 +162,25 @@ app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, re
     }
 
     const payload = JSON.parse(body.toString());
-    const notifications = payload.eventNotifications || [];
+    // Accepts both the legacy { eventNotifications } shape and the new CloudEvents
+    // envelope (Intuit legacy cutover 2026-07-31) — see normalizeWebhookEntities.
+    const entities = qb.normalizeWebhookEntities(payload);
 
     const qbSync = require('./src/tools/quickbooks-sync');
 
-    for (const notification of notifications) {
-      const entities = notification.dataChangeEvent?.entities || [];
-      for (const entity of entities) {
-        // Build a unique event ID for idempotency — QB doesn't give us one, so compose
-        const eventId = `${notification.realmId}-${entity.name}-${entity.id}-${entity.operation}-${entity.lastUpdated || Date.now()}`;
+    for (const entity of entities) {
+      // Build a unique event ID for idempotency — QB doesn't give us one, so compose
+      const eventId = `${entity.realmId}-${entity.name}-${entity.id}-${entity.operation}-${entity.lastUpdated || Date.now()}`;
 
-        // Handle payments, invoices, customers — all idempotent
-        if (['Payment', 'Invoice', 'Customer'].includes(entity.name)) {
-          qbSync.handleWebhookEvent({
-            eventId,
-            realmId: notification.realmId,
-            entityName: entity.name,
-            qbEntityId: entity.id,
-            operation: entity.operation,
-          }).catch(e => logger.error('QB', `Webhook handler ${entity.name} ${entity.operation} failed: ${e.message}`));
-        }
+      // Handle payments, invoices, customers — all idempotent
+      if (['Payment', 'Invoice', 'Customer'].includes(entity.name)) {
+        qbSync.handleWebhookEvent({
+          eventId,
+          realmId: entity.realmId,
+          entityName: entity.name,
+          qbEntityId: entity.id,
+          operation: entity.operation,
+        }).catch(e => logger.error('QB', `Webhook handler ${entity.name} ${entity.operation} failed: ${e.message}`));
       }
     }
   } catch (err) {

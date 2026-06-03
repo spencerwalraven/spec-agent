@@ -454,12 +454,76 @@ async function createItemizedInvoice({ customerId, jobId, invoiceType, dueDate, 
 
 // ─── 2-WAY WEBHOOK PROCESSING ────────────────────────────────────────────────
 
+// Intuit is migrating QBO webhooks off the legacy { eventNotifications: [...] }
+// shape onto the CloudEvents 1.0 envelope. Legacy delivery stops 2026-07-31.
+// normalizeWebhookEntities() accepts BOTH shapes and returns a flat, format-
+// agnostic list of changed entities, so nothing downstream has to care which
+// envelope arrived. After the cutover, the legacy branch can be deleted.
+//
+//   Legacy:      { eventNotifications: [ { realmId,
+//                    dataChangeEvent: { entities: [{ name, id, operation, lastUpdated }] } } ] }
+//   CloudEvents: { specversion, id, source, type: "qbo.<entity>.<operation>.v1",
+//                    time, intuitentityid, intuitaccountid, data }
+//                  (may also arrive as a top-level array of such events in batch mode)
+//
+// realmId / entity id / operation are read from the documented top-level
+// CloudEvents fields (intuitaccountid, intuitentityid, type) — confirmed against
+// Intuit's CloudEvents sample app. The `data` object is NOT relied on here
+// because Intuit's docs don't fully specify it; capture a real sandbox payload
+// and confirm before extending this to read `data`.
+const CE_OP_MAP = {
+  created: 'Create', updated: 'Update', deleted: 'Delete',
+  merged: 'Merge', voided: 'Void', emailed: 'Emailed',
+};
+const CE_ENTITY_MAP = {
+  customer: 'Customer', invoice: 'Invoice', payment: 'Payment',
+};
+const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+function normalizeWebhookEntities(payload) {
+  const out = [];
+  if (!payload) return out;
+
+  // Legacy shape
+  if (Array.isArray(payload.eventNotifications)) {
+    for (const n of payload.eventNotifications) {
+      for (const e of (n?.dataChangeEvent?.entities || [])) {
+        out.push({
+          realmId: n.realmId,
+          name: e.name,
+          id: e.id,
+          operation: e.operation,
+          lastUpdated: e.lastUpdated,
+        });
+      }
+    }
+    return out;
+  }
+
+  // CloudEvents shape — single object or batch array
+  const events = Array.isArray(payload) ? payload : [payload];
+  for (const ev of events) {
+    if (!ev || !ev.type) continue;
+    const parts = String(ev.type).split('.'); // qbo.<entity>.<operation>.v1
+    const rawEntity = parts[1] || '';
+    const rawOp = parts[2] || '';
+    out.push({
+      realmId: ev.intuitaccountid,
+      name: CE_ENTITY_MAP[rawEntity.toLowerCase()] || titleCase(rawEntity),
+      id: ev.intuitentityid,
+      operation: CE_OP_MAP[rawOp.toLowerCase()] || titleCase(rawOp),
+      lastUpdated: ev.time,
+    });
+  }
+  return out;
+}
+
 /**
  * Process QuickBooks webhook events.
  * Updates local DB when payments are received, invoices updated, etc.
  */
 async function processWebhookEvent(event) {
-  const entities = event?.eventNotifications?.[0]?.dataChangeEvent?.entities || [];
+  const entities = normalizeWebhookEntities(event);
   let processed = 0;
 
   for (const entity of entities) {
@@ -558,6 +622,7 @@ module.exports = {
   markInvoicePaid,
   createTimeActivity,
   verifyWebhookSignature,
+  normalizeWebhookEntities,
   processWebhookEvent,
   getOutstandingInvoices,
   getRevenueSummary,
