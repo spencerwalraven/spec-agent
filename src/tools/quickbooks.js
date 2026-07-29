@@ -10,7 +10,18 @@ const { logger } = require('../utils/logger');
 const QB_ENV     = process.env.QUICKBOOKS_ENVIRONMENT || 'production';
 const CLIENT_ID  = process.env.QUICKBOOKS_CLIENT_ID     || '';
 const CLIENT_SECRET = process.env.QUICKBOOKS_CLIENT_SECRET || '';
-const WEBHOOK_TOKEN = process.env.QUICKBOOKS_WEBHOOK_TOKEN  || '';
+// Trimmed: a token pasted with a trailing newline would otherwise produce a
+// wrong HMAC and silently reject every real webhook.
+const WEBHOOK_TOKEN = (process.env.QUICKBOOKS_WEBHOOK_TOKEN || '').trim();
+
+// Railway does not set NODE_ENV, so NODE_ENV alone is not a reliable production
+// signal in this app — mirrors the isProduction check in index.js.
+const IS_PRODUCTION = !!(process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production');
+
+// Escape hatch for local dev and replaying captured payloads without a verifier
+// token. Deliberately inert in production: an unsigned QuickBooks webhook can
+// mark invoices paid, so it must never be honored on a deployed instance.
+const ALLOW_UNSIGNED_WEBHOOKS = process.env.ALLOW_UNSIGNED_QBO_WEBHOOKS === '1' && !IS_PRODUCTION;
 
 const QB_BASE = QB_ENV === 'sandbox'
   ? 'https://sandbox-quickbooks.api.intuit.com'
@@ -366,12 +377,29 @@ async function createTimeActivity({ employeeName, clockIn, clockOut, jobId, cust
 
 // ─── WEBHOOK VERIFICATION ─────────────────────────────────────────────────────
 
+// Reported at startup so a misconfigured deploy is obvious in the logs.
+function webhookVerificationMode() {
+  if (WEBHOOK_TOKEN) return 'enforced';
+  return ALLOW_UNSIGNED_WEBHOOKS ? 'BYPASSED (local dev)' : 'BLOCKED (no token configured)';
+}
+
 function verifyWebhookSignature(rawBody, signatureHeader) {
-  if (!WEBHOOK_TOKEN) return true; // not configured — skip verification
+  // Fail CLOSED when no verifier token is configured. /api/quickbooks/webhook is
+  // unauthenticated and drives invoice payment state, so an unsigned request must
+  // never be trusted on a deployed instance.
+  if (!WEBHOOK_TOKEN) {
+    if (ALLOW_UNSIGNED_WEBHOOKS) return true;
+    logger.warn('QB', 'Webhook rejected — QUICKBOOKS_WEBHOOK_TOKEN is not set. Set it, or use ALLOW_UNSIGNED_QBO_WEBHOOKS=1 for local dev only.');
+    return false;
+  }
   try {
     const crypto = require('crypto');
     const expected = crypto.createHmac('sha256', WEBHOOK_TOKEN).update(rawBody).digest('base64');
-    return expected === signatureHeader;
+    // Constant-time compare so a wrong signature can't be recovered byte-by-byte
+    // from response timing. timingSafeEqual throws on length mismatch, so gate it.
+    const a = Buffer.from(expected);
+    const b = Buffer.from(String(signatureHeader || ''));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
   } catch (_) {
     return false;
   }
@@ -494,6 +522,7 @@ function normalizeWebhookEntities(payload) {
           id: e.id,
           operation: e.operation,
           lastUpdated: e.lastUpdated,
+          eventId: null, // legacy payloads carry no per-event id
         });
       }
     }
@@ -513,64 +542,19 @@ function normalizeWebhookEntities(payload) {
       id: ev.intuitentityid,
       operation: CE_OP_MAP[rawOp.toLowerCase()] || titleCase(rawOp),
       lastUpdated: ev.time,
+      // CloudEvents gives each event a stable id that survives Intuit's retries —
+      // a better dedupe key than anything we can compose. Legacy has no equivalent.
+      eventId: ev.id || null,
     });
   }
   return out;
 }
 
-/**
- * Process QuickBooks webhook events.
- * Updates local DB when payments are received, invoices updated, etc.
- */
-async function processWebhookEvent(event) {
-  const entities = normalizeWebhookEntities(event);
-  let processed = 0;
-
-  for (const entity of entities) {
-    const { name, id, operation } = entity;
-    try {
-      if (name === 'Payment' && (operation === 'Create' || operation === 'Update')) {
-        // Payment received in QB → update our invoice status
-        const payment = await qbRequest('GET', `/payment/${id}`);
-        const payData = payment.Payment;
-        if (payData?.Line) {
-          const { updateOne } = require('../db');
-          for (const line of payData.Line) {
-            const invoiceId = line.LinkedTxn?.find(t => t.TxnType === 'Invoice')?.TxnId;
-            if (invoiceId) {
-              // Find our invoice by QB invoice ID and mark as paid
-              await updateOne(
-                `UPDATE invoices SET status = 'paid', paid_at = NOW(), paid_amount = $1 WHERE qb_invoice_id = $2 AND company_id = $3`,
-                [payData.TotalAmt, invoiceId, 1]
-              ).catch(() => {});
-              logger.success('QuickBooks', `Webhook: Payment received for QB invoice ${invoiceId} — $${payData.TotalAmt}`);
-              processed++;
-            }
-          }
-        }
-      }
-
-      if (name === 'Invoice' && operation === 'Update') {
-        // Invoice updated in QB → sync status back
-        const invoice = await qbRequest('GET', `/invoice/${id}`);
-        const invData = invoice.Invoice;
-        if (invData) {
-          const { updateOne } = require('../db');
-          const balance = parseFloat(invData.Balance) || 0;
-          const status = balance === 0 ? 'paid' : 'outstanding';
-          await updateOne(
-            `UPDATE invoices SET status = $1, amount = $2 WHERE qb_invoice_id = $3 AND company_id = $4`,
-            [status, invData.TotalAmt, id, 1]
-          ).catch(() => {});
-          processed++;
-        }
-      }
-    } catch (e) {
-      logger.warn('QuickBooks', `Webhook processing error for ${name} ${id}: ${e.message}`);
-    }
-  }
-  return { processed };
-}
+// NOTE: webhook events are processed by quickbooks-sync.handleWebhookEvent(),
+// driven from the /api/quickbooks/webhook route in index.js. A second, unused
+// processWebhookEvent() used to live here; it was removed because it duplicated
+// that logic without the connected-realm check, so wiring it up would have
+// silently applied other companies' events to this tenant.
 
 // ─── DASHBOARD DATA PULL ─────────────────────────────────────────────────────
 
@@ -622,8 +606,8 @@ module.exports = {
   markInvoicePaid,
   createTimeActivity,
   verifyWebhookSignature,
+  webhookVerificationMode,
   normalizeWebhookEntities,
-  processWebhookEvent,
   getOutstandingInvoices,
   getRevenueSummary,
   getConnectionStatus,

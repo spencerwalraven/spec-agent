@@ -166,11 +166,30 @@ app.post('/api/quickbooks/webhook', express.raw({ type: '*/*' }), async (req, re
     // envelope (Intuit legacy cutover 2026-07-31) — see normalizeWebhookEntities.
     const entities = qb.normalizeWebhookEntities(payload);
 
+    // One notification can carry events for MULTIPLE QuickBooks companies. This app
+    // is single-tenant: every lookup below runs against the one connected realm's
+    // token, and QBO entity IDs are only unique *within* a realm. An event from
+    // another realm would resolve its entity ID against the wrong company — e.g.
+    // Payment 42 from realm B marking realm A's unrelated invoice 42 as paid. So
+    // route by intuitaccountid and drop anything that isn't the connected realm.
+    const { realmId: connectedRealm } = await qb.getTokens();
+    if (!connectedRealm) {
+      logger.warn('QB', 'Webhook received but no QuickBooks realm is connected — ignoring');
+      return;
+    }
+
     const qbSync = require('./src/tools/quickbooks-sync');
 
     for (const entity of entities) {
-      // Build a unique event ID for idempotency — QB doesn't give us one, so compose
-      const eventId = `${entity.realmId}-${entity.name}-${entity.id}-${entity.operation}-${entity.lastUpdated || Date.now()}`;
+      if (String(entity.realmId) !== String(connectedRealm)) {
+        logger.warn('QB', `Ignoring webhook event for realm ${entity.realmId} — connected realm is ${connectedRealm}`);
+        continue;
+      }
+
+      // Prefer Intuit's own CloudEvents event id: it is stable across their retries,
+      // so redelivery dedupes correctly. Legacy payloads have none — compose one.
+      const eventId = entity.eventId
+        || `${entity.realmId}-${entity.name}-${entity.id}-${entity.operation}-${entity.lastUpdated || Date.now()}`;
 
       // Handle payments, invoices, customers — all idempotent
       if (['Payment', 'Invoice', 'Customer'].includes(entity.name)) {
@@ -4973,6 +4992,20 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 console.log(`Starting on PORT=${PORT}, SHEET_ID=${process.env.SHEET_ID ? 'set' : 'MISSING'}, GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID ? 'set' : 'MISSING'}, ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'set' : 'MISSING'}`);
+// Surface QuickBooks webhook verification state loudly — a deploy missing the
+// verifier token silently drops every webhook, and the fix is one env var.
+try {
+  const qbMode = require('./src/tools/quickbooks').webhookVerificationMode();
+  if (qbMode === 'enforced') {
+    logger.success('Startup', '* QuickBooks webhook signature verification: enforced');
+  } else {
+    logger.warn('Startup', `!  QuickBooks webhook signature verification: ${qbMode}`);
+    logger.warn('Startup', '!  POST /api/quickbooks/webhook will reject all events until QUICKBOOKS_WEBHOOK_TOKEN is set');
+  }
+} catch (e) {
+  logger.warn('Startup', `Could not determine QuickBooks webhook verification mode: ${e.message}`);
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`* CRM running on port ${PORT}`);
   // Validate sheet schema in background (non-blocking)
